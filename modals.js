@@ -1,0 +1,823 @@
+// EditorX — Wiring, modals, interactions
+// (Tool Builder removed — effects are now standalone, applied directly to clips.)
+
+// ---------- Mask Properties Modal ----------
+function openMaskProps(mask){
+  const modal = document.getElementById('mask-props-modal');
+  if(!modal) return;
+  modal.classList.remove('hidden');
+  document.getElementById('mask-props-title').textContent = mask.name + ' Properties';
+  renderMaskPropsBody(mask);
+  if(window.lucide) lucide.createIcons({root:modal});
+}
+function closeMaskProps(){ document.getElementById('mask-props-modal')?.classList.add('hidden'); }
+
+function renderMaskPropsBody(mask){
+  const body = document.getElementById('mask-props-body'); if(!body) return;
+  let html = `
+    <div class="mp-section"><div class="mp-section-title">GEOMETRY</div>
+      ${maskRow('Position X',mask,'x',-2000,2000,1,'')}
+      ${maskRow('Position Y',mask,'y',-2000,2000,1,'')}
+      ${maskRow('Width',mask,'w',1,4000,1,'')}
+      ${maskRow('Height',mask,'h',1,4000,1,'')}
+      ${maskRow('Rotation',mask,'rotation',-180,180,1,'°')}
+    </div>
+    <div class="mp-section"><div class="mp-section-title">APPEARANCE</div>
+      ${maskRow('Opacity',mask,'opacity',0,1,0.05,'')}
+      ${maskRow('Feather',mask,'feather',0,200,1,'px')}
+      ${maskRow('Blur',mask,'blur',0,100,1,'px')}
+      ${mask.type==='rectangle' ? maskRow('Corners',mask,'cornerRadius',0,200,1,'px') : ''}
+    </div>
+    <div class="mp-section"><div class="mp-section-title">OPTIONS</div>
+      <div class="insp-toggle-row"><label>Inverted</label>
+        <input type="checkbox" id="mp-inv" ${mask.inverted?'checked':''}></div>
+    </div>`;
+  if(mask.type==='gradient'){
+    html += `<div class="mp-section"><div class="mp-section-title">GRADIENT</div>
+      ${maskRow('Angle',mask,'gradAngle',0,360,1,'°')}
+      ${maskRow('Spread',mask,'gradSpread',0,1,0.05,'')}
+    </div>`;
+  }
+  html += `<div class="mp-section"><div class="mp-section-title">ANIMATION</div>`;
+  if(!mask.keyframes.length){
+    html += '<div class="empty-sub" style="padding:8px 0">No keyframes yet — use “+ Add Keyframe” to capture the current state.</div>';
+  } else {
+    mask.keyframes.forEach((kf,i)=>{
+      html += `<div class="kf-row" data-kf="${i}">
+        <span class="kf-diamond"><i data-lucide="diamond" width="8" height="8"></i></span>
+        <span class="kf-time">${kf.time.toFixed(2)}s</span>
+        <button class="kf-remove" title="Remove"><i data-lucide="x" width="10" height="10"></i></button></div>`;
+    });
+  }
+  html += `</div>`;
+  body.innerHTML = html;
+
+  body.querySelectorAll('input[type=range][data-prop]').forEach(inp=>{
+    const prop = inp.dataset.prop;
+    inp.addEventListener('input', e=>{
+      const v = parseFloat(e.target.value);
+      mask[prop] = v;
+      const span = inp.parentElement.querySelector('.mp-value');
+      if(span) span.textContent = (v.toString().includes('.') ? v.toFixed(2) : v) + (inp.dataset.unit||'');
+      renderMaskOverlays(); renderViewer();
+    });
+    inp.addEventListener('change', ()=>pushHistory());
+  });
+  const inv = body.querySelector('#mp-inv');
+  if(inv) inv.addEventListener('change', e=>{ mask.inverted = e.target.checked; pushHistory(); render(); });
+  body.querySelectorAll('.kf-remove').forEach((btn)=>{
+    btn.addEventListener('click', e=>{
+      e.stopPropagation();
+      const i = parseInt(btn.parentElement.dataset.kf);
+      mask.keyframes.splice(i,1); pushHistory(); openMaskProps(mask);
+    });
+  });
+}
+function maskRow(label, mask, prop, min, max, step, unit){
+  const v = mask[prop] ?? 0;
+  return `<div class="mp-row"><label>${label}</label>
+    <input type="range" min="${min}" max="${max}" step="${step}" value="${v}" data-prop="${prop}" data-unit="${unit}">
+    <span class="mp-value">${(v.toString().includes('.') ? Number(v).toFixed(2) : v)}${unit}</span></div>`;
+}
+window.openMaskProps = openMaskProps;
+
+// ---------- Export Modal ----------
+// Probe what MediaRecorder MIMEs the browser actually supports.
+// Each entry: {mime, label, ext}. We always include a project-file option.
+function detectExportFormats(){
+  const candidates = [
+    {mime:'video/mp4;codecs=avc1',  label:'MP4 (H.264)',     ext:'mp4'},
+    {mime:'video/mp4',              label:'MP4',             ext:'mp4'},
+    {mime:'video/webm;codecs=vp9',  label:'WebM (VP9)',      ext:'webm'},
+    {mime:'video/webm;codecs=vp8',  label:'WebM (VP8)',      ext:'webm'},
+    {mime:'video/webm',             label:'WebM',            ext:'webm'},
+    {mime:'video/x-matroska;codecs=avc1', label:'MKV (H.264)', ext:'mkv'}
+  ];
+  const supported = [];
+  if(typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported){
+    for(const c of candidates){
+      try{ if(MediaRecorder.isTypeSupported(c.mime)) supported.push(c); }catch{}
+    }
+  }
+  // Always offer the project file
+  supported.push({mime:'application/json', label:'Project file (.editorx.json)', ext:'editorx.json', project:true});
+  return supported;
+}
+
+function ensureExportModal(){
+  let m = document.getElementById('export-modal');
+  if(m) return m;
+  m = document.createElement('div'); m.id = 'export-modal'; m.className = 'modal hidden';
+  const formats = detectExportFormats();
+  const fmtOptions = formats.map((f,i)=>`<option value="${i}">${f.label}</option>`).join('');
+  // Note about MOV / true cross-browser MP4: needs ffmpeg.wasm in pure-JS land
+  const movNote = formats.some(f=>f.ext==='mp4')
+    ? `Browser-native MP4/H.264 detected. MOV is not natively writable in the browser without ffmpeg.wasm.`
+    : `This browser cannot natively encode MP4 from canvas. WebM is provided. For MP4/MOV add ffmpeg.wasm.`;
+  m.innerHTML = `<div class="modal-overlay"></div>
+    <div class="modal-content" style="width:540px;max-width:92vw">
+      <div class="modal-header"><span class="modal-icon"><i data-lucide="upload"></i></span>
+        <span class="modal-title">Export</span>
+        <button class="modal-close" id="btn-close-export"><i data-lucide="x"></i></button></div>
+      <div class="modal-body" style="display:flex;flex-direction:column;gap:14px;padding:18px">
+        <div class="form-row"><label>Filename</label><input id="exp-name" type="text" value="EditorX_Export"></div>
+        <div class="form-row"><label>Format</label><select id="exp-fmt">${fmtOptions}</select></div>
+        <div class="form-row"><label>Resolution</label>
+          <select id="exp-res"><option value="1920x1080">1920×1080 (1080p)</option><option value="3840x2160">3840×2160 (4K)</option><option value="1280x720">1280×720 (720p)</option></select></div>
+        <div class="form-row"><label>Frame rate</label>
+          <select id="exp-fps"><option>30</option><option>60</option><option>24</option></select></div>
+        <div class="form-row"><label>Bitrate</label>
+          <select id="exp-bitrate"><option value="8">High (8 Mbps)</option><option value="16">Very High (16 Mbps)</option><option value="4">Medium (4 Mbps)</option></select></div>
+        <div class="hint"><i data-lucide="info" width="11" height="11"></i> ${movNote}</div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" id="btn-export-cancel">Cancel</button>
+        <button class="btn-primary" id="btn-export-go">Export</button>
+      </div>
+    </div>`;
+  document.body.appendChild(m);
+  // Cache formats for the doExport handler
+  m._formats = formats;
+  m.querySelector('.modal-overlay').addEventListener('click', ()=>m.classList.add('hidden'));
+  m.querySelector('#btn-close-export').addEventListener('click', ()=>m.classList.add('hidden'));
+  m.querySelector('#btn-export-cancel').addEventListener('click', ()=>m.classList.add('hidden'));
+  m.querySelector('#btn-export-go').addEventListener('click', doExport);
+  if(window.lucide) lucide.createIcons({root:m});
+  return m;
+}
+function openExport(){ ensureExportModal().classList.remove('hidden'); }
+
+async function doExport(){
+  const m = document.getElementById('export-modal');
+  const name = m.querySelector('#exp-name').value || 'EditorX_Export';
+  const fmtIdx = parseInt(m.querySelector('#exp-fmt').value);
+  const fmt = m._formats[fmtIdx];
+  if(!fmt) return;
+
+  // Project export
+  if(fmt.project){
+    const project = projectDoc();
+    project.meta.resolution = m.querySelector('#exp-res').value;
+    project.meta.fps = parseInt(m.querySelector('#exp-fps').value);
+    const blob = new Blob([JSON.stringify(project,null,2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = name+'.editorx.json';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 1000);
+    m.classList.add('hidden');
+    flash('Saved '+name+'.editorx.json');
+    return;
+  }
+
+  // Video export via MediaRecorder + canvas.captureStream
+  const canvas = document.getElementById('viewer-canvas');
+  if(!canvas || !canvas.captureStream){
+    flash('Canvas capture not supported in this browser');
+    return;
+  }
+  const fps = parseInt(m.querySelector('#exp-fps').value) || 30;
+  const bitrate = parseInt(m.querySelector('#exp-bitrate').value) * 1_000_000;
+  const stream = canvas.captureStream(fps);
+  let recorder;
+  try{
+    recorder = new MediaRecorder(stream, {mimeType: fmt.mime, videoBitsPerSecond: bitrate});
+  }catch(err){
+    flash('Cannot start recorder: ' + err.message);
+    return;
+  }
+  const chunks = [];
+  recorder.ondataavailable = e=>{ if(e.data && e.data.size) chunks.push(e.data); };
+  const finish = () => new Promise(res=>{ recorder.onstop = res; });
+  recorder.start();
+  m.classList.add('hidden');
+  flash('Recording '+fmt.label+'…');
+
+  seekPlayhead(0); renderViewer();
+  startPlayback();
+  const totalMs = Math.max(2000, timelineDurationS()*1000);
+  await new Promise(r=>setTimeout(r, totalMs+200));
+  stopPlayback();
+  recorder.stop();
+  await finish();
+  const blob = new Blob(chunks, {type: fmt.mime});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = name + '.' + fmt.ext;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+  flash('Exported '+name+'.'+fmt.ext);
+}
+window.openExport = openExport;
+
+// ---------- Open project from .editorx.json ----------
+function pickProjectFile(){
+  const inp = document.createElement('input');
+  inp.type='file'; inp.accept='.json,.editorx';
+  inp.onchange = e=>{
+    const f = e.target.files && e.target.files[0];
+    if(!f) return;
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      try{
+        const doc = JSON.parse(reader.result);
+        applyProjectDoc(doc);
+        render(); flash('Loaded '+f.name);
+      }catch(err){ flash('Could not parse project: '+err.message); }
+    };
+    reader.readAsText(f);
+  };
+  inp.click();
+}
+window.pickProjectFile = pickProjectFile;
+
+// ---------- Workspace tabs ----------
+const WORKSPACE_PANELS = { edit:'media', color:'luts', effects:'effects', export:null };
+function setWorkspace(name){
+  state.workspace = name;
+  document.querySelectorAll('.ws-tab').forEach(t=>t.classList.toggle('active', t.dataset.tab===name));
+  if(name==='export'){ openExport(); return; }
+  const targetPanel = WORKSPACE_PANELS[name]; if(!targetPanel) return;
+  const stab = document.querySelector('.stab[data-panel="'+targetPanel+'"]');
+  if(stab) stab.click();
+}
+
+// ---------- Media file picker ----------
+function pickMedia(){
+  const inp = document.createElement('input');
+  inp.type='file'; inp.multiple=true;
+  inp.accept='video/*,audio/*,image/*';
+  inp.onchange = e=>{
+    const files = Array.from(e.target.files||[]);
+    if(!files.length) return;
+    files.forEach(f=>{
+      const url = URL.createObjectURL(f);
+      const type = f.type.startsWith('audio') ? 'audio'
+                 : f.type.startsWith('image') ? 'video' // images treated as video for the v1 timeline
+                 : 'video';
+      const item = {id:'m_'+Math.random().toString(36).slice(2,9), name:f.name, url, type, duration:0};
+      state.media.push(item);
+      const probe = document.createElement(type==='audio' ? 'audio' : 'video');
+      probe.preload='metadata';
+      probe.onloadedmetadata = ()=>{ item.duration = probe.duration; render(); };
+      probe.src = url;
+    });
+    pushHistory(); render();
+    flash(files.length+' file'+(files.length===1?'':'s')+' added');
+  };
+  inp.click();
+}
+
+// ---------- Snap helper ----------
+function snapToCandidates(x, ignoreClipId){
+  if(!state.snap) return x;
+  const candidates = [];
+  candidates.push(TIMELINE_OFFSET_X + state.playhead/PLAYHEAD_MS_PER_PX);
+  state.clips.forEach(c=>{
+    if(c.id===ignoreClipId) return;
+    candidates.push(c.x); candidates.push(c.x+c.w);
+  });
+  for(let s=0;s<600;s++) candidates.push(TIMELINE_OFFSET_X + s*TIMELINE_PX_PER_S);
+  let best=x, bestDist=6;
+  for(const cx of candidates){ const d=Math.abs(cx-x); if(d<bestDist){ bestDist=d; best=cx; } }
+  return best;
+}
+
+// ---------- Collision-aware placement ----------
+// Find a legal x for `clip` near `proposedX` such that [x, x+clip.w] doesn't
+// overlap any other clip on the same track. Pushes against the nearest blocker.
+function clampClipNoOverlap(clip, proposedX, proposedW){
+  const w = proposedW != null ? proposedW : clip.w;
+  let nx = Math.max(TIMELINE_OFFSET_X, proposedX);
+  const others = state.clips.filter(c => c.track === clip.track && c.id !== clip.id);
+  // Iterate a few times — handles being squeezed between two clips
+  for(let pass=0; pass<6; pass++){
+    let collided = false;
+    for(const o of others){
+      const oL = o.x, oR = o.x + o.w;
+      if(nx < oR && nx + w > oL){
+        collided = true;
+        // Push to whichever side has less penetration
+        const overlapRight = oR - nx;
+        const overlapLeft  = nx + w - oL;
+        if(overlapLeft <= overlapRight) nx = oL - w;
+        else                            nx = oR;
+      }
+    }
+    if(!collided) break;
+  }
+  return Math.max(TIMELINE_OFFSET_X, nx);
+}
+
+// Bounds for the *left edge* of the dragged clip, given trim side.
+// For trim-left: left can go as far left as the previous neighbour's right edge.
+// For trim-right: returns the max right edge allowed (= next neighbour's left edge).
+function trimBounds(clip, side){
+  const others = state.clips.filter(c => c.track === clip.track && c.id !== clip.id);
+  if(side==='left'){
+    // Previous neighbour: largest oR <= clip.x (treat strictly < to allow current pos)
+    const prevR = others.filter(o => o.x + o.w <= clip.x + clip.w - 20)
+                        .reduce((m,o)=>Math.max(m, o.x + o.w), TIMELINE_OFFSET_X);
+    return prevR;
+  } else {
+    const nextL = others.filter(o => o.x >= clip.x + 20)
+                        .reduce((m,o)=>Math.min(m, o.x), Infinity);
+    return nextL;
+  }
+}
+
+// ---------- Clip drag / trim ----------
+function attachClipInteractions(el, clip){
+  const cssLeft = (x) => (x - TIMELINE_OFFSET_X);
+
+  // Body drag
+  el.addEventListener('mousedown', e=>{
+    if(e.button!==0) return;
+    if(e.target.classList.contains('trim-handle')) return;
+    if(state.activeTool==='blade') return;
+    if(state.tracks[clip.track] && state.tracks[clip.track].locked) return;
+    const startX = e.clientX, origX = clip.x;
+    let moved = false;
+    const onMove = ev=>{
+      const dx = ev.clientX - startX;
+      if(Math.abs(dx)>2) moved = true;
+      let nx = origX + dx;
+      const sl = snapToCandidates(nx, clip.id);
+      if(Math.abs(sl-nx)<3) nx = sl;
+      else {
+        const sr = snapToCandidates(nx+clip.w, clip.id);
+        if(Math.abs(sr-(nx+clip.w))<3) nx = sr - clip.w;
+      }
+      // Collision protection: don't allow overlap with siblings on the same track
+      nx = clampClipNoOverlap(clip, nx);
+      clip.x = Math.round(nx);
+      el.style.left = cssLeft(clip.x) + 'px';
+    };
+    const onUp = ()=>{
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      if(moved){ el.dataset.dragMoved='1'; pushHistory(); render(); }
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+  // Trim handles
+  const trim = side => e=>{
+    e.stopPropagation();
+    if(state.tracks[clip.track] && state.tracks[clip.track].locked) return;
+    const startX = e.clientX;
+    const origX = clip.x, origW = clip.w;
+    const bound = trimBounds(clip, side);
+    const onMove = ev=>{
+      const dx = ev.clientX - startX;
+      if(side==='left'){
+        let nx = snapToCandidates(origX + dx, clip.id);
+        // Can't pass right side, can't go before the previous clip's right edge
+        nx = Math.max(bound, Math.min(origX+origW-20, nx));
+        clip.w = Math.round(origW - (nx-origX));
+        clip.x = Math.round(nx);
+      } else {
+        let edge = snapToCandidates(origX + origW + dx, clip.id);
+        // Can't pass next clip's left edge
+        edge = Math.min(bound, Math.max(origX+20, edge));
+        clip.w = Math.round(edge - origX);
+      }
+      el.style.left  = cssLeft(clip.x) + 'px';
+      el.style.width = clip.w + 'px';
+      _invalidateWaveform(clip.id);
+    };
+    const onUp = ()=>{
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      pushHistory(); render();
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  };
+  el.querySelector('.trim-left')?.addEventListener('mousedown', trim('left'));
+  el.querySelector('.trim-right')?.addEventListener('mousedown', trim('right'));
+}
+window.attachClipInteractions = attachClipInteractions;
+window.clampClipNoOverlap = clampClipNoOverlap;
+
+// ---------- Mask handle resize ----------
+function attachMaskHandleResize(handle, mask, pos, sx, sy){
+  handle.addEventListener('mousedown', e=>{
+    e.stopPropagation(); e.preventDefault();
+    const startX = e.clientX, startY = e.clientY;
+    const ox = mask.x, oy = mask.y, ow = mask.w, oh = mask.h;
+    const onMove = ev=>{
+      const dx = (ev.clientX-startX)/sx, dy = (ev.clientY-startY)/sy;
+      if(pos==='br'){ mask.w = Math.max(8, ow+dx); mask.h = Math.max(8, oh+dy); }
+      else if(pos==='bl'){ mask.x = ox+dx; mask.w = Math.max(8, ow-dx); mask.h = Math.max(8, oh+dy); }
+      else if(pos==='tr'){ mask.y = oy+dy; mask.w = Math.max(8, ow+dx); mask.h = Math.max(8, oh-dy); }
+      else if(pos==='tl'){ mask.x = ox+dx; mask.y = oy+dy; mask.w = Math.max(8, ow-dx); mask.h = Math.max(8, oh-dy); }
+      renderMaskOverlays(); renderViewer();
+    };
+    const onUp = ()=>{ document.removeEventListener('mousemove',onMove); document.removeEventListener('mouseup',onUp); pushHistory(); render(); };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+}
+window.attachMaskHandleResize = attachMaskHandleResize;
+
+// ---------- Library → Timeline drag-drop ----------
+function wireTrackDropTargets(){
+  ['v1','a1','t1'].forEach(tid=>{
+    const lane = document.getElementById('track-'+tid); if(!lane) return;
+
+    lane.addEventListener('dragover', e=>{
+      // Only react if our custom MIME or generic Files are being dragged
+      const types = (e.dataTransfer && e.dataTransfer.types) || [];
+      if(types.indexOf('application/x-editorx-media')<0 && types.indexOf('Files')<0) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+      lane.classList.add('drop-target');
+    });
+    lane.addEventListener('dragleave', e=>{
+      // Only clear when leaving the lane element itself
+      if(e.target === lane) lane.classList.remove('drop-target');
+    });
+    lane.addEventListener('drop', async e=>{
+      e.preventDefault();
+      lane.classList.remove('drop-target');
+
+      const rect = lane.getBoundingClientRect();
+      // Lane left == ruler "0s" tick == TIMELINE_OFFSET_X in clip-coord space
+      const dropX = (e.clientX - rect.left) + TIMELINE_OFFSET_X;
+
+      // (1) Library item drag
+      const mediaId = e.dataTransfer.getData('application/x-editorx-media');
+      if(mediaId){
+        const m = state.media.find(x=>x.id===mediaId);
+        if(!m) return;
+        placeMediaAt(m, tid, dropX);
+        return;
+      }
+
+      // (2) OS file drop — import then place at the drop position
+      const files = e.dataTransfer.files ? Array.from(e.dataTransfer.files) : [];
+      if(files.length){
+        let firstX = dropX;
+        for(const f of files){
+          const url = URL.createObjectURL(f);
+          const type = f.type.startsWith('audio') ? 'audio' : 'video';
+          const item = {id:'m_'+Math.random().toString(36).slice(2,9), name:f.name, url, type, duration:0};
+          state.media.push(item);
+          // Resolve duration before placing the clip
+          await new Promise(res=>{
+            const probe = document.createElement(type==='audio' ? 'audio' : 'video');
+            probe.preload='metadata';
+            probe.onloadedmetadata = ()=>{ item.duration = probe.duration; res(); };
+            probe.onerror = ()=>res();
+            probe.src = url;
+          });
+          placeMediaAt(item, tid, firstX);
+          // Stack subsequent files end-to-end after the previous
+          const w = Math.max(60, Math.round((item.duration||4)*TIMELINE_PX_PER_S));
+          firstX += w + 4;
+        }
+        flash(files.length+' file'+(files.length===1?'':'s')+' added');
+      }
+    });
+  });
+}
+function placeMediaAt(media, trackId, dropX){
+  const widthPx = Math.max(60, Math.round((media.duration||4)*TIMELINE_PX_PER_S));
+  // Snap drop position to existing clip edges, the playhead, and second marks
+  let x = snapToCandidates(dropX);
+  // Collision-avoid: clamp into nearest free space on the chosen track
+  const tmp = {id:'__drop__', track:trackId, w:widthPx};
+  x = clampClipNoOverlap(tmp, x, widthPx);
+  addClipFromMediaAt(media, trackId, x);
+  pushHistory(); render();
+  flash('Added '+media.name);
+}
+window.wireTrackDropTargets = wireTrackDropTargets;
+
+// ---------- Blade cut-line indicator ----------
+// While the Blade tool is active, a thin vertical line follows the cursor over
+// the timeline so the user can see exactly where a click will split the clip.
+function wireCutIndicator(){
+  const wrap      = document.getElementById('timeline-wrapper');
+  const indicator = document.getElementById('cut-indicator');
+  if(!wrap || !indicator) return;
+  wrap.addEventListener('mousemove', e=>{
+    if(state.activeTool !== 'blade'){
+      indicator.classList.remove('visible');
+      return;
+    }
+    const rect = wrap.getBoundingClientRect();
+    indicator.style.left = (e.clientX - rect.left) + 'px';
+    indicator.classList.add('visible');
+  });
+  wrap.addEventListener('mouseleave', ()=>indicator.classList.remove('visible'));
+}
+window.wireCutIndicator = wireCutIndicator;
+
+// ---------- Track header controls ----------
+function wireTrackHeaders(){
+  document.querySelectorAll('.track').forEach(trackEl=>{
+    const tid = trackEl.dataset.track; if(!tid || !state.tracks[tid]) return;
+    trackEl.querySelectorAll('.track-ctrl').forEach(btn=>{
+      const action = btn.dataset.action;
+      btn.addEventListener('click', e=>{
+        e.stopPropagation();
+        const tr = state.tracks[tid];
+        if(action==='mute'){ tr.muted = !tr.muted; }
+        else if(action==='lock'){ tr.locked = !tr.locked; }
+        else if(action==='visibility'){ tr.visible = !(tr.visible !== false); }
+        renderTrackHeaders();
+        syncMediaToPlayhead();
+        flash(`${tid.toUpperCase()}: ${action} ${tr[action===''?'':action] || (action==='visibility'? (tr.visible?'on':'off') : 'toggled')}`);
+      });
+    });
+  });
+}
+
+// ---------- Boot ----------
+document.addEventListener('DOMContentLoaded', ()=>{
+  // Sidebar tabs
+  document.querySelectorAll('.stab').forEach(tab=>{
+    tab.addEventListener('click', ()=>{
+      document.querySelectorAll('.stab').forEach(t=>t.classList.remove('active'));
+      document.querySelectorAll('.sidebar-content .panel').forEach(p=>p.classList.remove('active'));
+      tab.classList.add('active');
+      const p = document.getElementById('panel-'+tab.dataset.panel); if(p) p.classList.add('active');
+    });
+  });
+  // Workspace tabs
+  document.querySelectorAll('.ws-tab').forEach(tab=>{
+    tab.addEventListener('click', ()=>setWorkspace(tab.dataset.tab));
+  });
+  // Edit tools
+  document.querySelectorAll('.tool-btn[data-tool]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('.tool-btn[data-tool]').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      state.activeTool = btn.dataset.tool;
+      // Toggle a body-level class so a custom cursor (defined in CSS) applies
+      // anywhere the tool is meaningful — timeline tracks, clips, etc.
+      document.body.classList.toggle('tool-blade', state.activeTool==='blade');
+      document.body.classList.toggle('tool-hand',  state.activeTool==='hand');
+      document.body.classList.toggle('tool-text',  state.activeTool==='text');
+    });
+  });
+  // Snap
+  const snapBtn = document.getElementById('btn-snap');
+  if(snapBtn){
+    snapBtn.addEventListener('click', ()=>{
+      state.snap = !state.snap;
+      snapBtn.classList.toggle('active', state.snap);
+      flash('Snap '+(state.snap?'on':'off'));
+    });
+  }
+  // Transport
+  const playBtn = document.getElementById('btn-play');
+  const refreshPlayIcon = ()=>{
+    playBtn.innerHTML = state.isPlaying ? '<i data-lucide="pause"></i>' : '<i data-lucide="play"></i>';
+    if(window.lucide) lucide.createIcons({root:playBtn});
+  };
+  playBtn?.addEventListener('click', ()=>{ togglePlayback(); refreshPlayIcon(); });
+  document.getElementById('btn-rewind')?.addEventListener('click', ()=>{ nudgePlayhead(-1000); renderPlayhead(); renderTimecode(); renderViewer(); });
+  document.getElementById('btn-forward')?.addEventListener('click', ()=>{ nudgePlayhead(1000); renderPlayhead(); renderTimecode(); renderViewer(); });
+  document.getElementById('btn-home')?.addEventListener('click', ()=>{ seekPlayhead(0); renderPlayhead(); renderTimecode(); renderViewer(); });
+  document.getElementById('btn-end')?.addEventListener('click', ()=>{ seekPlayhead(timelineDurationS()*1000); renderPlayhead(); renderTimecode(); renderViewer(); });
+  document.getElementById('btn-stop')?.addEventListener('click', ()=>{ stopPlayback(); seekPlayhead(0); renderPlayhead(); renderTimecode(); renderViewer(); refreshPlayIcon(); });
+  document.getElementById('btn-undo')?.addEventListener('click', ()=>{ if(undo()) render(); });
+  document.getElementById('btn-redo')?.addEventListener('click', ()=>{ if(redo()) render(); });
+  // Hook engine.stopPlayback to also refresh icon
+  const _stop = window.stopPlayback;
+  window.stopPlayback = function(){ _stop(); refreshPlayIcon(); };
+
+  // Library + export buttons
+  document.getElementById('btn-add-media')?.addEventListener('click', pickMedia);
+  document.getElementById('btn-add-media-empty')?.addEventListener('click', pickMedia);
+  document.getElementById('btn-export')?.addEventListener('click', openExport);
+
+  // Project file buttons
+  document.getElementById('btn-save')?.addEventListener('click', ()=>{
+    // Save both: autosave to localStorage AND offer download
+    saveToLocalStorage();
+    const project = projectDoc();
+    const blob = new Blob([JSON.stringify(project,null,2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = (state.projectName||'EditorX')+'.editorx.json';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 1000);
+    flash('Saved');
+  });
+  document.getElementById('btn-open')?.addEventListener('click', pickProjectFile);
+  document.getElementById('btn-new')?.addEventListener('click', ()=>{
+    if(!confirm('Discard the current project? Your autosave will be reset.')) return;
+    newProject(); render(); flash('New project');
+  });
+
+  // Mask props modal close buttons
+  document.getElementById('btn-close-mask-props')?.addEventListener('click', closeMaskProps);
+  document.getElementById('btn-close-mask-done')?.addEventListener('click', closeMaskProps);
+  document.querySelector('#mask-props-modal .modal-overlay')?.addEventListener('click', closeMaskProps);
+  document.getElementById('btn-add-keyframe')?.addEventListener('click', ()=>{
+    if(!state.selectedClipId || !state.selectedMaskId) return;
+    const mask = (state.masks[state.selectedClipId]||[]).find(m=>m.id===state.selectedMaskId);
+    if(mask){ addKeyframe(mask); openMaskProps(mask); pushHistory(); render(); }
+  });
+  document.getElementById('btn-delete-mask')?.addEventListener('click', ()=>{
+    if(state.selectedClipId && state.selectedMaskId){
+      removeMask(state.selectedClipId, state.selectedMaskId);
+      closeMaskProps(); pushHistory(); render();
+    }
+  });
+
+  // Viewer overlays
+  document.getElementById('toggle-safe')?.addEventListener('change', e=>{
+    document.getElementById('viewer-safe-zones')?.classList.toggle('hidden', !e.target.checked);
+  });
+  document.getElementById('toggle-cross')?.addEventListener('change', e=>{
+    document.getElementById('viewer-crosshair')?.classList.toggle('hidden', !e.target.checked);
+  });
+  document.getElementById('toggle-grid')?.addEventListener('change', e=>{
+    document.getElementById('viewer-grid')?.classList.toggle('hidden', !e.target.checked);
+  });
+
+  // Ruler scrubbing
+  const ruler = document.getElementById('timeline-ruler');
+  if(ruler){
+    const seekFromEvent = ev=>{
+      const rect = ruler.getBoundingClientRect();
+      const x = ev.clientX - rect.left;
+      const ms = Math.max(0, (x - TIMELINE_OFFSET_X) * PLAYHEAD_MS_PER_PX);
+      seekPlayhead(ms);
+      renderPlayhead(); renderTimecode(); renderViewer();
+    };
+    ruler.addEventListener('mousedown', e=>{
+      seekFromEvent(e);
+      const onMove = ev=>seekFromEvent(ev);
+      const onUp = ()=>{ document.removeEventListener('mousemove',onMove); document.removeEventListener('mouseup',onUp); };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+    ruler.style.cursor = 'ew-resize';
+  }
+
+  // Track header controls
+  wireTrackHeaders();
+  // Drop targets: drag library cards (or OS files) onto any track lane
+  wireTrackDropTargets();
+  // Blade tool — vertical cut-line indicator that follows the cursor over the timeline
+  wireCutIndicator();
+
+  // Click empty viewer area deselects mask
+  document.getElementById('viewer-canvas')?.addEventListener('click', ()=>{ state.selectedMaskId=null; render(); });
+
+  // Window resize
+  window.addEventListener('resize', ()=>{ renderTimecodeRuler(); renderMaskOverlays(); renderPlayhead(); });
+
+  // Keyboard
+  document.addEventListener('keydown', e=>{
+    const inField = e.target && (e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA'||e.target.tagName==='SELECT'||e.target.isContentEditable);
+    if(inField) return;
+    const k = e.key.toLowerCase();
+    const meta = e.metaKey || e.ctrlKey;
+    if(meta){
+      if(k==='z' && !e.shiftKey){ e.preventDefault(); if(undo()) render(); return; }
+      if((k==='z' && e.shiftKey) || k==='y'){ e.preventDefault(); if(redo()) render(); return; }
+      if(k==='d'){ e.preventDefault();
+        if(state.selectedClipId){ const c=duplicateClip(state.selectedClipId); if(c){ state.selectedClipId=c.id; pushHistory(); render(); } }
+        return;
+      }
+      if(k==='e'){ e.preventDefault(); openExport(); return; }
+      return;
+    }
+    switch(k){
+      case ' ': e.preventDefault(); document.getElementById('btn-play').click(); break;
+      case 'v': document.querySelector('[data-tool="select"]').click(); break;
+      case 'b': document.querySelector('[data-tool="blade"]').click(); break;
+      case 't': document.querySelector('[data-tool="text"]').click(); break;
+      case 'h': document.querySelector('[data-tool="hand"]').click(); break;
+      case 'n': document.getElementById('btn-snap').click(); break;
+      case 'j': nudgePlayhead(-1000); renderPlayhead(); renderTimecode(); renderViewer(); break;
+      case 'k': stopPlayback(); break;
+      case 'l': nudgePlayhead(1000); renderPlayhead(); renderTimecode(); renderViewer(); break;
+      case 'arrowleft':  e.preventDefault(); nudgePlayhead(e.shiftKey?-1000:-100); renderPlayhead(); renderTimecode(); renderViewer(); break;
+      case 'arrowright': e.preventDefault(); nudgePlayhead(e.shiftKey? 1000: 100); renderPlayhead(); renderTimecode(); renderViewer(); break;
+      case 'delete': case 'backspace':
+        e.preventDefault();
+        if(state.selectedMaskId && state.selectedClipId){ removeMask(state.selectedClipId, state.selectedMaskId); pushHistory(); render(); }
+        else if(state.selectedClipId){ deleteClip(state.selectedClipId); pushHistory(); render(); }
+        break;
+    }
+  });
+
+  // Pre-load a few common fonts so the demo title isn't FOUT-y
+  if(window.loadFont){
+    ['Inter','Playfair Display','Bebas Neue','Oswald','JetBrains Mono','Fraunces'].forEach(f=>window.loadFont(f));
+  }
+
+  // ----- Auth gate: show starter unless a session exists -----
+  const session = readSession();
+  if(session){
+    enterEditor(true);
+  } else {
+    showStarter();
+  }
+});
+
+// ---------- Starter / auth (frontend-only) ----------
+const SESSION_KEY = 'editorx.session.v1';
+function readSession(){ try{ return JSON.parse(localStorage.getItem(SESSION_KEY)||'null'); }catch{return null;} }
+function writeSession(s){ try{ localStorage.setItem(SESSION_KEY, JSON.stringify(s)); }catch{} }
+function clearSession(){ try{ localStorage.removeItem(SESSION_KEY); }catch{} }
+
+function showStarter(){
+  const starter = document.getElementById('starter'); if(!starter) return;
+  const app     = document.getElementById('app');
+  starter.classList.remove('hidden');
+  if(app) app.classList.add('hidden');
+  if(window.lucide) lucide.createIcons({root:starter});
+}
+function hideStarter(){
+  const starter = document.getElementById('starter');
+  const app     = document.getElementById('app');
+  if(starter) starter.classList.add('hidden');
+  if(app) app.classList.remove('hidden');
+}
+
+function enterEditor(restore){
+  hideStarter();
+  // Restore autosaved project (if any) before first render
+  if(restore){
+    if(loadFromLocalStorage()){
+      flash('Welcome back — restored your last session');
+    }
+  }
+  render();
+}
+window.enterEditor = enterEditor;
+window.showStarter = showStarter;
+window.readSession = readSession;
+window.writeSession = writeSession;
+window.clearSession = clearSession;
+
+// ----- Starter form wiring -----
+document.addEventListener('DOMContentLoaded', ()=>{
+  const starter = document.getElementById('starter'); if(!starter) return;
+  const tabs    = starter.querySelectorAll('.starter-tab');
+  const form    = starter.querySelector('#starter-form');
+  const nameW   = starter.querySelector('[data-field="name"]');
+  const submit  = starter.querySelector('#starter-submit');
+  const skip    = starter.querySelector('#starter-skip');
+  const msg     = starter.querySelector('#starter-msg');
+  let mode = 'signup';
+
+  const renderMode = ()=>{
+    tabs.forEach(t=>t.classList.toggle('active', t.dataset.mode===mode));
+    nameW.style.display = mode==='signup' ? '' : 'none';
+    submit.innerHTML = (mode==='signup' ? 'Create account' : 'Sign in') +
+      ' <i data-lucide="arrow-right" width="14" height="14"></i>';
+    if(window.lucide) lucide.createIcons({root:submit});
+    msg.textContent = '';
+  };
+  tabs.forEach(t=>t.addEventListener('click', ()=>{ mode = t.dataset.mode; renderMode(); }));
+
+  // VERY simple frontend-only credential storage. NOT real auth.
+  const USERS_KEY = 'editorx.users.v1';
+  const readUsers  = () => { try{ return JSON.parse(localStorage.getItem(USERS_KEY)||'{}'); }catch{return {}} };
+  const writeUsers = (u) => { try{ localStorage.setItem(USERS_KEY, JSON.stringify(u)); }catch{} };
+  // Rough hash so passwords aren't stored in plaintext (still NOT secure):
+  const hash = async (s) => {
+    if(!crypto.subtle) return 'plain:'+s;
+    const buf = new TextEncoder().encode(s);
+    const h   = await crypto.subtle.digest('SHA-256', buf);
+    return Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  };
+
+  form.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    const email = starter.querySelector('#sf-email').value.trim().toLowerCase();
+    const pass  = starter.querySelector('#sf-pass').value;
+    const name  = starter.querySelector('#sf-name').value.trim();
+    if(!email || !pass){ msg.textContent = 'Email and password are required.'; return; }
+    if(pass.length < 6){ msg.textContent = 'Password must be at least 6 characters.'; return; }
+    const users = readUsers();
+    const ph = await hash(pass);
+
+    if(mode==='signup'){
+      if(users[email]){ msg.textContent = 'An account already exists for this email — try Sign In.'; return; }
+      users[email] = {name: name||email.split('@')[0], pass: ph, createdAt: new Date().toISOString()};
+      writeUsers(users);
+      writeSession({email, name: users[email].name, signedInAt: new Date().toISOString()});
+      enterEditor(true);
+    } else {
+      const u = users[email];
+      if(!u || u.pass !== ph){ msg.textContent = 'No matching account. Check email and password, or sign up.'; return; }
+      writeSession({email, name: u.name, signedInAt: new Date().toISOString()});
+      enterEditor(true);
+    }
+  });
+
+  skip.addEventListener('click', ()=>{
+    writeSession({email: null, name: 'Guest', signedInAt: new Date().toISOString(), guest: true});
+    enterEditor(true);
+  });
+
+  renderMode();
+});

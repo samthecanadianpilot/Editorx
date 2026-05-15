@@ -1,0 +1,841 @@
+// EditorX — UI rendering
+
+// ---------- Small helpers ----------
+function escapeHtml(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+
+function flash(msg){
+  let bar = document.getElementById('flash-bar');
+  if(!bar){
+    bar = document.createElement('div'); bar.id = 'flash-bar';
+    document.body.appendChild(bar);
+  }
+  bar.textContent = msg;
+  bar.classList.add('visible');
+  clearTimeout(bar._t);
+  bar._t = setTimeout(()=>bar.classList.remove('visible'), 1600);
+}
+
+// Stable per-clip waveform (deterministic from id)
+const _waveformCache = {};
+function _waveformFor(clip){
+  if(_waveformCache[clip.id]) return _waveformCache[clip.id];
+  let seed = 0; for(const ch of clip.id) seed = (seed*31 + ch.charCodeAt(0))>>>0;
+  const rand = ()=>{ seed = (seed*1664525 + 1013904223)>>>0; return seed/0xFFFFFFFF; };
+  const numBars = Math.max(8, Math.floor(clip.w/4));
+  const bars = new Array(numBars);
+  for(let i=0;i<numBars;i++) bars[i] = 18 + rand()*64;
+  return _waveformCache[clip.id] = bars;
+}
+function _invalidateWaveform(id){ delete _waveformCache[id]; }
+
+// ---------- Sidebar panels ----------
+function renderClips(){
+  ['v1','a1','t1'].forEach(tid=>{
+    const lane = document.getElementById('track-'+tid); if(!lane) return;
+    lane.innerHTML = '';
+    state.clips.filter(c=>c.track===tid).forEach(clip=>{
+      const el = document.createElement('div');
+      el.className = 'clip ' + clip.type + (state.selectedClipId===clip.id?' selected':'');
+      // CSS left is measured inside .track-lane (which already sits after the
+      // 80px header), so subtract the header offset to align with the ruler.
+      el.style.left  = (clip.x - TIMELINE_OFFSET_X) + 'px';
+      el.style.width = clip.w + 'px';
+      el.dataset.id = clip.id;
+      el.dataset.clipId = clip.id;
+
+      let inner = '<div class="clip-header-stripe"></div>';
+      inner += `<div class="clip-name">${escapeHtml(clip.name)}</div>`;
+      const dur = (clip.w/TIMELINE_PX_PER_S).toFixed(1)+'s';
+      inner += `<div class="clip-duration">${dur}</div>`;
+
+      if(clip.type==='video'){
+        inner += '<div class="clip-thumbnails">';
+        const n = Math.max(1, Math.floor(clip.w/50));
+        for(let i=0;i<n;i++) inner += '<div class="thumb"></div>';
+        inner += '</div>';
+      } else if(clip.type==='audio'){
+        inner += '<div class="clip-waveform">';
+        const bars = _waveformFor(clip);
+        bars.forEach(h=>{ inner += `<div class="wave-bar" style="height:${h}%"></div>`; });
+        inner += '</div>';
+      }
+
+      let badges = '';
+      if(state.masks[clip.id] && state.masks[clip.id].length>0){
+        badges += `<span class="badge badge-mask"><i data-lucide="layers" width="10" height="10"></i>${state.masks[clip.id].length}</span>`;
+      }
+      if(clip.transition){
+        badges += `<span class="badge badge-trans" title="Transition: ${clip.transition}"><i data-lucide="blend" width="10" height="10"></i></span>`;
+      }
+      if(clip.lutId){
+        const lut = (window.LUTS||[]).find(l=>l.id===clip.lutId);
+        badges += `<span class="badge badge-lut" title="LUT: ${lut?lut.name:clip.lutId}" style="--swatch:${lut?lut.color:'#888'}"><span class="badge-swatch"></span></span>`;
+      }
+      if(clip.effectId && clip.effectId!=='none'){
+        const fx = (window.EFFECTS||[]).find(e=>e.id===clip.effectId);
+        badges += `<span class="badge badge-fx" title="Effect: ${fx?fx.name:clip.effectId}"><i data-lucide="${fx?fx.icon:'sparkles'}" width="10" height="10"></i></span>`;
+      }
+      if(badges) inner += `<div class="clip-indicators">${badges}</div>`;
+
+      inner += '<div class="trim-handle trim-left"></div><div class="trim-handle trim-right"></div>';
+      el.innerHTML = inner;
+
+      el.addEventListener('click', (e)=>{
+        if(el.dataset.dragMoved==='1'){ el.dataset.dragMoved='0'; return; }
+        if(state.activeTool==='blade'){
+          const rect = el.getBoundingClientRect();
+          const splitX = clip.x + (e.clientX - rect.left);
+          if(window.splitClipAtX(clip.id, splitX)){ pushHistory(); render(); }
+          return;
+        }
+        state.selectedClipId = clip.id;
+        state.selectedMaskId = null;
+        render();
+      });
+
+      lane.appendChild(el);
+      if(window.attachClipInteractions) window.attachClipInteractions(el, clip);
+    });
+  });
+}
+
+function renderMediaList(){
+  const list = document.getElementById('media-list');
+  const empty = document.getElementById('media-empty');
+  if(!list) return;
+  list.innerHTML = '';
+  if(!state.media || !state.media.length){ if(empty) empty.style.display=''; return; }
+  if(empty) empty.style.display='none';
+  state.media.forEach(m=>{
+    const row = document.createElement('div'); row.className = 'list-card';
+    row.draggable = true;
+    row.dataset.mediaId = m.id;
+    const icon = m.type==='audio' ? 'music' : (m.type==='video' ? 'film' : 'image');
+    row.innerHTML = `<div class="lc-icon"><i data-lucide="${icon}" width="14" height="14"></i></div>
+      <div class="lc-body"><div class="lc-name">${escapeHtml(m.name)}</div>
+      <div class="lc-meta">${m.type} · ${m.duration?m.duration.toFixed(1)+'s':'…'}</div></div>
+      <button class="lc-action" title="Add to timeline"><i data-lucide="plus" width="12" height="12"></i></button>`;
+    row.addEventListener('click', ()=>{ addClipFromMedia(m); pushHistory(); render(); flash('Added '+m.name); });
+    row.addEventListener('dragstart', e=>{
+      e.dataTransfer.effectAllowed = 'copy';
+      // Custom MIME for our own drop targets; plain text fallback for cross-target tools
+      e.dataTransfer.setData('application/x-editorx-media', m.id);
+      e.dataTransfer.setData('text/plain', m.name);
+      row.classList.add('dragging');
+    });
+    row.addEventListener('dragend', ()=>{ row.classList.remove('dragging'); });
+    list.appendChild(row);
+  });
+}
+
+function renderTransitionsList(){
+  const list = document.getElementById('transitions-grid'); if(!list) return;
+  list.innerHTML = '';
+  const sel = getSelectedClip();
+  TRANSITIONS.forEach(tr=>{
+    const isApplied = sel && sel.transition===tr.id;
+    const card = document.createElement('div'); card.className = 'list-card' + (isApplied?' selected':'');
+    card.innerHTML = `<div class="lc-icon"><i data-lucide="${tr.icon}" width="14" height="14"></i></div>
+      <div class="lc-body"><div class="lc-name">${tr.name}</div>
+      <div class="lc-meta">${tr.desc} · ${tr.duration}s</div></div>
+      <button class="lc-action" title="${isApplied?'Remove':'Apply'}"><i data-lucide="${isApplied?'check':'plus'}" width="12" height="12"></i></button>`;
+    card.addEventListener('click', ()=>{
+      if(!state.selectedClipId){ flash('Select a clip first'); return; }
+      if(isApplied) clearTransition(state.selectedClipId);
+      else setTransition(state.selectedClipId, tr.id);
+      pushHistory(); render();
+    });
+    list.appendChild(card);
+  });
+}
+
+function renderLUTs(){
+  const list = document.getElementById('luts-grid'); if(!list) return;
+  list.innerHTML = '';
+  const sel = getSelectedClip();
+  LUTS.forEach(lut=>{
+    const isApplied = sel && sel.lutId===lut.id;
+    const card = document.createElement('div'); card.className = 'list-card' + (isApplied?' selected':'');
+    card.innerHTML = `<div class="lc-icon" style="background:${lut.color}33;color:${lut.color}"><i data-lucide="palette" width="14" height="14"></i></div>
+      <div class="lc-body"><div class="lc-name">${lut.name}</div>
+      <div class="lc-meta">${lut.cat}${isApplied?` · ${Math.round((sel.lutIntensity??lut.def)*100)}%`:''}</div></div>
+      <button class="lc-action" title="${isApplied?'Remove':'Apply'}"><i data-lucide="${isApplied?'check':'plus'}" width="12" height="12"></i></button>`;
+    card.addEventListener('click', ()=>{
+      if(!state.selectedClipId){ flash('Select a clip first'); return; }
+      if(lut.id==='none' || isApplied) clearLut(state.selectedClipId);
+      else setLut(state.selectedClipId, lut.id, lut.def);
+      pushHistory(); render();
+    });
+    list.appendChild(card);
+  });
+}
+
+function renderEffects(){
+  const list = document.getElementById('effects-grid'); if(!list) return;
+  list.innerHTML = '';
+  const sel = getSelectedClip();
+  EFFECTS.forEach(fx=>{
+    const isApplied = sel && sel.effectId===fx.id;
+    const card = document.createElement('div'); card.className = 'list-card' + (isApplied?' selected':'');
+    card.innerHTML = `<div class="lc-icon"><i data-lucide="${fx.icon}" width="14" height="14"></i></div>
+      <div class="lc-body"><div class="lc-name">${fx.name}</div>
+      <div class="lc-meta">${fx.cat} · ${fx.desc}</div></div>
+      <button class="lc-action" title="${isApplied?'Remove':'Apply'}"><i data-lucide="${isApplied?'check':'plus'}" width="12" height="12"></i></button>`;
+    card.addEventListener('click', ()=>{
+      if(!state.selectedClipId){ flash('Select a clip first'); return; }
+      if(isApplied || fx.id==='none') clearEffect(state.selectedClipId);
+      else setEffect(state.selectedClipId, fx.id);
+      pushHistory(); render();
+    });
+    list.appendChild(card);
+  });
+}
+
+function renderTitles(){
+  const list = document.getElementById('titles-grid'); if(!list) return;
+  list.innerHTML = '';
+  TITLES.forEach(t=>{
+    const card = document.createElement('div'); card.className = 'list-card';
+    card.innerHTML = `<div class="lc-icon"><i data-lucide="${t.icon}" width="14" height="14"></i></div>
+      <div class="lc-body"><div class="lc-name">${t.name}</div>
+      <div class="lc-meta">"${escapeHtml(t.defaultText)}" · ${t.duration}s · ${t.font}</div></div>
+      <button class="lc-action" title="Add at playhead"><i data-lucide="plus" width="12" height="12"></i></button>`;
+    card.addEventListener('click', ()=>{
+      addTextClipAt(state.playhead, t);
+      if(window.loadFont) window.loadFont(t.font).then(()=>{ renderViewer(); });
+      pushHistory(); render();
+    });
+    list.appendChild(card);
+  });
+}
+
+function renderMaskTypes(){
+  const list = document.getElementById('mask-types-list'); if(!list) return;
+  list.innerHTML = '';
+  MASK_TYPES.forEach(mt=>{
+    const card = document.createElement('div'); card.className = 'mask-type-card';
+    card.innerHTML = `<div class="mt-icon" style="background:${mt.color}22;color:${mt.color}"><i data-lucide="${mt.icon}" width="16" height="16"></i></div>
+      <div class="mt-body"><div class="mt-name">${mt.name}</div><div class="mt-desc">${mt.desc}</div></div>
+      <div class="mt-add"><i data-lucide="plus-circle" width="14" height="14"></i></div>`;
+    card.addEventListener('click', ()=>{
+      if(!state.selectedClipId){ flash('Select a clip first'); return; }
+      addMask(state.selectedClipId, mt.id); pushHistory(); render();
+    });
+    list.appendChild(card);
+  });
+}
+
+function renderAppliedMasks(){
+  const list = document.getElementById('applied-masks-list'); if(!list) return;
+  list.innerHTML = '';
+  if(!state.selectedClipId){ list.innerHTML = '<div class="empty-sub" style="padding:12px;text-align:center">Select a clip</div>'; return; }
+  const masks = state.masks[state.selectedClipId] || [];
+  if(!masks.length){ list.innerHTML = '<div class="empty-sub" style="padding:12px;text-align:center">No masks</div>'; return; }
+  masks.forEach(m=>{
+    const mt = MASK_TYPES.find(t=>t.id===m.type);
+    const el = document.createElement('div'); el.className = 'applied-mask' + (state.selectedMaskId===m.id?' selected':'');
+    el.innerHTML = `<div class="am-dot" style="background:${mt?mt.color:'#888'}"></div>
+      <span class="am-name">${escapeHtml(m.name)}</span>
+      <div class="am-actions">
+        <button class="am-btn" data-action="toggle" title="Toggle"><i data-lucide="${m.enabled?'eye':'eye-off'}" width="10" height="10"></i></button>
+        <button class="am-btn" data-action="edit" title="Edit"><i data-lucide="edit-2" width="10" height="10"></i></button>
+        <button class="am-btn" data-action="delete" title="Delete"><i data-lucide="x" width="10" height="10"></i></button>
+      </div>`;
+    el.querySelector('[data-action="toggle"]').addEventListener('click', e=>{ e.stopPropagation(); m.enabled = !m.enabled; render(); });
+    el.querySelector('[data-action="edit"]').addEventListener('click', e=>{ e.stopPropagation(); state.selectedMaskId = m.id; if(window.openMaskProps) openMaskProps(m); render(); });
+    el.querySelector('[data-action="delete"]').addEventListener('click', e=>{ e.stopPropagation(); removeMask(state.selectedClipId, m.id); pushHistory(); render(); });
+    el.addEventListener('click', ()=>{ state.selectedMaskId = m.id; render(); });
+    list.appendChild(el);
+  });
+}
+
+// ---------- Inspector ----------
+function inspSection(title, open, body){
+  return `<div class="insp-section${open?' open':''}">
+    <div class="insp-section-header" onclick="this.parentElement.classList.toggle('open')">
+      <span class="insp-section-title">${title}</span>
+      <span class="insp-section-chevron"><i data-lucide="chevron-right" width="10" height="10"></i></span>
+    </div>
+    <div class="insp-section-body">${body}</div>
+  </div>`;
+}
+function inspNumRow(label, displayVal, min, max, step, unit, prop, transform){
+  const tr = transform ? ` data-transform="${escapeHtml(transform)}"` : '';
+  const v = Number(displayVal).toFixed(step<1 ? 2 : 0);
+  return `<div class="insp-row"><label>${label}</label>
+    <input type="range" min="${min}" max="${max}" step="${step}" value="${displayVal}" data-prop="${prop}" data-unit="${unit}"${tr}>
+    <span class="insp-value">${v}${unit}</span></div>`;
+}
+function inspTextRow(label, prop, value){
+  return `<div class="insp-row"><label>${label}</label>
+    <input type="text" data-prop="${prop}" value="${escapeHtml(value)}" class="insp-text"></div>`;
+}
+function inspColorRow(label, prop, value){
+  return `<div class="insp-row"><label>${label}</label>
+    <input type="color" data-prop="${prop}" value="${value}" class="insp-color"></div>`;
+}
+
+function renderInspector(){
+  const title = document.getElementById('inspector-title');
+  const content = document.getElementById('inspector-content');
+  if(!state.selectedClipId){
+    title.textContent = 'Inspector';
+    content.innerHTML = `<div class="inspector-empty">
+      <div class="empty-icon"><i data-lucide="mouse-pointer-click" width="32" height="32"></i></div>
+      <div class="empty-title">Nothing selected</div>
+      <div class="empty-sub">Click a clip on the timeline to edit it.</div>
+      <div class="quick-tips">
+        <div class="qt-title">Shortcuts</div>
+        <div>Space &nbsp;Play / pause</div>
+        <div>J / L &nbsp;Step ±1s</div>
+        <div>B &nbsp;Blade</div>
+        <div>⌘Z / ⌘⇧Z &nbsp;Undo / redo</div>
+        <div>⌫ &nbsp;Delete clip</div>
+      </div>
+    </div>`;
+    return;
+  }
+  const clip = getSelectedClip();
+  if(!clip){ title.textContent='Inspector'; content.innerHTML=''; return; }
+  title.textContent = clip.name;
+
+  let html = '';
+
+  // CLIP info
+  const startS = (clip.x - TIMELINE_OFFSET_X) / TIMELINE_PX_PER_S;
+  const durS = clip.w / TIMELINE_PX_PER_S;
+  html += inspSection('CLIP', true,
+    `${inspTextRow('Name','name',clip.name)}
+     <div class="insp-row"><label>Start</label><span class="insp-value" style="width:auto;text-align:left">${startS.toFixed(2)}s</span></div>
+     <div class="insp-row"><label>Duration</label><span class="insp-value" style="width:auto;text-align:left">${durS.toFixed(2)}s</span></div>
+     <div class="insp-row"><label>Type</label><span class="insp-value" style="width:auto;text-align:left">${clip.type}</span></div>`);
+
+  // TRANSFORM (video + text)
+  if(clip.type==='video' || clip.type==='text'){
+    html += inspSection('TRANSFORM', true,
+      inspNumRow('Position X', clip.posX??0, -1000, 1000, 1, 'px', 'posX')+
+      inspNumRow('Position Y', clip.posY??0, -1000, 1000, 1, 'px', 'posY')+
+      inspNumRow('Scale',      (clip.scale??1)*100, 10, 400, 1, '%', 'scale', 'v/100')+
+      inspNumRow('Rotation',   clip.rotation??0, -180, 180, 1, '°', 'rotation')+
+      inspNumRow('Opacity',    (clip.opacity??1)*100, 0, 100, 1, '%', 'opacity', 'v/100'));
+  }
+
+  // AUDIO
+  if(clip.type==='video' || clip.type==='audio'){
+    html += inspSection('AUDIO', true,
+      inspNumRow('Volume', (clip.volume??1)*100, 0, 200, 1, '%', 'volume', 'v/100')+
+      `<div class="insp-toggle-row"><label>Muted</label><input type="checkbox" data-toggle="muted" ${clip.muted?'checked':''}></div>`+
+      inspNumRow('Speed',  (clip.speed??1)*100, 25, 400, 1, '%', 'speed', 'v/100'));
+  }
+
+  // TEXT (with font picker)
+  if(clip.type==='text'){
+    const fontOpts = (window.FONTS||[]).map(f=>`<option value="${escapeHtml(f)}" ${clip.font===f?'selected':''}>${escapeHtml(f)}</option>`).join('');
+    html += inspSection('TEXT', true,
+      inspTextRow('Text','text',clip.text||'')+
+      inspColorRow('Color','color',clip.color||'#FFFFFF')+
+      `<div class="insp-row"><label>Font</label>
+         <input type="text" class="insp-text" data-font-search list="fontlist-${clip.id}" value="${escapeHtml(clip.font||'Inter')}" placeholder="Search Google Fonts…">
+         <datalist id="fontlist-${clip.id}">${fontOpts}</datalist></div>`+
+      `<div class="insp-row"><label>Weight</label>
+        <select data-prop-num="fontWeight" class="insp-select">
+          ${[100,200,300,400,500,600,700,800,900].map(w=>`<option value="${w}" ${(clip.fontWeight||700)===w?'selected':''}>${w}</option>`).join('')}
+        </select></div>`
+    );
+  }
+
+  // TRANSITION
+  const tr = clip.transition && (window.TRANSITIONS||[]).find(t=>t.id===clip.transition);
+  html += inspSection('TRANSITION', false, tr
+    ? `<div class="ip-row"><i data-lucide="${tr.icon}" width="12" height="12"></i><span class="ip-name">${tr.name}</span><button class="ip-rm" data-action="rm-trans"><i data-lucide="x" width="10" height="10"></i></button></div>
+       <div class="empty-sub">${tr.desc} · ${tr.duration}s</div>`
+    : '<div class="empty-sub">No transition. Apply one from the Transitions tab.</div>');
+
+  // LUT
+  const lut = clip.lutId && (window.LUTS||[]).find(l=>l.id===clip.lutId);
+  html += inspSection('LUT', false, lut
+    ? `<div class="ip-row"><span class="ip-swatch" style="background:${lut.color}"></span><span class="ip-name">${lut.name}</span><button class="ip-rm" data-action="rm-lut"><i data-lucide="x" width="10" height="10"></i></button></div>`+
+      inspNumRow('Intensity', (clip.lutIntensity??lut.def)*100, 0, 100, 1, '%', 'lutIntensity', 'v/100')
+    : '<div class="empty-sub">No LUT. Apply one from the LUTs tab.</div>');
+
+  // EFFECT
+  const fx = clip.effectId && (window.EFFECTS||[]).find(e=>e.id===clip.effectId);
+  let fxBody;
+  if(fx){
+    fxBody = `<div class="ip-row"><i data-lucide="${fx.icon}" width="12" height="12"></i><span class="ip-name">${fx.name}</span><button class="ip-rm" data-action="rm-fx"><i data-lucide="x" width="10" height="10"></i></button></div>`;
+    if(fx.params && fx.params.amount){
+      const p = fx.params.amount;
+      fxBody += inspNumRow('Amount', clip.fxAmount??p.def, p.min, p.max, p.unit==='°'||p.unit==='%'?1:0.1, p.unit||'', 'fxAmount');
+    } else {
+      fxBody += '<div class="empty-sub">No parameters.</div>';
+    }
+  } else {
+    fxBody = '<div class="empty-sub">No effect. Apply one from the Effects tab.</div>';
+  }
+  html += inspSection('EFFECT', false, fxBody);
+
+  // MASKS
+  const masks = state.masks[clip.id] || [];
+  let masksBody = '';
+  if(!masks.length){
+    masksBody = '<div class="empty-sub" style="text-align:center;padding:8px">No masks</div>';
+  } else {
+    masks.forEach(m=>{
+      const mt = MASK_TYPES.find(t=>t.id===m.type);
+      masksBody += `<div class="mask-insp-item${state.selectedMaskId===m.id?' selected':''}" data-mask="${m.id}">
+        <div class="mi-dot" style="background:${mt?mt.color:'#888'}22;color:${mt?mt.color:'#888'}">${mt?'<i data-lucide="'+mt.icon+'" width="10" height="10"></i>':'?'}</div>
+        <span class="mi-name">${escapeHtml(m.name)}</span>
+        <button class="mi-eye"><i data-lucide="${m.enabled?'eye':'eye-off'}" width="10" height="10"></i></button></div>`;
+    });
+  }
+  masksBody += '<button class="ghost-btn" id="insp-add-mask" style="margin-top:8px">+ Add Rectangle Mask</button>';
+  html += inspSection('MASKS', false, masksBody);
+
+  content.innerHTML = html;
+
+  // Wire numeric ranges
+  content.querySelectorAll('input[type=range][data-prop]').forEach(inp=>{
+    const prop = inp.dataset.prop;
+    inp.addEventListener('input', e=>{
+      const raw = parseFloat(e.target.value);
+      const tr = inp.dataset.transform;
+      const v = tr ? new Function('v','return '+tr)(raw) : raw;
+      updateClip(clip.id, {[prop]: v});
+      const valSpan = inp.parentElement.querySelector('.insp-value');
+      if(valSpan) valSpan.textContent = Number(raw).toFixed(0) + (inp.dataset.unit||'');
+      renderViewer(); renderClips();
+    });
+    inp.addEventListener('change', ()=>pushHistory());
+  });
+
+  // Wire text + color
+  content.querySelectorAll('input[type=text][data-prop],input[type=color][data-prop]').forEach(inp=>{
+    const prop = inp.dataset.prop;
+    inp.addEventListener('input', e=>{
+      updateClip(clip.id, {[prop]: e.target.value});
+      if(prop==='name'){ renderClips(); }
+      else { renderViewer(); renderClips(); }
+    });
+    inp.addEventListener('change', ()=>{
+      pushHistory();
+      if(prop==='name'){ const t=document.getElementById('inspector-title'); if(t) t.textContent=clip.name; }
+    });
+  });
+
+  // Wire toggles
+  content.querySelectorAll('input[type=checkbox][data-toggle]').forEach(inp=>{
+    inp.addEventListener('change', e=>{
+      updateClip(clip.id, {[inp.dataset.toggle]: e.target.checked});
+      pushHistory(); render();
+    });
+  });
+
+  // Wire numeric selects (font weight)
+  content.querySelectorAll('select[data-prop-num]').forEach(sel=>{
+    sel.addEventListener('change', e=>{
+      updateClip(clip.id, {[sel.dataset.propNum]: parseInt(e.target.value)});
+      pushHistory(); renderViewer();
+    });
+  });
+
+  // Font search input — load on selection
+  const fontInput = content.querySelector('input[data-font-search]');
+  if(fontInput){
+    fontInput.addEventListener('change', async (e)=>{
+      const family = e.target.value.trim();
+      if(!family) return;
+      updateClip(clip.id, {font: family});
+      if(window.loadFont){ await window.loadFont(family); }
+      pushHistory(); renderViewer();
+    });
+  }
+
+  // Section actions
+  content.querySelector('[data-action="rm-trans"]')?.addEventListener('click', ()=>{ clearTransition(clip.id); pushHistory(); render(); });
+  content.querySelector('[data-action="rm-lut"]')  ?.addEventListener('click', ()=>{ clearLut(clip.id); pushHistory(); render(); });
+  content.querySelector('[data-action="rm-fx"]')   ?.addEventListener('click', ()=>{ clearEffect(clip.id); pushHistory(); render(); });
+  content.querySelector('#insp-add-mask')          ?.addEventListener('click', ()=>{ addMask(clip.id,'rectangle'); pushHistory(); render(); });
+
+  // Mask sub-clicks
+  content.querySelectorAll('.mask-insp-item').forEach(el=>{
+    el.addEventListener('click', ()=>{ state.selectedMaskId = el.dataset.mask; render(); });
+    const eye = el.querySelector('.mi-eye');
+    if(eye) eye.addEventListener('click', e=>{ e.stopPropagation();
+      const m = masks.find(mm=>mm.id===el.dataset.mask);
+      if(m){ m.enabled = !m.enabled; render(); }
+    });
+  });
+}
+
+// ---------- Viewer (canvas) ----------
+function renderViewer(){
+  const c = document.getElementById('viewer-canvas');
+  if(!c) return;
+  const ctx = c.getContext('2d');
+
+  // Backdrop
+  ctx.save();
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0,0,c.width,c.height);
+
+  // Find active video clip(s) at current playhead
+  const tS = state.playhead/1000;
+  const activeVids = activeClipsAt(tS, 'video');
+
+  if(activeVids.length === 0){
+    // Empty placeholder
+    ctx.fillStyle = '#0E0E12';
+    ctx.fillRect(0,0,c.width,c.height);
+    ctx.fillStyle = 'rgba(255,255,255,0.06)';
+    ctx.font = `900 64px Inter, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.fillText('EditorX', c.width/2, c.height/2 - 4);
+    ctx.fillStyle = 'rgba(255,255,255,0.18)';
+    ctx.font = `500 16px Inter, sans-serif`;
+    ctx.fillText('Drop media into the Library, or pick a clip on the timeline.', c.width/2, c.height/2 + 28);
+    ctx.fillStyle = 'rgba(255,255,255,0.04)';
+    for(let x=0;x<c.width;x+=80){ ctx.fillRect(x,0,1,c.height); }
+    for(let y=0;y<c.height;y+=80){ ctx.fillRect(0,y,c.width,1); }
+  } else {
+    // Composite each active video clip
+    for(const clip of activeVids){
+      drawVideoClip(ctx, c, clip);
+    }
+  }
+
+  // Text overlays for any active text clip
+  const activeTexts = activeClipsAt(tS, 'text');
+  for(const tc of activeTexts){
+    drawTextClip(ctx, c, tc);
+  }
+
+  // (Mask shapes are NOT painted on the canvas — the DOM overlay in
+  //  #mask-overlay is the editing affordance and the only visible mask UI.
+  //  When real video clipping/masking is wired this is where it'll live.)
+
+  ctx.restore();
+}
+
+function drawVideoClip(ctx, canvas, clip){
+  const el = getMediaElForClip(clip);
+  ctx.save();
+  ctx.globalAlpha = clip.opacity ?? 1;
+
+  // Effect (CSS filter on context)
+  if(clip.effectId){
+    const fx = (window.EFFECTS||[]).find(e=>e.id===clip.effectId);
+    if(fx && fx.cssFilter) ctx.filter = fx.cssFilter(clip);
+  }
+
+  // Transform
+  const cx = canvas.width/2 + (clip.posX||0);
+  const cy = canvas.height/2 + (clip.posY||0);
+  ctx.translate(cx, cy);
+  ctx.rotate(((clip.rotation||0)*Math.PI)/180);
+  const scale = clip.scale ?? 1;
+  ctx.scale(scale, scale);
+
+  // Draw the video frame (or a placeholder if no source)
+  if(el && el.readyState >= 2 && el.videoWidth>0){
+    const vw = el.videoWidth, vh = el.videoHeight;
+    const cAR = canvas.width/canvas.height, vAR = vw/vh;
+    let dw, dh;
+    if(vAR > cAR){ dw = canvas.width; dh = canvas.width / vAR; }
+    else         { dh = canvas.height; dw = canvas.height * vAR; }
+    try{ ctx.drawImage(el, -dw/2, -dh/2, dw, dh); }catch{}
+  } else {
+    // Placeholder: dark gradient with clip name
+    const dw = canvas.width, dh = canvas.height;
+    const g = ctx.createLinearGradient(-dw/2, -dh/2, dw/2, dh/2);
+    g.addColorStop(0, '#1a1f2c'); g.addColorStop(1, '#0c0f17');
+    ctx.fillStyle = g; ctx.fillRect(-dw/2, -dh/2, dw, dh);
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.font = '700 42px Inter, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(clip.name, 0, 0);
+    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    ctx.font = '500 18px Inter, sans-serif';
+    ctx.fillText('Demo placeholder · import a video to see it here', 0, 36);
+  }
+
+  ctx.filter = 'none';
+
+  // LUT overlay (composite)
+  if(clip.lutId){
+    const lut = (window.LUTS||[]).find(l=>l.id===clip.lutId);
+    if(lut && lut.id!=='none'){
+      ctx.save();
+      ctx.globalAlpha = clip.lutIntensity ?? lut.def;
+      ctx.globalCompositeOperation = lut.blend || 'multiply';
+      ctx.fillStyle = lut.color;
+      ctx.fillRect(-canvas.width/2, -canvas.height/2, canvas.width, canvas.height);
+      ctx.restore();
+    }
+  }
+
+  ctx.restore();
+}
+
+function drawTextClip(ctx, canvas, clip){
+  ctx.save();
+  ctx.globalAlpha = clip.opacity ?? 1;
+  const cx = canvas.width/2 + (clip.posX||0);
+  const cy = canvas.height - 160 + (clip.posY||0);
+  ctx.translate(cx, cy);
+  ctx.rotate(((clip.rotation||0)*Math.PI)/180);
+  const scale = clip.scale ?? 1;
+  ctx.scale(scale, scale);
+  const family = clip.font || 'Inter';
+  const weight = clip.fontWeight || 700;
+  ctx.font = `${weight} 64px "${family}", Inter, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.shadowColor = 'rgba(0,0,0,0.65)';
+  ctx.shadowBlur = 18;
+  ctx.shadowOffsetX = 2; ctx.shadowOffsetY = 4;
+  ctx.fillStyle = clip.color || '#FFFFFF';
+  ctx.fillText(clip.text || clip.name, 0, 0);
+  ctx.restore();
+}
+
+// ---------- Text overlay (DOM, draggable text bounding box) ----------
+function renderTextOverlays(){
+  const overlay = document.getElementById('text-overlay'); if(!overlay) return;
+  overlay.innerHTML = '';
+  const canvas = document.getElementById('viewer-canvas');
+  const cRect = canvas.getBoundingClientRect();
+  const overlayRect = overlay.getBoundingClientRect();
+  const ox = cRect.left - overlayRect.left, oy = cRect.top - overlayRect.top;
+  const sx = cRect.width / canvas.width, sy = cRect.height / canvas.height;
+
+  const tS = state.playhead/1000;
+  const activeTexts = activeClipsAt(tS, 'text');
+  if(activeTexts.length === 0) return;
+
+  // Use a measuring context so we can size the bounding box around the text
+  const measureCtx = canvas.getContext('2d');
+
+  activeTexts.forEach(clip=>{
+    const family = clip.font || 'Inter';
+    const weight = clip.fontWeight || 700;
+    const baseSize = 64;
+    measureCtx.font = `${weight} ${baseSize}px "${family}", Inter, sans-serif`;
+    const text = clip.text || clip.name || '';
+    const metrics = measureCtx.measureText(text);
+    const scale = clip.scale ?? 1;
+    const w = Math.max(40, metrics.width * scale);
+    const h = baseSize * 1.25 * scale;
+
+    const cx = canvas.width/2 + (clip.posX||0);
+    const cy = canvas.height - 160 + (clip.posY||0);
+    const left = cx - w/2;
+    const top  = cy - h/2;
+
+    const el = document.createElement('div');
+    el.className = 'text-shape-overlay' + (state.selectedClipId===clip.id?' selected':'');
+    el.style.left   = (ox + left*sx) + 'px';
+    el.style.top    = (oy + top*sy)  + 'px';
+    el.style.width  = (w*sx) + 'px';
+    el.style.height = (h*sy) + 'px';
+
+    // Click selects the text clip
+    el.addEventListener('click', e=>{
+      e.stopPropagation();
+      state.selectedClipId = clip.id;
+      state.selectedMaskId = null;
+      render();
+    });
+
+    // Drag updates posX/posY
+    el.addEventListener('mousedown', e=>{
+      if(e.button !== 0) return;
+      e.preventDefault(); e.stopPropagation();
+      const startX = e.clientX, startY = e.clientY;
+      const origX  = clip.posX || 0, origY = clip.posY || 0;
+      let moved = false;
+      const onMove = ev=>{
+        const dx = (ev.clientX - startX) / sx;
+        const dy = (ev.clientY - startY) / sy;
+        if(Math.abs(dx)>1 || Math.abs(dy)>1) moved = true;
+        clip.posX = Math.round(origX + dx);
+        clip.posY = Math.round(origY + dy);
+        renderTextOverlays();
+        renderViewer();
+      };
+      const onUp = ()=>{
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        if(moved){ pushHistory(); renderInspector(); }
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+
+    overlay.appendChild(el);
+  });
+}
+
+// ---------- Selection brackets (FCPX-style corner markers around the selected video clip) ----------
+function renderSelectionBrackets(){
+  const overlay = document.getElementById('selection-brackets'); if(!overlay) return;
+  overlay.innerHTML = '';
+  const sel = getSelectedClip();
+  if(!sel || sel.type !== 'video') return;
+  const tS = state.playhead/1000;
+  // Only show when the selected clip is on screen at the current playhead
+  if(tS < clipStartS(sel) || tS > clipEndS(sel)) return;
+
+  const canvas = document.getElementById('viewer-canvas');
+  const cRect = canvas.getBoundingClientRect();
+  const overlayRect = overlay.getBoundingClientRect();
+  const ox = cRect.left - overlayRect.left, oy = cRect.top - overlayRect.top;
+  const sx = cRect.width / canvas.width, sy = cRect.height / canvas.height;
+
+  // The video draws aspect-fit and centered on canvas, then transformed.
+  // Approximate the visible region as canvas-sized then scaled by clip.scale.
+  const scale = sel.scale ?? 1;
+  const cx = canvas.width/2 + (sel.posX||0);
+  const cy = canvas.height/2 + (sel.posY||0);
+  const dw = canvas.width  * scale * 0.9; // padded a bit so the brackets sit just inside
+  const dh = canvas.height * scale * 0.9;
+
+  const left = cx - dw/2, top = cy - dh/2;
+
+  const cont = document.createElement('div');
+  cont.className = 'sel-brackets';
+  cont.style.left   = (ox + left*sx) + 'px';
+  cont.style.top    = (oy + top*sy) + 'px';
+  cont.style.width  = (dw*sx) + 'px';
+  cont.style.height = (dh*sy) + 'px';
+  cont.innerHTML = '<span class="sb tl"></span><span class="sb tr"></span><span class="sb bl"></span><span class="sb br"></span>';
+  overlay.appendChild(cont);
+}
+
+// ---------- Mask overlay (DOM, draggable handles) ----------
+function renderMaskOverlays(){
+  const overlay = document.getElementById('mask-overlay'); if(!overlay) return;
+  overlay.innerHTML = '';
+  if(!state.selectedClipId) return;
+  const masks = state.masks[state.selectedClipId] || [];
+  const canvas = document.getElementById('viewer-canvas');
+  const cRect = canvas.getBoundingClientRect();
+  // Position relative to the overlay's own box (which is inside #viewer-frame).
+  // Was previously using viewer-wrapper which has 22px padding — caused drift.
+  const overlayRect = overlay.getBoundingClientRect();
+  const ox = cRect.left - overlayRect.left, oy = cRect.top - overlayRect.top;
+  const sx = cRect.width / canvas.width, sy = cRect.height / canvas.height;
+  masks.filter(m=>m.enabled).forEach(m=>{
+    const mt = MASK_TYPES.find(t=>t.id===m.type);
+    const el = document.createElement('div');
+    el.className = 'mask-shape-overlay' + (m.type==='ellipse'?' ellipse':'') + (state.selectedMaskId===m.id?' selected':'');
+    el.style.left = (ox + m.x*sx)+'px';
+    el.style.top  = (oy + m.y*sy)+'px';
+    el.style.width = (m.w*sx)+'px';
+    el.style.height = (m.h*sy)+'px';
+    el.style.borderColor = mt ? mt.color : '#af52de';
+    el.style.background  = (mt?mt.color:'#af52de') + (state.selectedMaskId===m.id?'1f':'0d');
+    if(state.selectedMaskId===m.id){
+      ['tl','tr','bl','br'].forEach(pos=>{
+        const h = document.createElement('div'); h.className = 'mask-handle '+pos; el.appendChild(h);
+        if(window.attachMaskHandleResize) window.attachMaskHandleResize(h, m, pos, sx, sy);
+      });
+      const badge = document.createElement('div'); badge.className = 'mask-badge';
+      badge.textContent = Math.round(m.opacity*100)+'%';
+      el.appendChild(badge);
+    }
+    el.addEventListener('click', e=>{ e.stopPropagation(); state.selectedMaskId = m.id; render(); });
+    // Drag body to move
+    let startX, startY, origX, origY;
+    el.addEventListener('mousedown', e=>{
+      if(e.target.classList.contains('mask-handle')) return;
+      e.preventDefault();
+      startX = e.clientX; startY = e.clientY; origX = m.x; origY = m.y;
+      const onMove = ev=>{ m.x = origX + (ev.clientX-startX)/sx; m.y = origY + (ev.clientY-startY)/sy; renderMaskOverlays(); renderViewer(); };
+      const onUp = ()=>{ document.removeEventListener('mousemove',onMove); document.removeEventListener('mouseup',onUp); pushHistory(); };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+    overlay.appendChild(el);
+  });
+}
+
+// ---------- Ruler / playhead / timecode ----------
+function renderTimecodeRuler(){
+  const c = document.getElementById('ruler-canvas'); if(!c) return;
+  const ctx = c.getContext('2d');
+  c.width = c.parentElement.clientWidth; c.height = 28;
+  // Bg
+  ctx.fillStyle = 'rgba(0,0,0,0.18)'; ctx.fillRect(0,0,c.width,c.height);
+  ctx.fillStyle = 'rgba(255,255,255,0.18)';
+  ctx.font = '9px JetBrains Mono, monospace';
+  const maxSec = Math.ceil((c.width-TIMELINE_OFFSET_X)/TIMELINE_PX_PER_S)+1;
+  for(let i=0;i<maxSec;i++){
+    const x = TIMELINE_OFFSET_X + i*TIMELINE_PX_PER_S; if(x>c.width) break;
+    ctx.fillRect(x, 18, 1, 8);
+    if(i%5===0){ ctx.fillRect(x, 14, 1, 12); ctx.fillText(i+'s', x+4, 12); }
+  }
+}
+function renderPlayhead(){
+  const ph = document.getElementById('playhead'); if(!ph) return;
+  ph.style.left = (TIMELINE_OFFSET_X + state.playhead/PLAYHEAD_MS_PER_PX) + 'px';
+}
+function renderTimecode(){
+  const tc = document.getElementById('timecode'); if(!tc) return;
+  const totalMs = Math.max(0, state.playhead);
+  const totalS  = Math.floor(totalMs/1000);
+  const h = Math.floor(totalS/3600);
+  const m = Math.floor((totalS%3600)/60);
+  const s = totalS%60;
+  const f = Math.floor((totalMs%1000)/1000 * VIEWER_FPS);
+  const pad = (n,w=2)=>String(n).padStart(w,'0');
+  tc.textContent = `${pad(h)}:${pad(m)}:${pad(s)}:${pad(f)}`;
+}
+
+// ---------- Track header state visualization ----------
+function renderTrackHeaders(){
+  ['v1','a1','t1'].forEach(tid=>{
+    const tr = state.tracks[tid]; if(!tr) return;
+    const trackEl = document.querySelector(`.track[data-track="${tid}"]`);
+    if(!trackEl) return;
+    trackEl.classList.toggle('muted', !!tr.muted);
+    trackEl.classList.toggle('locked', !!tr.locked);
+    trackEl.classList.toggle('hidden-track', tr.visible===false);
+  });
+}
+
+// ---------- Master render ----------
+function render(){
+  renderClips();
+  renderMediaList();
+  renderMaskTypes(); renderAppliedMasks();
+  renderTransitionsList(); renderLUTs(); renderEffects(); renderTitles();
+  renderInspector();
+  renderViewer();
+  renderMaskOverlays(); renderTextOverlays(); renderSelectionBrackets();
+  renderTimecodeRuler(); renderPlayhead(); renderTimecode();
+  renderTrackHeaders();
+  if(window.lucide) lucide.createIcons();
+}
+
+// During playback only update the cheap things (not the whole UI tree)
+window.onPlaybackTick = function(){
+  renderViewer();
+  renderPlayhead();
+  renderTimecode();
+  renderTextOverlays();
+  renderSelectionBrackets();
+};
+
+window.render               = render;
+window.renderViewer         = renderViewer;
+window.renderPlayhead       = renderPlayhead;
+window.renderTimecode       = renderTimecode;
+window.renderTimecodeRuler  = renderTimecodeRuler;
+window.renderClips          = renderClips;
+window.renderMaskOverlays   = renderMaskOverlays;
+window.renderTextOverlays   = renderTextOverlays;
+window.renderSelectionBrackets = renderSelectionBrackets;
+window.renderTrackHeaders   = renderTrackHeaders;
+window.renderInspector      = renderInspector;
+window._invalidateWaveform  = _invalidateWaveform;
+window.flash                = flash;

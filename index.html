@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EditorX — Browser Video Editor</title>
+  <meta name="description" content="EditorX — a fast, professional in-browser video editor with masks, LUTs, effects, and Google Fonts titling.">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="style.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+
+  <!-- ===================== STARTER / AUTH SCREEN ===================== -->
+  <div id="starter" class="hidden">
+    <div class="starter-grid">
+      <!-- Left: hero / brand -->
+      <aside class="starter-hero">
+        <div class="starter-brand">
+          <span class="starter-mark"><i data-lucide="hexagon"></i></span>
+          <span class="starter-wordmark">EditorX</span>
+        </div>
+        <h1 class="starter-headline">Cut, mask, and color in&nbsp;the&nbsp;browser.</h1>
+        <p class="starter-sub">A precise, tactile video editor designed for focus. Bring your media, scrub a timeline, mask, color, type — export when you're done.</p>
+        <ul class="starter-features">
+          <li><i data-lucide="film" width="14" height="14"></i> Real video playback in the canvas</li>
+          <li><i data-lucide="palette" width="14" height="14"></i> 17 LUTs · 13 effects · 10 transitions</li>
+          <li><i data-lucide="type" width="14" height="14"></i> ~250 Google Fonts for titles</li>
+          <li><i data-lucide="layers" width="14" height="14"></i> Masks with animated keyframes</li>
+          <li><i data-lucide="save" width="14" height="14"></i> Autosaved locally · pick up where you left off</li>
+        </ul>
+        <div class="starter-fineprint">
+          Frontend-only demo — no real authentication or server-side storage. Your project autosaves to this browser only.
+        </div>
+      </aside>
+
+      <!-- Right: auth card -->
+      <main class="starter-card">
+        <div class="starter-tabs">
+          <button class="starter-tab active" data-mode="signup">Sign up</button>
+          <button class="starter-tab" data-mode="signin">Sign in</button>
+        </div>
+        <form id="starter-form" class="starter-form" autocomplete="off">
+          <div class="starter-field" data-field="name">
+            <label>Name</label>
+            <input id="sf-name" type="text" placeholder="Your name" autocomplete="name">
+          </div>
+          <div class="starter-field">
+            <label>Email</label>
+            <input id="sf-email" type="email" placeholder="you@example.com" autocomplete="email" required>
+          </div>
+          <div class="starter-field">
+            <label>Password</label>
+            <input id="sf-pass" type="password" placeholder="At least 6 characters" autocomplete="new-password" required>
+          </div>
+          <button type="submit" id="starter-submit" class="starter-submit">
+            Create account <i data-lucide="arrow-right" width="14" height="14"></i>
+          </button>
+          <button type="button" id="starter-skip" class="starter-skip">
+            Continue without an account
+          </button>
+          <div id="starter-msg" class="starter-msg"></div>
+        </form>
+        <div class="starter-foot">
+          <span><i data-lucide="lock" width="11" height="11"></i> Stored locally in this browser only</span>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <div id="app">
+
+    <!-- TOP BAR -->
+    <header id="topbar">
+      <div class="topbar-left">
+        <div class="logo">
+          <span class="logo-mark"><i data-lucide="hexagon"></i></span>
+          <span class="logo-text">EditorX</span>
+        </div>
+        <nav class="workspace-tabs" aria-label="Workspaces">
+          <button class="ws-tab active" data-tab="edit"><i data-lucide="edit-3"></i><span>Edit</span></button>
+          <button class="ws-tab" data-tab="color"><i data-lucide="palette"></i><span>Color</span></button>
+          <button class="ws-tab" data-tab="effects"><i data-lucide="sparkles"></i><span>Effects</span></button>
+          <button class="ws-tab" data-tab="export"><i data-lucide="upload"></i><span>Export</span></button>
+        </nav>
+      </div>
+      <div class="topbar-center">
+        <div class="transport">
+          <button class="transport-btn" id="btn-home"    title="Jump to start (Home)"><i data-lucide="skip-back"></i></button>
+          <button class="transport-btn" id="btn-rewind"  title="Rewind (J)"><i data-lucide="rewind"></i></button>
+          <button class="transport-btn play-btn" id="btn-play" title="Play / pause (Space)"><i data-lucide="play"></i></button>
+          <button class="transport-btn" id="btn-stop"    title="Stop (K)"><i data-lucide="square"></i></button>
+          <button class="transport-btn" id="btn-forward" title="Forward (L)"><i data-lucide="fast-forward"></i></button>
+          <button class="transport-btn" id="btn-end"     title="Jump to end (End)"><i data-lucide="skip-forward"></i></button>
+          <span class="tool-sep"></span>
+          <button class="transport-btn" id="btn-undo" title="Undo (⌘Z)"><i data-lucide="undo-2"></i></button>
+          <button class="transport-btn" id="btn-redo" title="Redo (⌘⇧Z)"><i data-lucide="redo-2"></i></button>
+        </div>
+        <div class="timecode" id="timecode">00:00:00:00</div>
+      </div>
+      <div class="topbar-right">
+        <button class="ghost-btn" id="btn-new"   title="New project (clears autosave)"><i data-lucide="file-plus"></i><span>New</span></button>
+        <button class="ghost-btn" id="btn-open"  title="Open .editorx.json project"><i data-lucide="folder-open"></i><span>Open</span></button>
+        <button class="ghost-btn" id="btn-save"  title="Save project (.editorx.json)"><i data-lucide="save"></i><span>Save</span></button>
+        <button class="export-btn" id="btn-export"><i data-lucide="upload"></i><span>EXPORT</span></button>
+      </div>
+    </header>
+
+    <!-- TOOLBAR -->
+    <div id="toolbar">
+      <div class="tool-group">
+        <button class="tool-btn active" data-tool="select" title="Select (V)"><i data-lucide="mouse-pointer-2"></i></button>
+        <button class="tool-btn" data-tool="blade" title="Blade (B)"><i data-lucide="scissors"></i></button>
+        <button class="tool-btn" data-tool="text"  title="Text (T)"><i data-lucide="type"></i></button>
+        <button class="tool-btn" data-tool="hand"  title="Hand (H)"><i data-lucide="hand"></i></button>
+        <span class="tool-sep"></span>
+        <button class="tool-btn toggle active" id="btn-snap" title="Snap to grid (N)"><i data-lucide="magnet"></i></button>
+      </div>
+      <div class="toolbar-meta">
+        <span class="meta-pill"><span class="dot dot-ok"></span><span>1920×1080 · 30fps · Rec.709</span></span>
+      </div>
+    </div>
+
+    <!-- MAIN LAYOUT -->
+    <div id="main-layout">
+
+      <!-- LEFT SIDEBAR -->
+      <aside id="sidebar-left">
+        <div class="sidebar-tabs">
+          <button class="stab active" data-panel="media"      title="Media library"><i data-lucide="folder"></i></button>
+          <button class="stab"        data-panel="transitions" title="Transitions"><i data-lucide="blend"></i></button>
+          <button class="stab"        data-panel="luts"        title="LUTs"><i data-lucide="palette"></i></button>
+          <button class="stab"        data-panel="effects"     title="Effects"><i data-lucide="sparkles"></i></button>
+          <button class="stab"        data-panel="titles"      title="Titles"><i data-lucide="type"></i></button>
+          <button class="stab"        data-panel="masks"       title="Masks"><i data-lucide="layers"></i></button>
+        </div>
+        <div class="sidebar-content">
+          <!-- MEDIA -->
+          <div class="panel active" id="panel-media">
+            <div class="panel-header">
+              <span class="panel-title">Library</span>
+              <button class="panel-action" id="btn-add-media"><i data-lucide="plus" width="11" height="11"></i> Add</button>
+            </div>
+            <div class="empty-state" id="media-empty">
+              <div class="empty-icon"><i data-lucide="folder-plus"></i></div>
+              <div class="empty-title">No media yet</div>
+              <div class="empty-sub">Import video, audio, or images</div>
+              <button class="primary-btn" id="btn-add-media-empty" style="margin-top:14px"><i data-lucide="plus" width="12" height="12"></i> Import media</button>
+            </div>
+            <div id="media-list" class="list-stack"></div>
+          </div>
+          <!-- TRANSITIONS -->
+          <div class="panel" id="panel-transitions">
+            <div class="panel-header"><span class="panel-title">Transitions</span></div>
+            <div id="transitions-grid" class="list-stack"></div>
+          </div>
+          <!-- LUTS -->
+          <div class="panel" id="panel-luts">
+            <div class="panel-header"><span class="panel-title">Color LUTs</span></div>
+            <div id="luts-grid" class="list-stack"></div>
+          </div>
+          <!-- EFFECTS -->
+          <div class="panel" id="panel-effects">
+            <div class="panel-header"><span class="panel-title">Effects</span></div>
+            <div id="effects-grid" class="list-stack"></div>
+          </div>
+          <!-- TITLES -->
+          <div class="panel" id="panel-titles">
+            <div class="panel-header"><span class="panel-title">Titles</span></div>
+            <div id="titles-grid" class="list-stack"></div>
+          </div>
+          <!-- MASKS -->
+          <div class="panel" id="panel-masks">
+            <div class="panel-header"><span class="panel-title">Mask Types</span></div>
+            <div id="mask-types-list"></div>
+            <div class="panel-header" style="margin-top:18px"><span class="panel-title">Applied Masks</span></div>
+            <div id="applied-masks-list"></div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- CENTER -->
+      <main id="center">
+        <!-- VIEWER -->
+        <div id="viewer-wrapper">
+          <div id="viewer-frame">
+            <canvas id="viewer-canvas" width="1920" height="1080"></canvas>
+            <div id="mask-overlay"></div>
+            <div id="text-overlay"></div>
+            <div id="selection-brackets"></div>
+            <div id="viewer-safe-zones"  class="viewer-overlay hidden"></div>
+            <div id="viewer-crosshair"   class="viewer-overlay hidden"></div>
+            <div id="viewer-grid"        class="viewer-overlay hidden"></div>
+          </div>
+          <div id="viewer-info">
+            <span class="vi-pill"><i data-lucide="monitor" width="11" height="11"></i> 1920×1080</span>
+            <span class="vi-pill"><i data-lucide="video" width="11" height="11"></i> 30 fps</span>
+            <span class="vi-pill"><i data-lucide="circle" width="11" height="11"></i> Rec.709</span>
+          </div>
+          <div class="viewer-toggles">
+            <label><input type="checkbox" id="toggle-safe">  Safe zones</label>
+            <label><input type="checkbox" id="toggle-cross"> Crosshair</label>
+            <label><input type="checkbox" id="toggle-grid">  Grid</label>
+          </div>
+        </div>
+
+        <!-- TIMELINE -->
+        <div id="timeline-wrapper">
+          <div id="timeline-ruler"><canvas id="ruler-canvas"></canvas></div>
+          <div id="timeline-tracks">
+            <div class="track" data-track="v1" data-type="video">
+              <div class="track-header">
+                <span class="track-icon"><i data-lucide="video" width="12" height="12"></i></span>
+                <span class="track-name">V1</span>
+                <button class="track-ctrl" data-action="visibility" title="Visibility"><i data-lucide="eye" width="11" height="11"></i></button>
+                <button class="track-ctrl" data-action="lock" title="Lock"><i data-lucide="unlock" width="11" height="11"></i></button>
+              </div>
+              <div class="track-lane" id="track-v1"></div>
+            </div>
+            <div class="track" data-track="a1" data-type="audio">
+              <div class="track-header">
+                <span class="track-icon"><i data-lucide="volume-2" width="12" height="12"></i></span>
+                <span class="track-name">A1</span>
+                <button class="track-ctrl" data-action="mute" title="Mute"><i data-lucide="volume-2" width="11" height="11"></i></button>
+                <button class="track-ctrl" data-action="lock" title="Lock"><i data-lucide="unlock" width="11" height="11"></i></button>
+              </div>
+              <div class="track-lane" id="track-a1"></div>
+            </div>
+            <div class="track" data-track="t1" data-type="text">
+              <div class="track-header">
+                <span class="track-icon"><i data-lucide="type" width="12" height="12"></i></span>
+                <span class="track-name">T1</span>
+                <button class="track-ctrl" data-action="visibility" title="Visibility"><i data-lucide="eye" width="11" height="11"></i></button>
+              </div>
+              <div class="track-lane" id="track-t1"></div>
+            </div>
+          </div>
+          <div id="playhead"></div>
+          <!-- Blade cut indicator: a thin vertical line that tracks the mouse when the Blade tool is active -->
+          <div id="cut-indicator"></div>
+        </div>
+      </main>
+
+      <!-- RIGHT INSPECTOR -->
+      <aside id="sidebar-right">
+        <div id="inspector">
+          <div class="inspector-header" id="inspector-title">Inspector</div>
+          <div id="inspector-content"></div>
+        </div>
+      </aside>
+
+    </div>
+  </div>
+
+  <!-- MASK PROPERTIES MODAL -->
+  <div id="mask-props-modal" class="modal hidden">
+    <div class="modal-overlay"></div>
+    <div class="modal-content mask-props-content">
+      <div class="modal-header">
+        <span class="modal-icon"><i data-lucide="layers"></i></span>
+        <span class="modal-title" id="mask-props-title">Mask Properties</span>
+        <button class="modal-close" id="btn-close-mask-props"><i data-lucide="x"></i></button>
+      </div>
+      <div id="mask-props-body" class="modal-body"></div>
+      <div class="modal-footer">
+        <button class="btn-danger" id="btn-delete-mask"><i data-lucide="trash-2"></i> Delete Mask</button>
+        <div style="flex:1"></div>
+        <button class="btn-secondary" id="btn-add-keyframe">+ Add Keyframe</button>
+        <button class="btn-primary" id="btn-close-mask-done">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="data.js"></script>
+  <script src="engine.js"></script>
+  <script src="ui.js"></script>
+  <script src="modals.js"></script>
+</body>
+</html>
