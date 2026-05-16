@@ -5,7 +5,7 @@ const MASK_TYPES = [
   {id:'rectangle',name:'Rectangle',icon:'square',color:'#3478f6',desc:'Rect with optional rounded corners'},
   {id:'ellipse',  name:'Ellipse',  icon:'circle',           color:'#af52de',desc:'Circular / oval mask'},
   {id:'bezier',   name:'Bezier',   icon:'pen-tool',         color:'#ff9500',desc:'Custom curved path'},
-  {id:'gradient', name:'Gradient', icon:'circle-half-2',    color:'#30d158',desc:'Fade visible to invisible'},
+  {id:'gradient', name:'Gradient', icon:'contrast',         color:'#30d158',desc:'Fade visible to invisible'},
   {id:'feathered',name:'Feathered',icon:'cloud',            color:'#64d2ff',desc:'Soft-edged mask'},
   {id:'animated', name:'Animated', icon:'play-circle',      color:'#ff375f',desc:'Animates over time'},
   {id:'inverted', name:'Inverted', icon:'copy-minus',       color:'#ffd60a',desc:'Hide inside / show outside'}

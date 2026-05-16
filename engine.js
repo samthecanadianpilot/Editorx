@@ -215,25 +215,29 @@ function releaseMediaFor(clipId){
   if(el){ try{ el.pause(); el.src=''; el.remove(); }catch{} delete _mediaPool[clipId]; }
 }
 
-// Sync all media elements to the current playhead
-const SEEK_TOLERANCE = 0.08; // s — only re-seek if drift exceeds this
+// Sync all media elements to the current playhead.
+// Tolerance is intentionally loose during playback — re-seeking every RAF
+// caused visible stutter as the browser cancelled/re-buffered each request.
+// We only force a seek if the drift is large enough to be a real desync.
+const SEEK_TOL_PAUSED  = 0.05;  // 50ms — tight while scrubbing
+const SEEK_TOL_PLAYING = 0.50;  // 500ms — only catch real desync during playback
 function syncMediaToPlayhead(){
   const tS = state.playhead / 1000;
+  const tol = state.isPlaying ? SEEK_TOL_PLAYING : SEEK_TOL_PAUSED;
   for(const c of state.clips){
     if(!c.sourceUrl) continue;
     const startS = clipStartS(c), endS = clipEndS(c);
     const el = getMediaElForClip(c);
     if(!el) continue;
-    const trackMuted = state.tracks[c.track] && state.tracks[c.track].muted;
+    const trackMuted   = state.tracks[c.track] && state.tracks[c.track].muted;
     const trackVisible = state.tracks[c.track] && state.tracks[c.track].visible;
     const inRange = tS >= startS && tS <= endS && trackVisible !== false;
     if(inRange){
-      const srcT = (c.inS||0) + (tS - startS);
-      // Volume: clip × track × global mute flag
+      const srcT = (c.inS||0) + (tS - startS) * (c.speed || 1);
       el.muted = !!(c.muted || trackMuted);
       el.volume = Math.min(1, Math.max(0, c.volume ?? 1));
       el.playbackRate = c.speed || 1;
-      if(Math.abs(el.currentTime - srcT) > SEEK_TOLERANCE){
+      if(Math.abs(el.currentTime - srcT) > tol){
         try{ el.currentTime = srcT; }catch{}
       }
       if(state.isPlaying){
