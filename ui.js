@@ -286,16 +286,65 @@ function renderTitles(){
   const list = document.getElementById('titles-grid'); if(!list) return;
   list.innerHTML = '';
   TITLES.forEach(t=>{
-    const card = document.createElement('div'); card.className = 'list-card';
-    card.innerHTML = `<div class="lc-icon"><i data-lucide="${t.icon}" width="14" height="14"></i></div>
-      <div class="lc-body"><div class="lc-name">${t.name}</div>
-      <div class="lc-meta">"${escapeHtml(t.defaultText)}" · ${t.duration}s · ${t.font}</div></div>
-      <button class="lc-action" title="Add at playhead"><i data-lucide="plus" width="12" height="12"></i></button>`;
+    const card = document.createElement('div'); card.className = 'preset-card';
+    card.draggable = true;
+    card.dataset.titleId = t.id;
+    // Static visual preview — renders the title text in its actual font/weight/color
+    card.innerHTML = `
+      <div class="preset-preview title-preview">
+        <span style="font-family:'${t.font}',serif;font-weight:${t.weight};color:${t.color};
+          font-size:${Math.min(15, 11 * (t.scale||1))}px;
+          letter-spacing:-.3px;line-height:1.15;text-align:center;padding:0 6px;
+          text-shadow:0 1px 2px rgba(0,0,0,.6)">${escapeHtml(t.defaultText)}</span>
+      </div>
+      <div class="preset-name">${t.name}</div>`;
     card.addEventListener('click', ()=>{
       addTextClipAt(state.playhead, t);
-      if(window.loadFont) window.loadFont(t.font).then(()=>{ renderViewer(); });
+      if(window.loadFont) window.loadFont(t.font).then(()=>renderViewer());
       pushHistory(); render();
     });
+    card.addEventListener('dragstart', e=>{
+      e.dataTransfer.effectAllowed = 'copy';
+      e.dataTransfer.setData('application/x-editorx-title', t.id);
+      card.classList.add('dragging');
+    });
+    card.addEventListener('dragend', ()=>card.classList.remove('dragging'));
+    list.appendChild(card);
+  });
+}
+
+function renderGraphics(){
+  const list = document.getElementById('graphics-grid'); if(!list) return;
+  list.innerHTML = '';
+  if(!window.GRAPHICS) return;
+  GRAPHICS.forEach(g=>{
+    const card = document.createElement('div'); card.className = 'preset-card';
+    card.draggable = true;
+    card.dataset.graphicId = g.id;
+    const radius = g.style === 'pill' ? '999px' : g.style === 'badge' ? '4px' : '8px';
+    const bgStyle = g.bg.startsWith('linear-gradient')
+      ? `background:${g.bg}`
+      : `background:${g.bg}`;
+    // Mini call-out preview — rounded background + icon + text, matches the canvas render
+    card.innerHTML = `
+      <div class="preset-preview graphic-preview">
+        <div class="gp-pill" style="${bgStyle};border-radius:${radius};color:${g.fg}">
+          <i data-lucide="${g.icon}" width="11" height="11" style="color:${g.accent};stroke-width:2.4"></i>
+          <span style="font-family:'${g.font}',serif;font-weight:${g.weight};font-size:9px;letter-spacing:-.1px">${escapeHtml(g.defaultText)}</span>
+        </div>
+      </div>
+      <div class="preset-name">${g.name}</div>`;
+    card.addEventListener('click', ()=>{
+      addGraphicAt(state.playhead, g);
+      if(window.loadFont) window.loadFont(g.font).then(()=>renderViewer());
+      pushHistory(); render();
+    });
+    card.addEventListener('dragstart', e=>{
+      e.dataTransfer.effectAllowed = 'copy';
+      e.dataTransfer.setData('application/x-editorx-graphic', g.id);
+      card.classList.add('dragging');
+    });
+    card.addEventListener('dragend', ()=>card.classList.remove('dragging'));
     list.appendChild(card);
   });
 }
@@ -613,10 +662,12 @@ function renderViewer(){
     }
   }
 
-  // Text overlays for any active text clip
+  // Text overlays for any active text clip (graphics are text clips with
+  // extra styling props — dispatch to drawGraphicClip when graphicStyle is set)
   const activeTexts = activeClipsAt(tS, 'text');
   for(const tc of activeTexts){
-    drawTextClip(ctx, c, tc);
+    if(tc.graphicStyle) drawGraphicClip(ctx, c, tc);
+    else                drawTextClip(ctx, c, tc);
   }
 
   // (Mask shapes are NOT painted on the canvas — the DOM overlay in
@@ -682,6 +733,109 @@ function drawVideoClip(ctx, canvas, clip){
       ctx.restore();
     }
   }
+
+  ctx.restore();
+}
+
+// Draw a graphic call-out clip (Subscribe / Discord / IG handle / etc.) —
+// rounded background + Lucide-style icon + text + soft shadow.
+function drawGraphicClip(ctx, canvas, clip){
+  ctx.save();
+  ctx.globalAlpha = clip.opacity ?? 1;
+
+  // Position: lower-third by default, transform-able
+  const cx = canvas.width/2  + (clip.posX || 0);
+  const cy = canvas.height - 200 + (clip.posY || 0);
+  ctx.translate(cx, cy);
+  ctx.rotate(((clip.rotation || 0) * Math.PI) / 180);
+  const scale = clip.scale ?? 1;
+  ctx.scale(scale, scale);
+
+  // Layout metrics
+  const text = clip.text || clip.name || '';
+  const family = clip.font || 'Fraunces';
+  const weight = clip.fontWeight || 700;
+  const fontSize = 56;
+  ctx.font = `${weight} ${fontSize}px "${family}", serif`;
+  ctx.textBaseline = 'middle';
+
+  const textW = ctx.measureText(text).width;
+  const iconSize = clip.graphicStyle === 'badge' ? 0 : 44;
+  const padX = clip.graphicStyle === 'pill' ? 40 : clip.graphicStyle === 'badge' ? 28 : 36;
+  const padY = clip.graphicStyle === 'pill' ? 22 : clip.graphicStyle === 'badge' ? 18 : 28;
+  const gap = iconSize ? 18 : 0;
+  const totalW = textW + iconSize + gap + padX * 2;
+  const totalH = fontSize + padY * 2;
+  const radius =
+    clip.graphicStyle === 'pill' ? totalH/2 :
+    clip.graphicStyle === 'badge' ? 6 : 18;
+
+  // Drop shadow for depth
+  ctx.save();
+  ctx.shadowColor   = 'rgba(0,0,0,0.45)';
+  ctx.shadowBlur    = 32;
+  ctx.shadowOffsetY = 12;
+
+  // Background — supports linear-gradient strings, rgba, hex
+  const bg = clip.graphicBg || '#0A0A0F';
+  ctx.beginPath();
+  if(ctx.roundRect) ctx.roundRect(-totalW/2, -totalH/2, totalW, totalH, radius);
+  else ctx.rect(-totalW/2, -totalH/2, totalW, totalH);
+
+  if(typeof bg === 'string' && bg.startsWith('linear-gradient')){
+    // Parse "linear-gradient(135deg,#aaa,#bbb,…)" — best effort
+    const stops = bg.match(/#[0-9a-f]{3,8}|rgba?\([^)]+\)/gi) || ['#000'];
+    const angleMatch = bg.match(/(-?\d+)deg/);
+    const rad = ((angleMatch ? parseFloat(angleMatch[1]) : 135) - 90) * Math.PI/180;
+    const dx = Math.cos(rad), dy = Math.sin(rad);
+    const g = ctx.createLinearGradient(
+      -totalW/2*dx, -totalH/2*dy,
+       totalW/2*dx,  totalH/2*dy);
+    stops.forEach((s,i)=> g.addColorStop(i/(stops.length-1||1), s));
+    ctx.fillStyle = g;
+  } else {
+    ctx.fillStyle = bg;
+  }
+  ctx.fill();
+  ctx.restore();
+
+  // Optional glassmorphic highlight stroke
+  if(clip.graphicGlass){
+    ctx.save();
+    ctx.beginPath();
+    if(ctx.roundRect) ctx.roundRect(-totalW/2, -totalH/2, totalW, totalH, radius);
+    else ctx.rect(-totalW/2, -totalH/2, totalW, totalH);
+    ctx.strokeStyle = 'rgba(255,255,255,0.20)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Icon (Path2D from data.js's GRAPHIC_ICONS)
+  if(iconSize && clip.graphicIcon && window.GRAPHIC_ICONS){
+    const def = window.GRAPHIC_ICONS[clip.graphicIcon];
+    if(def && def.d){
+      ctx.save();
+      ctx.translate(-totalW/2 + padX, -iconSize/2);
+      ctx.scale(iconSize/24, iconSize/24);
+      ctx.strokeStyle = clip.graphicAccent || '#fff';
+      ctx.fillStyle   = clip.graphicAccent || '#fff';
+      ctx.lineWidth   = 2.2;
+      ctx.lineCap     = 'round';
+      ctx.lineJoin    = 'round';
+      try{
+        const p = new Path2D(def.d);
+        if(def.kind === 'fill') ctx.fill(p);
+        else                    ctx.stroke(p);
+      }catch{/* unsupported path */}
+      ctx.restore();
+    }
+  }
+
+  // Text
+  ctx.fillStyle = clip.color || '#fff';
+  ctx.textAlign = 'left';
+  ctx.fillText(text, -totalW/2 + padX + iconSize + gap, 0);
 
   ctx.restore();
 }
@@ -995,7 +1149,7 @@ function render(){
   renderClips();
   renderMediaList();
   renderMaskTypes(); renderAppliedMasks();
-  renderTransitionsList(); renderLUTs(); renderEffects(); renderTitles();
+  renderTransitionsList(); renderLUTs(); renderEffects(); renderTitles(); renderGraphics();
   renderInspector();
   renderViewer();
   renderMaskOverlays(); renderTextOverlays(); renderSelectionBrackets();

@@ -193,6 +193,41 @@ function addTextClipAt(playheadMs, preset){
   return clip;
 }
 // Append-on-click — places after the rightmost edge of the appropriate track.
+// Add a graphic call-out clip from a preset (Subscribe / Discord / IG handle / etc.).
+// Internally a text clip with graphicStyle/graphicBg/graphicIcon properties so
+// the canvas renderer composites the rounded background + icon + text.
+function addGraphicAt(playheadMs, preset){
+  let nx = Math.round(TIMELINE_OFFSET_X + playheadMs/PLAYHEAD_MS_PER_PX);
+  const w = Math.max(80, Math.round((preset.duration||3)*TIMELINE_PX_PER_S));
+  const onT1 = state.clips.filter(c => c.track==='t1').sort((a,b)=>a.x-b.x);
+  let safe = false, guard = 0;
+  while(!safe && guard++ < 100){
+    safe = true;
+    for(const o of onT1){
+      if(nx < o.x + o.w && nx + w > o.x){ nx = o.x + o.w + 4; safe = false; break; }
+    }
+  }
+  const clip = {
+    id: genId(), type:'text', name: preset.name, track:'t1',
+    x: nx, w,
+    color: preset.fg,
+    text: preset.defaultText,
+    font: preset.font || 'Fraunces',
+    fontWeight: preset.weight || 700,
+    opacity: 1, scale: 1, posX:0, posY:0, rotation:0,
+    // Graphic-specific:
+    graphicStyle: preset.style,   // 'pill' | 'card' | 'badge'
+    graphicBg:    preset.bg,
+    graphicIcon:  preset.icon,
+    graphicAccent:preset.accent,
+    graphicGlass: !!preset.glass,
+    presetId:     preset.id
+  };
+  state.clips.push(clip);
+  state.selectedClipId = clip.id;
+  return clip;
+}
+
 function addClipFromMedia(media){
   const trackId = media.type==='audio' ? 'a1' : 'v1';
   const onTrack = state.clips.filter(c=>c.track===trackId);
@@ -673,6 +708,7 @@ window.clearTransition=clearTransition; window.setTransition=setTransition;
 window.setLut=setLut; window.clearLut=clearLut;
 window.setEffect=setEffect; window.clearEffect=clearEffect;
 window.addTextClipAt=addTextClipAt; window.addClipFromMedia=addClipFromMedia; window.addClipFromMediaAt=addClipFromMediaAt;
+window.addGraphicAt=addGraphicAt;
 window.clipUnderTimelineX=clipUnderTimelineX;
 window.detachAudio=detachAudio;
 window.activeClipsAt=activeClipsAt; window.clipStartS=clipStartS; window.clipEndS=clipEndS; window.timelineDurationS=timelineDurationS;

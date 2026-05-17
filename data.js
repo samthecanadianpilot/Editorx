@@ -112,9 +112,52 @@ const FONTS = [
 // ----------- Backwards-compat shims (unused stacks/presets removed) -----------
 // Tool-builder removed entirely. No PRESET_TOOLS export.
 
-window.MASK_TYPES = MASK_TYPES;
-window.EFFECTS    = EFFECTS;
-window.LUTS       = LUTS;
-window.TRANSITIONS= TRANSITIONS;
-window.TITLES     = TITLES;
-window.FONTS      = FONTS;
+// ----------- GRAPHICS -----------
+// Pre-designed call-out overlays — the polished "Subscribe / Discord /
+// Sub to my YT" graphics that feel native to creator videos. Each preset
+// is rendered on the canvas as: rounded background + icon + text, with a
+// soft shadow for depth. Styles: 'pill' | 'card' | 'badge'.
+const GRAPHICS = [
+  {id:'g-yt-sub',     name:'Subscribe',          defaultText:'Subscribe',         icon:'youtube',  accent:'#FF0033', bg:'#FFFFFF', fg:'#0A0A0F', style:'pill',  font:'Fraunces', weight:700, duration:3.0},
+  {id:'g-like-sub',   name:'Like & Subscribe',   defaultText:'Like & Subscribe',  icon:'thumbs-up',accent:'#FF0033', bg:'#0A0A0F', fg:'#FFFFFF', style:'pill',  font:'Fraunces', weight:700, duration:3.0},
+  {id:'g-bell',       name:'Hit the Bell',       defaultText:'Hit the bell',      icon:'bell',     accent:'#0084FF', bg:'#FFFFFF', fg:'#0A0A0F', style:'pill',  font:'Fraunces', weight:700, duration:2.5},
+  {id:'g-discord',    name:'Join Discord',       defaultText:'Join my Discord',   icon:'message-circle', accent:'#FFFFFF', bg:'#5865F2', fg:'#FFFFFF', style:'card', font:'Fraunces', weight:700, duration:3.5},
+  {id:'g-ig',         name:'Instagram Handle',   defaultText:'@yourhandle',       icon:'instagram',accent:'#FFFFFF', bg:'linear-gradient(135deg,#FF6E40,#D63384,#7B1FA2)', fg:'#FFFFFF', style:'card', font:'Fraunces', weight:700, duration:3.0},
+  {id:'g-tiktok',     name:'TikTok Handle',      defaultText:'@yourhandle',       icon:'music',    accent:'#FFFFFF', bg:'#0A0A0F', fg:'#FFFFFF', style:'card', font:'Fraunces', weight:700, duration:3.0},
+  {id:'g-x',          name:'X / Twitter Handle', defaultText:'@yourhandle',       icon:'twitter',  accent:'#FFFFFF', bg:'#000000', fg:'#FFFFFF', style:'card', font:'Fraunces', weight:600, duration:3.0},
+  {id:'g-github',     name:'GitHub Handle',      defaultText:'github.com/you',    icon:'github',   accent:'#FFFFFF', bg:'#161B22', fg:'#FFFFFF', style:'card', font:'Fraunces', weight:600, duration:3.0},
+  {id:'g-link-bio',   name:'Link in Bio',        defaultText:'Link in bio',       icon:'link',     accent:'#0084FF', bg:'rgba(255,255,255,0.92)', fg:'#0A0A0F', style:'pill', font:'Fraunces', weight:700, duration:2.5, glass:true},
+  {id:'g-lower-3rd',  name:'Lower Third Name',   defaultText:'Sam Balouch · Pilot', icon:'user', accent:'#0084FF', bg:'rgba(10,10,15,0.7)', fg:'#FFFFFF', style:'card', font:'Fraunces', weight:700, duration:4.0, glass:true},
+  {id:'g-tag',        name:'Hashtag Pill',       defaultText:'#trending',         icon:'hash',     accent:'#FFFFFF', bg:'#0084FF', fg:'#FFFFFF', style:'pill', font:'JetBrains Mono', weight:700, duration:3.0},
+  {id:'g-ep',         name:'Episode Badge',      defaultText:'EP 01',             icon:'film',     accent:'#FFD60A', bg:'#0A0A0F', fg:'#FFD60A', style:'badge',font:'JetBrains Mono', weight:800, duration:3.0},
+  {id:'g-watch-next', name:'Watch Next',         defaultText:'Watch next →',      icon:'play-circle', accent:'#FFFFFF', bg:'rgba(0,132,255,0.92)', fg:'#FFFFFF', style:'pill', font:'Fraunces', weight:700, duration:3.0},
+  {id:'g-heart',      name:'Drop a Heart',       defaultText:'Tap the heart',     icon:'heart',    accent:'#FF375F', bg:'#FFFFFF', fg:'#0A0A0F', style:'pill', font:'Fraunces', weight:700, duration:2.5}
+];
+
+// 24x24 SVG path data for icons we draw on the canvas via Path2D.
+// Stroked outlines (Lucide-style) + a few filled brand shapes.
+const GRAPHIC_ICONS = {
+  bell:           {kind:'stroke', d:'M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0'},
+  'thumbs-up':    {kind:'stroke', d:'M7 10v12M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H7'},
+  heart:          {kind:'stroke', d:'M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7Z'},
+  youtube:        {kind:'stroke', d:'M2.5 17a24 24 0 0 1 0-10 2 2 0 0 1 1.4-1.4 49.5 49.5 0 0 1 16.2 0 2 2 0 0 1 1.4 1.4 24 24 0 0 1 0 10 2 2 0 0 1-1.4 1.4 49.5 49.5 0 0 1-16.2 0A2 2 0 0 1 2.5 17M10 15l5-3-5-3z'},
+  instagram:      {kind:'stroke', d:'M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37M17.5 6.5h.01M3 7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4v10a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4z'},
+  music:          {kind:'stroke', d:'M9 18V5l12-2v13M6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6M18 19a3 3 0 1 0 0-6 3 3 0 0 0 0 6'},
+  twitter:        {kind:'stroke', d:'M22 4s-.7 2.1-2 3.4c1.6 10-9.4 17.3-18 11.6 2.2.1 4.4-.6 6-2C3 15.5.5 9.6 3 5c2.2 2.6 5.6 4.1 9 4-.9-4.2 4-6.6 7-3.8 1.1 0 3-1.2 3-1.2z'},
+  github:         {kind:'stroke', d:'M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.4 5.4 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.4.5-.7 1.1-.8 1.7-.1.6-.1 1.2 0 1.8v4M9 18c-4.5 2-5-2-7-2'},
+  link:           {kind:'stroke', d:'M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7.1l-1.7 1.7M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7.1l1.7-1.7'},
+  user:           {kind:'stroke', d:'M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z'},
+  hash:           {kind:'stroke', d:'M4 9h16M4 15h16M10 3 8 21M16 3l-2 18'},
+  film:           {kind:'stroke', d:'M2 3h20v18H2z M7 3v18 M17 3v18 M2 12h20 M2 7.5h5 M17 7.5h5 M2 16.5h5 M17 16.5h5'},
+  'message-circle':{kind:'stroke', d:'M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z'},
+  'play-circle':  {kind:'stroke', d:'M12 22c5.5 0 10-4.5 10-10S17.5 2 12 2 2 6.5 2 12s4.5 10 10 10z M10 8l6 4-6 4z'}
+};
+
+window.MASK_TYPES   = MASK_TYPES;
+window.EFFECTS      = EFFECTS;
+window.LUTS         = LUTS;
+window.TRANSITIONS  = TRANSITIONS;
+window.TITLES       = TITLES;
+window.FONTS        = FONTS;
+window.GRAPHICS     = GRAPHICS;
+window.GRAPHIC_ICONS= GRAPHIC_ICONS;

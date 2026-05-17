@@ -63,8 +63,9 @@
   /* ---------- Motion ---------- */
   --t-fast:   .12s cubic-bezier(0.4, 0, 0.2, 1);
   --t-base:   .15s cubic-bezier(0.4, 0, 0.2, 1);
-  --t-slow:   .20s cubic-bezier(0.4, 0, 0.2, 1);
+  --t-slow:   .22s cubic-bezier(0.4, 0, 0.2, 1);
   --t-press:  .08s ease-out;
+  --t-spring: .35s cubic-bezier(0.34, 1.56, 0.64, 1);   /* Apple-style overshoot for cards */
 
   /* ---------- Custom cursors ---------- */
   --cursor-blade:
@@ -566,7 +567,8 @@ body.tool-blade #cut-indicator.visible{display:block}
   position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;
   animation:fadeIn var(--t-base)}
 .modal.hidden{display:none}
-.modal-overlay{position:absolute;inset:0;background:rgba(0,0,0,0.45);backdrop-filter:blur(12px)}
+.modal-overlay{position:absolute;inset:0;background:rgba(0,0,0,0.5);
+  backdrop-filter:blur(20px) saturate(140%);-webkit-backdrop-filter:blur(20px) saturate(140%)}
 .modal-content{
   position:relative;z-index:1;background:var(--bg-2);border:0.5px solid var(--sep);
   border-radius:var(--r-4);overflow:hidden;display:flex;flex-direction:column;
@@ -802,8 +804,9 @@ body.tool-blade #cut-indicator.visible{display:block}
   display:flex;flex-direction:column;gap:0;text-align:left;cursor:pointer;
   background:transparent;border:1px solid transparent;border-radius:var(--r-3);
   padding:0;overflow:hidden;position:relative;
-  transition:transform var(--t-base), background var(--t-base), border-color var(--t-base)}
-.dash-card:hover{background:var(--surface-1);border-color:var(--sep);transform:translateY(-2px)}
+  transition:transform var(--t-spring), background var(--t-base), border-color var(--t-base), box-shadow var(--t-base)}
+.dash-card:hover{background:var(--surface-1);border-color:var(--sep);transform:translateY(-3px);
+  box-shadow:0 12px 32px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.04)}
 .dash-thumb{
   width:100%;aspect-ratio:16/9;background:#000;border-radius:var(--r-3);overflow:hidden;
   position:relative;display:flex;align-items:center;justify-content:center}
@@ -875,6 +878,42 @@ body.tool-blade #cut-indicator.visible{display:block}
 .sg-line.sg-h{left:0;right:0;height:1px}
 
 /* ===========================================================================
+   PRESET CARDS — Resolve-style two-column grid for Titles + Graphics
+   Each card has a visual preview + a tight name label below.
+   =========================================================================== */
+.preset-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:2px 0}
+.preset-card{
+  display:flex;flex-direction:column;gap:5px;cursor:pointer;
+  background:transparent;border:1px solid transparent;border-radius:var(--r-2);
+  padding:5px;text-align:center;
+  transition:background var(--t-fast),border-color var(--t-fast),transform var(--t-press)}
+.preset-card:hover{background:rgba(255,255,255,0.04);border-color:var(--sep);transform:translateY(-1px)}
+.preset-card.dragging{opacity:.5}
+.preset-preview{
+  position:relative;width:100%;aspect-ratio:16/9;border-radius:var(--r-1);overflow:hidden;
+  background:#000;display:flex;align-items:center;justify-content:center;
+  border:0.5px solid var(--sep)}
+.preset-name{font-size:10.5px;color:var(--text-2);font-weight:500;line-height:1.2;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 2px}
+.preset-card:hover .preset-name{color:var(--text-1)}
+
+/* TITLE preview — black canvas-ish background with the actual title text rendered */
+.title-preview{
+  background:radial-gradient(ellipse at center, #1a1a22 0%, #000 100%)}
+
+/* GRAPHIC preview — mini call-out pill/card */
+.graphic-preview{
+  background:linear-gradient(135deg, #1a1a22 0%, #000 100%)}
+.graphic-preview .gp-pill{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:4px 9px;max-width:90%;
+  box-shadow:0 2px 8px rgba(0,0,0,.4)}
+.graphic-preview .gp-pill i{flex-shrink:0}
+.graphic-preview .gp-pill span{
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1}
+
+/* ===========================================================================
    LIBRARY MEDIA THUMBNAILS
    =========================================================================== */
 .lc-thumb{
@@ -906,67 +945,62 @@ body.tool-blade #cut-indicator.visible{display:block}
   mix-blend-mode:var(--lut-blend, multiply)}
 
 /* ===========================================================================
-   TRANSITION mini previews — looping CSS animations per transition id
+   TRANSITION mini previews — STATIC diagrams that depict each transition
+   at rest (so they're always clearly distinct, even when paused). Hover
+   reveals a subtle motion hint. Two reference gradients stand in for the
+   incoming A clip and outgoing B clip.
    =========================================================================== */
-.tr-preview .tp-a, .tr-preview .tp-b{position:absolute;inset:0}
-.tr-preview .tp-a{background:linear-gradient(135deg, #4f7fb8, #c98c5a)}
-.tr-preview .tp-b{background:linear-gradient(135deg, #3a2b56, #b7794f)}
-.list-card:hover .tr-preview .tp-a,
-.list-card:hover .tr-preview .tp-b,
-.list-card.selected .tr-preview .tp-a,
-.list-card.selected .tr-preview .tp-b{animation-play-state:running}
+.tr-preview{
+  background:linear-gradient(135deg,#5985b8 0%, #cf9b67 100%)} /* default = A */
+.tr-preview .tp-a, .tr-preview .tp-b{position:absolute;inset:0;display:none}
+.tr-preview .tp-a{background:linear-gradient(135deg,#5985b8 0%, #cf9b67 100%)}
+.tr-preview .tp-b{background:linear-gradient(135deg,#3a2b56 0%, #b7794f 100%)}
 
-/* Cross dissolve — B fades in over A */
-.tr-fade      .tp-b{animation:tr-fade 1.6s ease-in-out infinite alternate}
-@keyframes tr-fade{0%{opacity:0}100%{opacity:1}}
+/* Cross dissolve — soft blend of A & B */
+.tr-fade      .tp-b{display:block;opacity:.55}
 
-/* Dip to black — A and B both dip out with a black underlay */
-.tr-dipBlack  {background:#000}
-.tr-dipBlack  .tp-a{animation:tr-dipA 1.6s ease-in-out infinite}
-.tr-dipBlack  .tp-b{animation:tr-dipB 1.6s ease-in-out infinite}
-@keyframes tr-dipA{0%{opacity:1}45%{opacity:0}100%{opacity:0}}
-@keyframes tr-dipB{0%{opacity:0}55%{opacity:0}100%{opacity:1}}
+/* Dip to black — A on left, BLACK gap, B on right */
+.tr-dipBlack {background:#000}
+.tr-dipBlack  .tp-a{display:block;right:65%}
+.tr-dipBlack  .tp-b{display:block;left:65%}
 
-/* Dip to white */
-.tr-dipWhite  {background:#fff}
-.tr-dipWhite  .tp-a{animation:tr-dipA 1.6s ease-in-out infinite}
-.tr-dipWhite  .tp-b{animation:tr-dipB 1.6s ease-in-out infinite}
+/* Dip to white — same but white gap */
+.tr-dipWhite {background:#fff}
+.tr-dipWhite  .tp-a{display:block;right:65%}
+.tr-dipWhite  .tp-b{display:block;left:65%}
 
-/* Wipe Left — B wipes in from the left edge */
-.tr-wipeL     .tp-b{animation:tr-wipeL 1.6s ease-in-out infinite alternate;
-  clip-path:inset(0 100% 0 0)}
-@keyframes tr-wipeL{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
+/* Wipe Left — vertical hard edge mid-frame, B on right */
+.tr-wipeL     .tp-b{display:block;clip-path:inset(0 0 0 50%)}
+.tr-wipeL::after{content:'';position:absolute;top:0;bottom:0;left:50%;width:1px;background:rgba(255,255,255,.6);z-index:3}
 
-/* Wipe Right */
-.tr-wipeR     .tp-b{animation:tr-wipeR 1.6s ease-in-out infinite alternate;
-  clip-path:inset(0 0 0 100%)}
-@keyframes tr-wipeR{from{clip-path:inset(0 0 0 100%)}to{clip-path:inset(0 0 0 0)}}
+/* Wipe Right — same but B on left */
+.tr-wipeR     .tp-b{display:block;clip-path:inset(0 50% 0 0)}
+.tr-wipeR::after{content:'';position:absolute;top:0;bottom:0;left:50%;width:1px;background:rgba(255,255,255,.6);z-index:3}
 
-/* Slide Up */
-.tr-slideUp   .tp-b{animation:tr-slideU 1.6s ease-in-out infinite alternate;
-  transform:translateY(100%)}
-@keyframes tr-slideU{from{transform:translateY(100%)}to{transform:translateY(0)}}
+/* Slide Up — B pushing in from the bottom half */
+.tr-slideUp   .tp-b{display:block;top:50%}
 
-/* Slide Down */
-.tr-slideDown .tp-b{animation:tr-slideD 1.6s ease-in-out infinite alternate;
-  transform:translateY(-100%)}
-@keyframes tr-slideD{from{transform:translateY(-100%)}to{transform:translateY(0)}}
+/* Slide Down — B pushing in from the top half */
+.tr-slideDown .tp-b{display:block;bottom:50%}
 
-/* Zoom In — B scales up from nothing */
-.tr-zoomIn    .tp-b{animation:tr-zoomI 1.6s ease-out infinite alternate;
-  transform:scale(0);transform-origin:center}
-@keyframes tr-zoomI{from{transform:scale(0);opacity:0}to{transform:scale(1);opacity:1}}
+/* Zoom In — B as small centered rectangle inside A */
+.tr-zoomIn    .tp-b{display:block;top:22%;bottom:22%;left:22%;right:22%;border-radius:3px;
+  box-shadow:0 0 0 1px rgba(255,255,255,.45)}
 
-/* Zoom Out — A scales out over B */
-.tr-zoomOut   .tp-a{animation:tr-zoomO 1.6s ease-out infinite alternate;
-  transform:scale(1);transform-origin:center}
-@keyframes tr-zoomO{from{transform:scale(1);opacity:1}to{transform:scale(2.5);opacity:0}}
+/* Zoom Out — A as small centered rectangle inside B */
+.tr-zoomOut   .tp-b{display:block;inset:0}
+.tr-zoomOut   .tp-a{display:block;top:22%;bottom:22%;left:22%;right:22%;border-radius:3px;
+  box-shadow:0 0 0 1px rgba(255,255,255,.45);z-index:2}
 
-/* Whip Pan — both slide with blur */
-.tr-whip      .tp-a{animation:tr-whipA 1.2s ease-in-out infinite alternate;filter:blur(0)}
-.tr-whip      .tp-b{animation:tr-whipB 1.2s ease-in-out infinite alternate;filter:blur(0);transform:translateX(100%)}
-@keyframes tr-whipA{0%{transform:translateX(0);filter:blur(0)}50%{filter:blur(4px)}100%{transform:translateX(-100%);filter:blur(0)}}
-@keyframes tr-whipB{0%{transform:translateX(100%);filter:blur(0)}50%{filter:blur(4px)}100%{transform:translateX(0);filter:blur(0)}}
+/* Whip Pan — both gradients blurred with a soft seam */
+.tr-whip      {background:none;filter:blur(2.5px)}
+.tr-whip      .tp-a{display:block;right:50%}
+.tr-whip      .tp-b{display:block;left:50%}
+
+/* Hover hint — pulse opacity gently so users see motion is implied */
+.list-card:hover .tr-preview .tp-b{
+  transition:opacity .25s ease-out;
+  opacity:calc(var(--hover-opacity, .85))}
 
 /* ===========================================================================
    Serif legibility tuning — Fraunces benefits from slightly higher line-height

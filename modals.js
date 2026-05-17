@@ -497,9 +497,9 @@ function wireTrackDropTargets(){
     const lane = document.getElementById('track-'+tid); if(!lane) return;
 
     lane.addEventListener('dragover', e=>{
-      // Only react if our custom MIME or generic Files are being dragged
       const types = (e.dataTransfer && e.dataTransfer.types) || [];
-      if(types.indexOf('application/x-editorx-media')<0 && types.indexOf('Files')<0) return;
+      const accepted = ['application/x-editorx-media','application/x-editorx-title','application/x-editorx-graphic','Files'];
+      if(!accepted.some(t => types.indexOf(t) >= 0)) return;
       e.preventDefault();
       e.dataTransfer.dropEffect = 'copy';
       lane.classList.add('drop-target');
@@ -522,6 +522,30 @@ function wireTrackDropTargets(){
         const m = state.media.find(x=>x.id===mediaId);
         if(!m) return;
         placeMediaAt(m, tid, dropX);
+        return;
+      }
+      // (1b) Title preset drag — always lands on T1, at drop X
+      const titleId = e.dataTransfer.getData('application/x-editorx-title');
+      if(titleId && window.TITLES){
+        const t = window.TITLES.find(x => x.id === titleId);
+        if(!t) return;
+        const ms = Math.max(0, (dropX - TIMELINE_OFFSET_X) * PLAYHEAD_MS_PER_PX);
+        window.addTextClipAt(ms, t);
+        if(window.loadFont) window.loadFont(t.font).then(()=>renderViewer());
+        pushHistory(); render();
+        flash('Added ' + t.name);
+        return;
+      }
+      // (1c) Graphic preset drag — same treatment
+      const graphicId = e.dataTransfer.getData('application/x-editorx-graphic');
+      if(graphicId && window.GRAPHICS){
+        const g = window.GRAPHICS.find(x => x.id === graphicId);
+        if(!g) return;
+        const ms = Math.max(0, (dropX - TIMELINE_OFFSET_X) * PLAYHEAD_MS_PER_PX);
+        window.addGraphicAt(ms, g);
+        if(window.loadFont) window.loadFont(g.font).then(()=>renderViewer());
+        pushHistory(); render();
+        flash('Added ' + g.name);
         return;
       }
 
