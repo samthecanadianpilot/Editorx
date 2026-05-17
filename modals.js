@@ -269,6 +269,21 @@ function pickMedia(){
           if(thumb){ item.thumbnail = thumb; render(); }
         });
       }
+      // For audio + video: decode and store real waveform peaks so the
+      // timeline shows the actual amplitude shape, not random bars
+      if(type === 'audio' || type === 'video'){
+        if(window.analyzeAudioPeaks){
+          window.analyzeAudioPeaks(item, 320).then(peaks=>{
+            if(peaks){
+              item.waveformPeaks = peaks;
+              if(window._invalidateWaveform){
+                state.clips.forEach(c=>{ if(c.mediaId === item.id) _invalidateWaveform(c.id); });
+              }
+              render();
+            }
+          });
+        }
+      }
     });
     pushHistory(); render();
     flash(files.length+' file'+(files.length===1?'':'s')+' added');
@@ -334,6 +349,62 @@ function trimBounds(clip, side){
   }
 }
 
+// ---------- Onboarding tour (first-visit only) ----------
+const ONBOARD_KEY = 'editorx.onboarded.v1';
+const ONBOARD_STEPS = [
+  {
+    title: 'Welcome to EditorX',
+    body:  'A real video editor in the browser. Cut, mask, color, type — everything autosaves. Four quick tips.',
+    shortcut: ''
+  },
+  {
+    title: 'Drop a video to start',
+    body:  'Drag any .mp4 / .mov / .webm into the viewer drop-zone, or click Import in the Library. Audio + images work too.',
+    shortcut: ''
+  },
+  {
+    title: 'Beat-locked edits',
+    body:  'Drop an audio file → select it → Detect Beats. Then select a video clip → Cut on Beats → Every 4th. Auto TikTok edit.',
+    shortcut: ''
+  },
+  {
+    title: 'Command Palette',
+    body:  'Press ⌘K (Ctrl-K on Windows) anywhere to search every action. Press ? to see all keyboard shortcuts.',
+    shortcut: '⌘K · ?'
+  }
+];
+let _tourIndex = 0;
+function startOnboardingTour(force){
+  if(!force){
+    try{ if(localStorage.getItem(ONBOARD_KEY) === '1') return; }catch{}
+  }
+  _tourIndex = 0;
+  document.getElementById('onboard-tour')?.classList.remove('hidden');
+  renderTourStep();
+}
+function renderTourStep(){
+  const step = ONBOARD_STEPS[_tourIndex];
+  if(!step){ endOnboardingTour(); return; }
+  document.getElementById('ot-title').textContent = step.title;
+  document.getElementById('ot-body').textContent  = step.body;
+  const sc = document.getElementById('ot-shortcut');
+  if(sc){ sc.textContent = step.shortcut || ''; sc.style.display = step.shortcut ? '' : 'none'; }
+  document.querySelector('#onboard-tour .ot-step-num').textContent = (_tourIndex + 1).toString();
+  document.querySelectorAll('#onboard-tour .ot-dot').forEach((d, i) => d.classList.toggle('active', i === _tourIndex));
+  document.getElementById('ot-next').textContent = (_tourIndex === ONBOARD_STEPS.length - 1) ? 'Get started ✓' : 'Next →';
+}
+function nextOnboardStep(){
+  _tourIndex++;
+  if(_tourIndex >= ONBOARD_STEPS.length){ endOnboardingTour(); return; }
+  renderTourStep();
+}
+function endOnboardingTour(){
+  try{ localStorage.setItem(ONBOARD_KEY, '1'); }catch{}
+  document.getElementById('onboard-tour')?.classList.add('hidden');
+}
+window.startOnboardingTour = startOnboardingTour;
+window.endOnboardingTour   = endOnboardingTour;
+
 // ---------- Command Palette (⌘K) ----------
 // A searchable index of every meaningful action the user can take from
 // anywhere in the editor. Fuzzy-ish substring matching, keyboard nav.
@@ -383,6 +454,7 @@ function commandList(){
 
     // Help
     {kw:'shortcuts help',  label:'Show Keyboard Shortcuts',    icon:'keyboard',    group:'Help', shortcut:'?', run:()=> openShortcutsOverlay()},
+    {kw:'tour onboarding intro', label:'Show Welcome Tour',    icon:'graduation-cap', group:'Help', run:()=> startOnboardingTour(true)},
   ];
 }
 
@@ -996,6 +1068,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
     }
   });
 
+  // Onboarding tour buttons
+  document.getElementById('ot-next')?.addEventListener('click', nextOnboardStep);
+  document.getElementById('ot-skip')?.addEventListener('click', endOnboardingTour);
+
   // Command Palette wiring
   document.getElementById('cmdk-input')?.addEventListener('input', e=>{
     renderCommandResults(e.target.value);
@@ -1101,6 +1177,8 @@ function enterEditor(){
   hideAllScreens();
   document.getElementById('app')?.classList.remove('hidden');
   render();
+  // First-visit onboarding tour
+  setTimeout(()=>{ if(window.startOnboardingTour) window.startOnboardingTour(); }, 500);
 }
 window.showStarter   = showStarter;
 window.showDashboard = showDashboard;

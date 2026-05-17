@@ -621,6 +621,57 @@ function cutVideoOnBeats(videoClipId, audioClipId, every){
   return cuts;
 }
 
+// ---------- Audio waveform peaks (decoded from the actual audio file) ----------
+// Computes peak amplitude per ~4-px-wide bar so the timeline clip shows the
+// real audio shape instead of seeded fake bars. Stored on the clip as
+// clip.waveformPeaks (Array<Float 0..1>) and consumed by _waveformFor() in
+// ui.js. Runs once per imported audio (background, non-blocking).
+async function analyzeAudioPeaks(clipOrMedia, targetBars){
+  const url = clipOrMedia.sourceUrl || clipOrMedia.url;
+  if(!url) return null;
+  try{
+    const resp = await fetch(url);
+    const ab   = await resp.arrayBuffer();
+    const Ctx  = window.AudioContext || window.webkitAudioContext;
+    const ctx  = new Ctx();
+    const buf  = await ctx.decodeAudioData(ab);
+    ctx.close && ctx.close();
+
+    // Mix all channels to mono
+    const N = buf.length, channels = buf.numberOfChannels;
+    const mono = new Float32Array(N);
+    for(let ch=0; ch<channels; ch++){
+      const data = buf.getChannelData(ch);
+      for(let i=0; i<N; i++) mono[i] += data[i];
+    }
+    for(let i=0; i<N; i++) mono[i] /= channels;
+
+    const bars = targetBars || 320;
+    const samplesPerBar = Math.floor(N / bars);
+    if(samplesPerBar <= 0) return null;
+    const peaks = new Float32Array(bars);
+    let globalMax = 0.0001; // avoid div-by-zero on silence
+    for(let i=0; i<bars; i++){
+      let max = 0;
+      const off = i * samplesPerBar;
+      const end = Math.min(N, off + samplesPerBar);
+      for(let j=off; j<end; j++){
+        const v = mono[j] < 0 ? -mono[j] : mono[j];
+        if(v > max) max = v;
+      }
+      peaks[i] = max;
+      if(max > globalMax) globalMax = max;
+    }
+    // Normalize 0..1 against the loudest bar
+    const out = new Array(bars);
+    for(let i=0; i<bars; i++) out[i] = peaks[i] / globalMax;
+    return out;
+  }catch(e){
+    console.warn('analyzeAudioPeaks failed:', e);
+    return null;
+  }
+}
+
 // ---------- Audio file transcription (Whisper-tiny via transformers.js) ----------
 // Loads the ONNX-runtime build of Whisper-tiny in the browser. First call
 // downloads the model (~75MB) and caches it in the browser's Cache Storage —
@@ -1115,6 +1166,7 @@ window.detectBeats=detectBeats; window.analyzeClipBeats=analyzeClipBeats;
 window.cutVideoOnBeats=cutVideoOnBeats;
 window.transcribeAudioClip=transcribeAudioClip;
 window.addTranscriptAsCaptions=addTranscriptAsCaptions;
+window.analyzeAudioPeaks=analyzeAudioPeaks;
 window.getMediaElForClip=getMediaElForClip; window.releaseMediaFor=releaseMediaFor; window.syncMediaToPlayhead=syncMediaToPlayhead;
 window.makeMediaThumbnail=makeMediaThumbnail;
 window.startPlayback=startPlayback; window.stopPlayback=stopPlayback; window.togglePlayback=togglePlayback;

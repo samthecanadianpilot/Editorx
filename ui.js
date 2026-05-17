@@ -81,9 +81,30 @@ function speakText(text){
 // Some browsers populate voices asynchronously
 if(typeof speechSynthesis !== 'undefined') speechSynthesis.onvoiceschanged = ()=>{};
 
-// Stable per-clip waveform (deterministic from id)
+// Stable per-clip waveform. Prefer real decoded peaks (set by
+// analyzeAudioPeaks on the source media); fall back to a deterministic
+// pseudo-random sequence so the clip never looks empty before analysis
+// finishes.
 const _waveformCache = {};
 function _waveformFor(clip){
+  // Real peaks first — sample down/up to the current clip's bar count
+  const media = (clip.mediaId && state.media)
+    ? state.media.find(m => m.id === clip.mediaId)
+    : null;
+  const peaks = (media && media.waveformPeaks) ? media.waveformPeaks : null;
+  if(peaks && peaks.length){
+    const numBars = Math.max(8, Math.floor(clip.w/4));
+    const cacheKey = clip.id + ':' + numBars;
+    if(_waveformCache[cacheKey]) return _waveformCache[cacheKey];
+    const out = new Array(numBars);
+    for(let i=0; i<numBars; i++){
+      const t = i / (numBars - 1 || 1);
+      const idx = Math.min(peaks.length-1, Math.floor(t * (peaks.length-1)));
+      out[i] = 12 + Math.min(83, peaks[idx] * 88);
+    }
+    return _waveformCache[cacheKey] = out;
+  }
+  // Seeded random fallback
   if(_waveformCache[clip.id]) return _waveformCache[clip.id];
   let seed = 0; for(const ch of clip.id) seed = (seed*31 + ch.charCodeAt(0))>>>0;
   const rand = ()=>{ seed = (seed*1664525 + 1013904223)>>>0; return seed/0xFFFFFFFF; };
@@ -92,7 +113,11 @@ function _waveformFor(clip){
   for(let i=0;i<numBars;i++) bars[i] = 18 + rand()*64;
   return _waveformCache[clip.id] = bars;
 }
-function _invalidateWaveform(id){ delete _waveformCache[id]; }
+function _invalidateWaveform(id){
+  delete _waveformCache[id];
+  // Also wipe size-keyed entries for this clip
+  Object.keys(_waveformCache).forEach(k=>{ if(k.startsWith(id+':')) delete _waveformCache[k]; });
+}
 
 // ---------- Sidebar panels ----------
 function renderClips(){

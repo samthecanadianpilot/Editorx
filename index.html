@@ -369,6 +369,21 @@
   <!-- CLIP CONTEXT MENU (right-click on a timeline clip) -->
   <div id="clip-ctx-menu" class="ctx-menu hidden" role="menu"></div>
 
+  <!-- ONBOARDING TOUR — shown once on first visit; remembered in localStorage -->
+  <div id="onboard-tour" class="hidden">
+    <div class="ot-card">
+      <div class="ot-progress"><span class="ot-step-num">1</span> / 4</div>
+      <h3 class="ot-title" id="ot-title">Welcome to EditorX</h3>
+      <p class="ot-body" id="ot-body">A real video editor in the browser. Three minutes of intro, then you're shipping edits.</p>
+      <div class="ot-shortcut" id="ot-shortcut"></div>
+      <div class="ot-actions">
+        <button class="ot-skip" id="ot-skip">Skip tour</button>
+        <button class="ot-next" id="ot-next">Next →</button>
+      </div>
+      <div class="ot-dots"><span class="ot-dot active"></span><span class="ot-dot"></span><span class="ot-dot"></span><span class="ot-dot"></span></div>
+    </div>
+  </div>
+
   <!-- COMMAND PALETTE — ⌘K to open, type to search every action -->
   <div id="command-palette" class="modal hidden">
     <div class="modal-overlay"></div>
