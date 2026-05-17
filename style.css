@@ -576,6 +576,14 @@ body.tool-blade #cut-indicator.visible{display:block}
   color:var(--text-3);font-size:14px;line-height:1;background:transparent}
 .kf-clear-btn:hover{color:var(--danger);background:var(--danger-soft)}
 
+.transcript-text{
+  font-size:11px;line-height:1.5;color:var(--text-2);
+  max-height:140px;overflow-y:auto;padding:8px 10px;
+  background:var(--bg-2);border:1px solid var(--hairline);border-radius:var(--r-2);
+  margin:8px 0;font-family:var(--font);font-style:italic}
+.transcript-status{
+  font-family:var(--mono);font-size:10px;color:var(--text-3)}
+
 .kf-list{display:flex;flex-wrap:wrap;gap:3px}
 .kf-chip{
   display:inline-flex;align-items:center;gap:5px;

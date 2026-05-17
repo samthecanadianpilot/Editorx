@@ -589,6 +589,84 @@ function cutVideoOnBeats(videoClipId, audioClipId, every){
   return cuts;
 }
 
+// ---------- Audio file transcription (Whisper-tiny via transformers.js) ----------
+// Loads the ONNX-runtime build of Whisper-tiny in the browser. First call
+// downloads the model (~75MB) and caches it in the browser's Cache Storage —
+// subsequent runs start instantly. Returns the full text + an array of
+// timestamped chunks suitable for auto-captioning.
+let _whisperPipeline = null;
+async function _loadWhisper(onProgress){
+  if(_whisperPipeline) return _whisperPipeline;
+  onProgress && onProgress({status:'loading-library', label:'Loading transcription engine…'});
+  const mod = await import('https://cdn.jsdelivr.net/npm/@xenova/[email protected]');
+  // Tell transformers.js to use the browser-cached model
+  mod.env.allowLocalModels = false;
+  mod.env.useBrowserCache = true;
+  _whisperPipeline = await mod.pipeline(
+    'automatic-speech-recognition',
+    'Xenova/whisper-tiny.en',
+    {
+      progress_callback: (p) => {
+        if(!onProgress) return;
+        if(p.status === 'download' || p.status === 'progress'){
+          onProgress({status:'downloading-model', label:`Downloading model… ${Math.round((p.progress||0))}%`, progress:p.progress||0, file:p.file});
+        } else if(p.status === 'done'){
+          onProgress({status:'model-ready', label:'Model ready'});
+        }
+      }
+    }
+  );
+  return _whisperPipeline;
+}
+
+async function transcribeAudioClip(clipId, onProgress){
+  const c = getClip(clipId);
+  if(!c || !c.sourceUrl) return null;
+  const pipe = await _loadWhisper(onProgress);
+  onProgress && onProgress({status:'transcribing', label:'Transcribing audio…'});
+  // chunk_length_s=30 splits long audio into 30-second windows so it streams
+  // results without OOM-ing on long files. return_timestamps gives us per-
+  // chunk start/end times that we can use to auto-caption on the timeline.
+  const result = await pipe(c.sourceUrl, {
+    return_timestamps: true,
+    chunk_length_s:   30,
+    stride_length_s:  5
+  });
+  c.transcript       = (result && result.text)   ? result.text.trim() : '';
+  c.transcriptChunks = (result && result.chunks) ? result.chunks       : [];
+  return {text: c.transcript, chunks: c.transcriptChunks};
+}
+
+// Walk an audio clip's transcript chunks and add a timed text clip on T1 for
+// each phrase. Returns the number of caption clips actually added.
+function addTranscriptAsCaptions(clipId){
+  const c = getClip(clipId);
+  if(!c || !c.transcriptChunks || !c.transcriptChunks.length) return 0;
+  // Absolute timeline time (ms) of where this audio clip starts:
+  const clipStartMs = (c.x - TIMELINE_OFFSET_X) * PLAYHEAD_MS_PER_PX;
+  let added = 0;
+  for(const chunk of c.transcriptChunks){
+    const ts = chunk.timestamp || [0, null];
+    const startT = ts[0] || 0;
+    const endT   = ts[1] || (startT + 2);
+    const text   = (chunk.text || '').trim();
+    if(!text) continue;
+    const captionStartMs = clipStartMs + startT * 1000;
+    const durationS = Math.max(0.6, endT - startT);
+    addTextClipAt(captionStartMs, {
+      name: 'Caption',
+      defaultText: text,
+      color: '#FFFFFF',
+      duration: durationS,
+      scale: 1.0,
+      font: 'Fraunces',
+      weight: 600
+    });
+    added++;
+  }
+  return added;
+}
+
 // Generate a small JPEG thumbnail data URL from a media URL.
 //   video: seek to ~5% in (or 0.2s, whichever is bigger), grab a frame
 //   image: draw directly
@@ -991,6 +1069,8 @@ window.applyPan=applyPan; window.applyKenBurns=applyKenBurns;
 window.applyFadeIn=applyFadeIn; window.applyFadeOut=applyFadeOut;
 window.detectBeats=detectBeats; window.analyzeClipBeats=analyzeClipBeats;
 window.cutVideoOnBeats=cutVideoOnBeats;
+window.transcribeAudioClip=transcribeAudioClip;
+window.addTranscriptAsCaptions=addTranscriptAsCaptions;
 window.getMediaElForClip=getMediaElForClip; window.releaseMediaFor=releaseMediaFor; window.syncMediaToPlayhead=syncMediaToPlayhead;
 window.makeMediaThumbnail=makeMediaThumbnail;
 window.startPlayback=startPlayback; window.stopPlayback=stopPlayback; window.togglePlayback=togglePlayback;

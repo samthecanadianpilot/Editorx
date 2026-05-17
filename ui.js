@@ -468,6 +468,33 @@ function renderInspector(){
       inspNumRow('Speed',  (clip.speed??1)*100, 25, 400, 1, '%', 'speed', 'v/100'));
   }
 
+  // TRANSCRIPT — Whisper-tiny on-device for audio clips with a source URL
+  if(clip.type === 'audio'){
+    const hasTranscript = clip.transcript && clip.transcript.length;
+    const chunks = (clip.transcriptChunks || []).length;
+    let trBody = '';
+    if(hasTranscript){
+      trBody += `<div class="ip-row" style="background:transparent;border-color:var(--accent)">
+        <i data-lucide="captions" width="13" height="13" style="color:var(--accent)"></i>
+        <span class="ip-name">${chunks} caption${chunks===1?'':'s'} ready</span>
+        <button class="ip-rm" data-action="clear-transcript" title="Clear transcript"><i data-lucide="x" width="10" height="10"></i></button>
+      </div>`;
+      trBody += `<div class="transcript-text">${escapeHtml(clip.transcript)}</div>`;
+      trBody += `<button class="anim-btn" data-action="add-captions" style="width:100%;justify-content:center;margin-top:6px">
+        <i data-lucide="plus" width="13" height="13"></i><span>Add as Captions on T1</span></button>`;
+    } else {
+      trBody += '<div class="empty-sub" style="margin-bottom:8px">Transcribe speech to timestamped captions using Whisper-tiny on-device. First run downloads the model (~75MB, cached after).</div>';
+    }
+    trBody += `<button class="anim-btn" data-action="transcribe" style="width:100%;justify-content:center;margin-top:6px" ${clip.sourceUrl?'':'disabled'}>
+      <i data-lucide="mic" width="13" height="13"></i><span>${hasTranscript?'Re-transcribe':'Transcribe Audio'}</span>
+    </button>`;
+    trBody += `<div class="empty-sub transcript-status" id="transcript-status" style="margin-top:6px;display:none"></div>`;
+    if(!clip.sourceUrl){
+      trBody += '<div class="empty-sub" style="margin-top:6px">Demo placeholder — import a real audio file to transcribe.</div>';
+    }
+    html += inspSection('TRANSCRIPT', true, trBody);
+  }
+
   // BEATS — show only for audio clips. Detect → mark beats → optionally use
   // to cut other video clips.
   if(clip.type === 'audio'){
@@ -762,6 +789,42 @@ function renderInspector(){
   content.querySelector('[data-action="clear-beats"]')?.addEventListener('click', ()=>{
     delete clip.beats; delete clip.bpm;
     pushHistory(); render(); flash('Beats cleared');
+  });
+  // Transcribe audio (Whisper-tiny in browser)
+  content.querySelector('[data-action="transcribe"]')?.addEventListener('click', async (e)=>{
+    const btn = e.currentTarget;
+    if(btn.disabled) return;
+    const status = content.querySelector('#transcript-status');
+    btn.disabled = true;
+    const origHTML = btn.innerHTML;
+    btn.innerHTML = '<i data-lucide="loader" width="13" height="13"></i><span>Working…</span>';
+    if(window.lucide) lucide.createIcons({root:btn});
+    if(status){ status.style.display='block'; status.textContent='Starting…'; }
+    try{
+      const result = await transcribeAudioClip(clip.id, (p)=>{
+        if(status) status.textContent = p.label || p.status || 'Working…';
+      });
+      pushHistory(); render();
+      flash(result && result.chunks ? `Transcribed ${result.chunks.length} segments` : 'Transcribed');
+    }catch(err){
+      console.error(err);
+      flash('Transcription failed: ' + (err.message || 'unknown'));
+      btn.disabled = false;
+      btn.innerHTML = origHTML;
+      if(window.lucide) lucide.createIcons({root:btn});
+      if(status) status.textContent = 'Failed — see console for details.';
+    }
+  });
+  // Clear transcript
+  content.querySelector('[data-action="clear-transcript"]')?.addEventListener('click', ()=>{
+    delete clip.transcript; delete clip.transcriptChunks;
+    pushHistory(); render(); flash('Transcript cleared');
+  });
+  // Add transcript as captions on T1
+  content.querySelector('[data-action="add-captions"]')?.addEventListener('click', ()=>{
+    const n = addTranscriptAsCaptions(clip.id);
+    pushHistory(); render();
+    flash(n > 0 ? `Added ${n} caption${n===1?'':'s'} on T1` : 'No usable captions to add');
   });
   // Cut video on beats (every N-th)
   content.querySelectorAll('[data-action="cut-beats"]').forEach(btn=>{
