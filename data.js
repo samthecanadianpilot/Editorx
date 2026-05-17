@@ -140,14 +140,17 @@ const FONTS = [
 // is rendered on the canvas as: rounded background + icon + text, with a
 // soft shadow for depth. Styles: 'pill' | 'card' | 'badge'.
 const GRAPHICS = [
-  {id:'g-yt-sub',     name:'Subscribe',          defaultText:'Subscribe',         icon:'youtube',  accent:'#FF0033', bg:'#FFFFFF', fg:'#0A0A0F', style:'pill',  font:'Fraunces', weight:700, duration:3.0},
-  {id:'g-like-sub',   name:'Like & Subscribe',   defaultText:'Like & Subscribe',  icon:'thumbs-up',accent:'#FF0033', bg:'#0A0A0F', fg:'#FFFFFF', style:'pill',  font:'Fraunces', weight:700, duration:3.0},
-  {id:'g-bell',       name:'Hit the Bell',       defaultText:'Hit the bell',      icon:'bell',     accent:'#0084FF', bg:'#FFFFFF', fg:'#0A0A0F', style:'pill',  font:'Fraunces', weight:700, duration:2.5},
+  // NOTE: Lucide dropped brand icons (github/youtube/instagram/twitter) in
+  // newer versions. Using neutral semantic icons (play-square / camera /
+  // at-sign / terminal) so cards always render and the console stays clean.
+  {id:'g-yt-sub',     name:'Subscribe',          defaultText:'Subscribe',         icon:'play-square',accent:'#FF0033', bg:'#FFFFFF', fg:'#0A0A0F', style:'pill',  font:'Fraunces', weight:700, duration:3.0},
+  {id:'g-like-sub',   name:'Like & Subscribe',   defaultText:'Like & Subscribe',  icon:'thumbs-up',  accent:'#FF0033', bg:'#0A0A0F', fg:'#FFFFFF', style:'pill',  font:'Fraunces', weight:700, duration:3.0},
+  {id:'g-bell',       name:'Hit the Bell',       defaultText:'Hit the bell',      icon:'bell',       accent:'#0084FF', bg:'#FFFFFF', fg:'#0A0A0F', style:'pill',  font:'Fraunces', weight:700, duration:2.5},
   {id:'g-discord',    name:'Join Discord',       defaultText:'Join my Discord',   icon:'message-circle', accent:'#FFFFFF', bg:'#5865F2', fg:'#FFFFFF', style:'card', font:'Fraunces', weight:700, duration:3.5},
-  {id:'g-ig',         name:'Instagram Handle',   defaultText:'@yourhandle',       icon:'instagram',accent:'#FFFFFF', bg:'linear-gradient(135deg,#FF6E40,#D63384,#7B1FA2)', fg:'#FFFFFF', style:'card', font:'Fraunces', weight:700, duration:3.0},
-  {id:'g-tiktok',     name:'TikTok Handle',      defaultText:'@yourhandle',       icon:'music',    accent:'#FFFFFF', bg:'#0A0A0F', fg:'#FFFFFF', style:'card', font:'Fraunces', weight:700, duration:3.0},
-  {id:'g-x',          name:'X / Twitter Handle', defaultText:'@yourhandle',       icon:'twitter',  accent:'#FFFFFF', bg:'#000000', fg:'#FFFFFF', style:'card', font:'Fraunces', weight:600, duration:3.0},
-  {id:'g-github',     name:'GitHub Handle',      defaultText:'github.com/you',    icon:'github',   accent:'#FFFFFF', bg:'#161B22', fg:'#FFFFFF', style:'card', font:'Fraunces', weight:600, duration:3.0},
+  {id:'g-ig',         name:'Instagram Handle',   defaultText:'@yourhandle',       icon:'camera',     accent:'#FFFFFF', bg:'linear-gradient(135deg,#FF6E40,#D63384,#7B1FA2)', fg:'#FFFFFF', style:'card', font:'Fraunces', weight:700, duration:3.0},
+  {id:'g-tiktok',     name:'TikTok Handle',      defaultText:'@yourhandle',       icon:'music',      accent:'#FFFFFF', bg:'#0A0A0F', fg:'#FFFFFF', style:'card', font:'Fraunces', weight:700, duration:3.0},
+  {id:'g-x',          name:'X / Twitter Handle', defaultText:'@yourhandle',       icon:'at-sign',    accent:'#FFFFFF', bg:'#000000', fg:'#FFFFFF', style:'card', font:'Fraunces', weight:600, duration:3.0},
+  {id:'g-github',     name:'Code Handle',        defaultText:'github.com/you',    icon:'terminal',   accent:'#FFFFFF', bg:'#161B22', fg:'#FFFFFF', style:'card', font:'Fraunces', weight:600, duration:3.0},
   {id:'g-link-bio',   name:'Link in Bio',        defaultText:'Link in bio',       icon:'link',     accent:'#0084FF', bg:'rgba(255,255,255,0.92)', fg:'#0A0A0F', style:'pill', font:'Fraunces', weight:700, duration:2.5, glass:true},
   {id:'g-lower-3rd',  name:'Lower Third Name',   defaultText:'Your Name · Title', icon:'user', accent:'#0084FF', bg:'rgba(10,10,15,0.7)', fg:'#FFFFFF', style:'card', font:'Fraunces', weight:700, duration:4.0, glass:true},
   {id:'g-tag',        name:'Hashtag Pill',       defaultText:'#trending',         icon:'hash',     accent:'#FFFFFF', bg:'#0084FF', fg:'#FFFFFF', style:'pill', font:'JetBrains Mono', weight:700, duration:3.0},

@@ -983,7 +983,15 @@ function saveCurrentProject(){
 let _autosaveT = null;
 function scheduleAutosave(){
   if(_autosaveT) clearTimeout(_autosaveT);
-  _autosaveT = setTimeout(()=>{ try{ saveCurrentProject(); }catch{} }, 600);
+  if(window.statusbarSaving) window.statusbarSaving();
+  _autosaveT = setTimeout(()=>{
+    try{
+      saveCurrentProject();
+      if(window.statusbarSaved) window.statusbarSaved();
+    }catch(e){
+      if(window.statusbarSaved) window.statusbarSaved();
+    }
+  }, 600);
 }
 
 // Replace the editor state with the given project (by id).

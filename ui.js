@@ -946,6 +946,26 @@ function renderViewer(){
   ctx.restore();
 }
 
+// Build a Path2D matching the union of all enabled masks on a clip.
+// Used by drawVideoClip to actually clip the rendered video to the mask
+// shape (or the inverse, for inverted masks).
+function buildMaskPath(clip){
+  const masks = (state.masks[clip.id] || []).filter(m => m.enabled);
+  if(!masks.length) return null;
+  const path = new Path2D();
+  for(const m of masks){
+    if(m.type === 'ellipse'){
+      path.ellipse(m.x + m.w/2, m.y + m.h/2, m.w/2, m.h/2, 0, 0, Math.PI*2);
+    } else {
+      // rectangle / feathered / gradient / animated / inverted all use a rect base
+      const r = m.cornerRadius || 0;
+      if(path.roundRect) try{ path.roundRect(m.x, m.y, m.w, m.h, r); }catch{ path.rect(m.x, m.y, m.w, m.h); }
+      else path.rect(m.x, m.y, m.w, m.h);
+    }
+  }
+  return path;
+}
+
 function drawVideoClip(ctx, canvas, clip){
   const el = getMediaElForClip(clip);
   ctx.save();
@@ -978,6 +998,25 @@ function drawVideoClip(ctx, canvas, clip){
     filter = (filter === 'none' ? '' : filter + ' ') + `blur(${extraBlur}px)`;
   }
   ctx.filter = filter;
+
+  // Real mask compositing — clip the video to the union of mask shapes
+  // (or the INVERSE if any mask is inverted). Mask coordinates are in
+  // canvas-pixel space, so we apply the clip BEFORE the transform.
+  const maskPath = buildMaskPath(clip);
+  const hasInverted = maskPath && (state.masks[clip.id]||[]).some(m => m.enabled && m.inverted);
+  if(maskPath){
+    if(hasInverted){
+      // even-odd fill rule: full-canvas rect XOR'd with the mask path
+      // creates a hole the shape of the mask. Anything drawn after is
+      // visible everywhere except inside the mask.
+      const outer = new Path2D();
+      outer.rect(0, 0, canvas.width, canvas.height);
+      outer.addPath(maskPath);
+      ctx.clip(outer, 'evenodd');
+    } else {
+      ctx.clip(maskPath);
+    }
+  }
 
   // Transform
   const cx = canvas.width/2 + posX;
@@ -1549,28 +1588,24 @@ function renderStatusBar(){
   const proj = document.getElementById('sb-project');
   const meta = document.getElementById('sb-meta');
   const user = document.getElementById('sb-user');
-  const dot  = document.getElementById('sb-status-dot');
-  const txt  = document.getElementById('sb-status');
   if(!proj || !meta || !user) return;
   proj.textContent = state.projectName || 'Untitled';
   const dur = timelineDurationS();
   const m = Math.floor(dur/60), s = Math.floor(dur%60);
   meta.textContent = state.clips.length + ' clip' + (state.clips.length===1?'':'s') + ' · ' + m + ':' + String(s).padStart(2,'0');
-  // Pull user from local session
+  // Pull user from local session — show name + tiny "cloud" badge if signed in
   try{
     const ss = JSON.parse(localStorage.getItem('editorx.session.v1') || 'null');
-    if(ss){
+    if(ss && !ss.guest){
       user.textContent = ss.name || ss.login || 'Guest';
-      user.title = ss.email || ss.login || '';
+      user.title = (ss.email || ss.login || '') + ' · signed in';
+      user.classList.add('signed-in');
     } else {
-      user.textContent = 'Guest';
+      user.textContent = 'Guest · Local-only';
+      user.title = 'Sign in with GitHub to sync projects across devices';
+      user.classList.remove('signed-in');
     }
   }catch{ user.textContent = 'Guest'; }
-  // Autosave indicator pulse
-  if(txt && dot){
-    txt.textContent = 'All changes saved';
-    dot.classList.remove('saving');
-  }
 }
 window.statusbarSaving = function(){
   const dot = document.getElementById('sb-status-dot');

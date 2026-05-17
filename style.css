@@ -1284,6 +1284,8 @@ button:active{transform:scale(.95)}
 .sb-sep{color:var(--text-4);opacity:.6}
 .sb-shortcut{font-family:var(--mono);font-size:10px;color:var(--text-3);letter-spacing:.04em}
 .sb-user{color:var(--text-2);font-weight:500}
+.sb-user.signed-in{color:var(--accent)}
+.starter-github svg{flex-shrink:0}
 
 /* ============ Screen-transition: fade-with-blur ============ */
 #starter, #dashboard, #app{
