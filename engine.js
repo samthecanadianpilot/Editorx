@@ -461,6 +461,134 @@ function releaseMediaFor(clipId){
   if(el){ try{ el.pause(); el.src=''; el.remove(); }catch{} delete _mediaPool[clipId]; }
 }
 
+// ---------- Beat detection (energy-based onset detection) ----------
+// Decode the audio file via Web Audio, compute short-window energy, then
+// pick peaks that are well above the rolling average AND spaced apart by
+// at least a min-beat-interval (so we don't pick up multiple peaks per
+// kick). Returns array of beat times in seconds (relative to clip start,
+// i.e. start of the audio file).
+async function detectBeats(audioUrl, options){
+  const opts = Object.assign({
+    windowSec:     0.020, // 20ms windows
+    minIntervalS:  0.25,  // 240 BPM max — prevents double-counting
+    threshold:     1.55,  // peak must exceed (1.55 * moving average)
+    avgWindowSec:  0.40   // moving-average window (~400ms)
+  }, options || {});
+
+  if(!audioUrl) return [];
+  let buf;
+  try{
+    const resp = await fetch(audioUrl);
+    const ab   = await resp.arrayBuffer();
+    const Ctx  = window.AudioContext || window.webkitAudioContext;
+    const ctx  = new Ctx();
+    buf = await ctx.decodeAudioData(ab);
+    ctx.close && ctx.close();
+  }catch(e){
+    console.warn('detectBeats: decode failed', e);
+    return [];
+  }
+
+  const sr = buf.sampleRate;
+  // Mix down all channels to mono
+  const len = buf.length;
+  const mono = new Float32Array(len);
+  for(let ch=0; ch<buf.numberOfChannels; ch++){
+    const data = buf.getChannelData(ch);
+    for(let i=0; i<len; i++) mono[i] += data[i];
+  }
+  for(let i=0; i<len; i++) mono[i] /= buf.numberOfChannels;
+
+  // RMS energy per window
+  const winSize = Math.max(1, Math.floor(opts.windowSec * sr));
+  const numWins = Math.floor(len / winSize);
+  const energy  = new Float32Array(numWins);
+  for(let w=0; w<numWins; w++){
+    const off = w * winSize;
+    let sum = 0;
+    for(let j=0; j<winSize; j++){ const s = mono[off+j]; sum += s*s; }
+    energy[w] = Math.sqrt(sum / winSize);
+  }
+
+  // Moving average + variance over avgWindow
+  const avgWins = Math.max(2, Math.floor(opts.avgWindowSec / opts.windowSec));
+  const avg = new Float32Array(numWins);
+  for(let i=0; i<numWins; i++){
+    const a = Math.max(0, i - avgWins), b = Math.min(numWins, i + avgWins);
+    let s = 0; for(let k=a; k<b; k++) s += energy[k];
+    avg[i] = s / (b - a);
+  }
+
+  // Local-maxima peak picking
+  const beats = [];
+  const minWinsBetween = Math.max(1, Math.floor(opts.minIntervalS / opts.windowSec));
+  let lastBeatW = -minWinsBetween;
+  for(let i=1; i<numWins-1; i++){
+    if(i - lastBeatW < minWinsBetween) continue;
+    const e = energy[i];
+    if(e > avg[i] * opts.threshold && e > energy[i-1] && e > energy[i+1]){
+      beats.push(i * opts.windowSec);
+      lastBeatW = i;
+    }
+  }
+  return beats;
+}
+
+// Save detected beats onto an audio clip and (best-effort) estimate BPM.
+async function analyzeClipBeats(clipId){
+  const c = getClip(clipId); if(!c) return null;
+  if(c.type !== 'audio' && c.type !== 'video') return null;
+  if(!c.sourceUrl) return null;
+  const beats = await detectBeats(c.sourceUrl);
+  c.beats = beats;
+  if(beats.length >= 4){
+    // Median interval → BPM
+    const gaps = [];
+    for(let i=1; i<beats.length; i++) gaps.push(beats[i] - beats[i-1]);
+    gaps.sort((a,b)=>a-b);
+    const median = gaps[Math.floor(gaps.length/2)];
+    c.bpm = median > 0 ? Math.round(60 / median) : null;
+  }
+  return {beats: beats, bpm: c.bpm};
+}
+
+// Split a video clip at every beat from the given source audio clip.
+// `every` = how many beats to skip between cuts (1 = every beat, 4 = every 4th).
+function cutVideoOnBeats(videoClipId, audioClipId, every){
+  const v = getClip(videoClipId); if(!v || v.type !== 'video') return 0;
+  const a = getClip(audioClipId); if(!a || !a.beats || !a.beats.length) return 0;
+  const step = Math.max(1, parseInt(every) || 1);
+  // Audio clip's timeline-start in pixels, then beat-relative to that:
+  const audioStartPx = a.x;
+  const vidStart = v.x, vidEnd = v.x + v.w;
+  // Walk beats; compute the absolute timeline X of each beat and split if it
+  // falls inside the video clip's current bounds. We must re-fetch the clip
+  // because splitting changes its width on each split.
+  let cuts = 0;
+  for(let i=0; i<a.beats.length; i += step){
+    const beatX = audioStartPx + a.beats[i] * TIMELINE_PX_PER_S;
+    if(beatX <= vidStart + 8 || beatX >= vidEnd - 8) continue;
+    const cur = getClip(videoClipId);
+    if(!cur) break;
+    if(beatX > cur.x + 8 && beatX < cur.x + cur.w - 8){
+      const newRight = splitClipAtX(videoClipId, beatX);
+      if(newRight){
+        cuts++;
+        // After splitting, the right half is a new clip; the next beats may
+        // fall into either left or right. We keep cutting on the LEFT clip
+        // (videoClipId stays the same — it's now shorter, with beats yet to
+        // come within its new bounds — but most likely the next beat sits
+        // in the right half). Move our target to the right half so subsequent
+        // beats keep cutting "forward" through the original range.
+        videoClipId = newRight.id;
+      }
+    } else if(beatX >= (getClip(videoClipId)?.x || 0) + (getClip(videoClipId)?.w || 0)){
+      break;
+    }
+  }
+  return cuts;
+}
+
 // Generate a small JPEG thumbnail data URL from a media URL.
 //   video: seek to ~5% in (or 0.2s, whichever is bigger), grab a frame
 //   image: draw directly
@@ -861,6 +989,8 @@ window.clearKeyframes=clearKeyframes; window.addKeyframeAtPlayhead=addKeyframeAt
 window.applyZoomPunch=applyZoomPunch; window.applyBeatShake=applyBeatShake;
 window.applyPan=applyPan; window.applyKenBurns=applyKenBurns;
 window.applyFadeIn=applyFadeIn; window.applyFadeOut=applyFadeOut;
+window.detectBeats=detectBeats; window.analyzeClipBeats=analyzeClipBeats;
+window.cutVideoOnBeats=cutVideoOnBeats;
 window.getMediaElForClip=getMediaElForClip; window.releaseMediaFor=releaseMediaFor; window.syncMediaToPlayhead=syncMediaToPlayhead;
 window.makeMediaThumbnail=makeMediaThumbnail;
 window.startPlayback=startPlayback; window.stopPlayback=stopPlayback; window.togglePlayback=togglePlayback;

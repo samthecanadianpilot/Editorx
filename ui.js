@@ -468,6 +468,45 @@ function renderInspector(){
       inspNumRow('Speed',  (clip.speed??1)*100, 25, 400, 1, '%', 'speed', 'v/100'));
   }
 
+  // BEATS — show only for audio clips. Detect → mark beats → optionally use
+  // to cut other video clips.
+  if(clip.type === 'audio'){
+    const hasBeats = clip.beats && clip.beats.length;
+    let beatsBody = '';
+    if(hasBeats){
+      beatsBody += `<div class="ip-row" style="background:transparent;border-color:var(--accent)">
+        <i data-lucide="audio-waveform" width="13" height="13" style="color:var(--accent)"></i>
+        <span class="ip-name">${clip.beats.length} beats detected${clip.bpm?` · ~${clip.bpm} BPM`:''}</span>
+        <button class="ip-rm" data-action="clear-beats" title="Clear beats"><i data-lucide="x" width="10" height="10"></i></button>
+      </div>`;
+      beatsBody += '<div class="empty-sub" style="margin-bottom:8px">Now select a video clip on V1 and use <b>Cut on Beats</b> to chop it on every beat.</div>';
+    } else {
+      beatsBody += '<div class="empty-sub" style="margin-bottom:8px">Analyze the audio to find onsets (kicks/snares). Then any video clip can be cut on every beat.</div>';
+    }
+    beatsBody += `<button class="anim-btn" data-action="detect-beats" style="width:100%;justify-content:center" ${clip.sourceUrl?'':'disabled'}>
+      <i data-lucide="activity" width="13" height="13"></i><span>${hasBeats?'Re-analyze beats':'Detect Beats'}</span>
+    </button>`;
+    if(!clip.sourceUrl){
+      beatsBody += '<div class="empty-sub" style="margin-top:6px">Demo placeholder clip — import a real audio file to detect beats.</div>';
+    }
+    html += inspSection('BEATS', true, beatsBody);
+  }
+
+  // BEATS — show for video clips when ANY audio clip has detected beats.
+  if(clip.type === 'video'){
+    const beatSource = state.clips.find(c => c.type==='audio' && c.beats && c.beats.length);
+    if(beatSource){
+      const beatsBody = `<div class="empty-sub" style="margin-bottom:8px">Using beats from <b>${escapeHtml(beatSource.name)}</b> · ${beatSource.beats.length} beats${beatSource.bpm?` · ~${beatSource.bpm} BPM`:''}.</div>
+        <div class="anim-presets" style="margin-bottom:0">
+          <button class="anim-btn" data-action="cut-beats" data-every="1"><i data-lucide="scissors" width="13" height="13"></i><span>Every beat</span></button>
+          <button class="anim-btn" data-action="cut-beats" data-every="2"><i data-lucide="scissors" width="13" height="13"></i><span>Every 2nd</span></button>
+          <button class="anim-btn" data-action="cut-beats" data-every="4"><i data-lucide="scissors" width="13" height="13"></i><span>Every 4th</span></button>
+          <button class="anim-btn" data-action="cut-beats" data-every="8"><i data-lucide="scissors" width="13" height="13"></i><span>Every 8th</span></button>
+        </div>`;
+      html += inspSection('CUT ON BEATS', true, beatsBody);
+    }
+  }
+
   // TEXT (with font picker + speech-to-text + text-to-speech)
   if(clip.type==='text'){
     const fontOpts = (window.FONTS||[]).map(f=>`<option value="${escapeHtml(f)}" ${clip.font===f?'selected':''}>${escapeHtml(f)}</option>`).join('');
@@ -697,6 +736,42 @@ function renderInspector(){
     btn.addEventListener('click', ()=>{
       clearKeyframes(clip.id, btn.dataset.prop);
       pushHistory(); renderInspector(); renderViewer();
+    });
+  });
+
+  // Detect beats on the current audio clip
+  content.querySelector('[data-action="detect-beats"]')?.addEventListener('click', async (e)=>{
+    const btn = e.currentTarget;
+    if(btn.disabled) return;
+    const orig = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i data-lucide="loader" width="13" height="13"></i><span>Analyzing…</span>';
+    if(window.lucide) lucide.createIcons({root:btn});
+    try{
+      const r = await analyzeClipBeats(clip.id);
+      flash(r && r.beats ? `Found ${r.beats.length} beats${r.bpm?` (~${r.bpm} BPM)`:''}` : 'No beats detected');
+      pushHistory(); render();
+    }catch(err){
+      flash('Beat detection failed: ' + err.message);
+      btn.disabled = false;
+      btn.innerHTML = orig;
+      if(window.lucide) lucide.createIcons({root:btn});
+    }
+  });
+  // Clear beats
+  content.querySelector('[data-action="clear-beats"]')?.addEventListener('click', ()=>{
+    delete clip.beats; delete clip.bpm;
+    pushHistory(); render(); flash('Beats cleared');
+  });
+  // Cut video on beats (every N-th)
+  content.querySelectorAll('[data-action="cut-beats"]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const every = parseInt(btn.dataset.every) || 1;
+      const beatSource = state.clips.find(c => c.type==='audio' && c.beats && c.beats.length);
+      if(!beatSource){ flash('No beats available'); return; }
+      const cuts = cutVideoOnBeats(clip.id, beatSource.id, every);
+      pushHistory(); render();
+      flash(cuts ? `Made ${cuts} cut${cuts===1?'':'s'}` : 'No beats fell inside this clip');
     });
   });
 
@@ -1238,7 +1313,6 @@ function renderTimecodeRuler(){
   const c = document.getElementById('ruler-canvas'); if(!c) return;
   const ctx = c.getContext('2d');
   c.width = c.parentElement.clientWidth; c.height = 28;
-  // Bg
   ctx.fillStyle = 'rgba(0,0,0,0.18)'; ctx.fillRect(0,0,c.width,c.height);
   ctx.fillStyle = 'rgba(255,255,255,0.18)';
   ctx.font = '9px JetBrains Mono, monospace';
@@ -1247,6 +1321,23 @@ function renderTimecodeRuler(){
     const x = TIMELINE_OFFSET_X + i*TIMELINE_PX_PER_S; if(x>c.width) break;
     ctx.fillRect(x, 18, 1, 8);
     if(i%5===0){ ctx.fillRect(x, 14, 1, 12); ctx.fillText(i+'s', x+4, 12); }
+  }
+
+  // BEAT MARKERS — vertical accent ticks for every detected beat across all
+  // audio clips. Drawn after the seconds grid so they sit on top.
+  // The ruler's canvas is positioned with padding-left:80px inside its
+  // container (see #timeline-ruler CSS). Internally we draw 0..c.width
+  // where x=0 == the "0s" mark visually (= TIMELINE_OFFSET_X in clip-coord
+  // space). Convert: rulerX = clipX - TIMELINE_OFFSET_X.
+  ctx.fillStyle = 'rgba(10,132,255,0.65)';
+  for(const ac of state.clips){
+    if(ac.type !== 'audio' || !ac.beats || !ac.beats.length) continue;
+    for(const t of ac.beats){
+      const clipAbsX = ac.x + t * TIMELINE_PX_PER_S;
+      const rulerX = clipAbsX - TIMELINE_OFFSET_X;
+      if(rulerX < 0 || rulerX > c.width) continue;
+      ctx.fillRect(rulerX, 0, 1, 6);
+    }
   }
 }
 function renderPlayhead(){
