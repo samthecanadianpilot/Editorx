@@ -463,14 +463,17 @@ select:focus{border-color:var(--accent)}
 .badge-lut .badge-swatch{width:8px;height:8px;border-radius:2px;background:var(--swatch);display:inline-block}
 
 #playhead{
-  position:absolute;top:0;bottom:0;width:1px;background:var(--accent);z-index:10;pointer-events:none}
+  position:absolute;left:0;top:0;bottom:0;width:1px;background:var(--accent);
+  z-index:10;pointer-events:none;
+  will-change:transform;transform:translate3d(0,0,0)}
 #playhead::before{
   content:'';position:absolute;left:-6px;top:0;width:13px;height:11px;
   background:var(--accent);clip-path:polygon(50% 100%, 0 0, 100% 0)}
 
 #cut-indicator{
-  position:absolute;top:0;bottom:0;width:1px;background:var(--warn);
-  pointer-events:none;z-index:9;display:none}
+  position:absolute;left:0;top:0;bottom:0;width:1px;background:var(--warn);
+  pointer-events:none;z-index:9;display:none;
+  will-change:transform;transform:translate3d(0,0,0)}
 #cut-indicator::before{
   content:'';position:absolute;left:-5px;top:0;width:11px;height:8px;
   background:var(--warn);clip-path:polygon(50% 100%, 0 0, 100% 0)}

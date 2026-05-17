@@ -609,7 +609,7 @@ function wireCutIndicator(){
       return;
     }
     const rect = wrap.getBoundingClientRect();
-    indicator.style.left = (e.clientX - rect.left) + 'px';
+    indicator.style.transform = 'translate3d(' + (e.clientX - rect.left) + 'px,0,0)';
     indicator.classList.add('visible');
   });
   wrap.addEventListener('mouseleave', ()=>indicator.classList.remove('visible'));

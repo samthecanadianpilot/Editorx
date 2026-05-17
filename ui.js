@@ -540,7 +540,11 @@ function renderInspector(){
 
   content.innerHTML = html;
 
-  // Wire numeric ranges
+  // Wire numeric ranges. We deliberately AVOID renderClips() on every input
+  // event — slider drags fire dozens of times per second, and rebuilding the
+  // timeline DOM each tick is the second-biggest flicker source after
+  // overlay-rebuild. Viewer + value label are all that need to update live;
+  // the timeline gets one render on release.
   content.querySelectorAll('input[type=range][data-prop]').forEach(inp=>{
     const prop = inp.dataset.prop;
     inp.addEventListener('input', e=>{
@@ -550,9 +554,9 @@ function renderInspector(){
       updateClip(clip.id, {[prop]: v});
       const valSpan = inp.parentElement.querySelector('.insp-value');
       if(valSpan) valSpan.textContent = Number(raw).toFixed(0) + (inp.dataset.unit||'');
-      renderViewer(); renderClips();
+      renderViewer();
     });
-    inp.addEventListener('change', ()=>pushHistory());
+    inp.addEventListener('change', ()=>{ pushHistory(); renderClips(); });
   });
 
   // Wire text + color
@@ -930,10 +934,43 @@ function clearSmartGuides(){
   const layer = document.getElementById('smart-guides'); if(layer) layer.innerHTML = '';
 }
 
+// Compute & apply position/size to an existing text-overlay box element.
+// Pulled out so renderTextOverlays can either build new boxes OR re-position
+// existing ones without rebuilding the DOM (anti-flicker during playback).
+function _positionTextBox(el, clip, canvas, ox, oy, sx, sy){
+  const family = clip.font || 'Fraunces';
+  const weight = clip.fontWeight || 700;
+  const baseSize = 64;
+  const measureCtx = canvas.getContext('2d');
+  measureCtx.font = `${weight} ${baseSize}px "${family}", serif`;
+  const text = clip.text || clip.name || '';
+  const metrics = measureCtx.measureText(text);
+  const scale = clip.scale ?? 1;
+  const w = Math.max(40, metrics.width * scale);
+  const h = baseSize * 1.25 * scale;
+  const cx = canvas.width/2 + (clip.posX||0);
+  const cy = canvas.height - 160 + (clip.posY||0);
+  el.style.left   = (ox + (cx - w/2)*sx) + 'px';
+  el.style.top    = (oy + (cy - h/2)*sy) + 'px';
+  el.style.width  = (w*sx) + 'px';
+  el.style.height = (h*sy) + 'px';
+  return {w, h};
+}
+
 // ---------- Text overlay (DOM, draggable text bounding box) ----------
+// Don't rebuild the DOM every playback frame — that's the #1 source of
+// flicker during playback. Only tear down + rebuild when the set of
+// currently-active text clips changes; otherwise just patch element
+// positions in place. This keeps drag interactions intact AND eliminates
+// the 60fps DOM churn.
+let _lastTextOverlayKey = '';
+function _textOverlayKey(active){
+  // Key changes when the set of active clip ids changes OR when the
+  // selection changes (the selected box renders differently).
+  return active.map(c=>c.id).sort().join(',') + '|' + (state.selectedClipId||'') + '|' + (state.activeTool||'');
+}
 function renderTextOverlays(){
   const overlay = document.getElementById('text-overlay'); if(!overlay) return;
-  overlay.innerHTML = '';
   const canvas = document.getElementById('viewer-canvas');
   const cRect = canvas.getBoundingClientRect();
   const overlayRect = overlay.getBoundingClientRect();
@@ -942,33 +979,31 @@ function renderTextOverlays(){
 
   const tS = state.playhead/1000;
   const activeTexts = activeClipsAt(tS, 'text');
-  if(activeTexts.length === 0) return;
+  const key = _textOverlayKey(activeTexts);
 
-  // Use a measuring context so we can size the bounding box around the text
-  const measureCtx = canvas.getContext('2d');
+  if(activeTexts.length === 0){
+    if(overlay.firstChild) overlay.innerHTML = '';
+    _lastTextOverlayKey = '';
+    return;
+  }
+
+  // If the active set + selection didn't change, just update positions
+  // (no DOM teardown → no flicker).
+  if(key === _lastTextOverlayKey && overlay.children.length === activeTexts.length){
+    activeTexts.forEach(clip=>{
+      const el = overlay.querySelector(`[data-clip-id="${clip.id}"]`);
+      if(el) _positionTextBox(el, clip, canvas, ox, oy, sx, sy);
+    });
+    return;
+  }
+  _lastTextOverlayKey = key;
+  overlay.innerHTML = '';
 
   activeTexts.forEach(clip=>{
-    const family = clip.font || 'Inter';
-    const weight = clip.fontWeight || 700;
-    const baseSize = 64;
-    measureCtx.font = `${weight} ${baseSize}px "${family}", Inter, sans-serif`;
-    const text = clip.text || clip.name || '';
-    const metrics = measureCtx.measureText(text);
-    const scale = clip.scale ?? 1;
-    const w = Math.max(40, metrics.width * scale);
-    const h = baseSize * 1.25 * scale;
-
-    const cx = canvas.width/2 + (clip.posX||0);
-    const cy = canvas.height - 160 + (clip.posY||0);
-    const left = cx - w/2;
-    const top  = cy - h/2;
-
     const el = document.createElement('div');
     el.className = 'text-shape-overlay' + (state.selectedClipId===clip.id?' selected':'');
-    el.style.left   = (ox + left*sx) + 'px';
-    el.style.top    = (oy + top*sy)  + 'px';
-    el.style.width  = (w*sx) + 'px';
-    el.style.height = (h*sy) + 'px';
+    el.dataset.clipId = clip.id;
+    const {w, h} = _positionTextBox(el, clip, canvas, ox, oy, sx, sy);
 
     // Click selects the text clip
     el.addEventListener('click', e=>{
@@ -1017,39 +1052,39 @@ function renderTextOverlays(){
 }
 
 // ---------- Selection brackets (FCPX-style corner markers around the selected video clip) ----------
+// Reuse a single DOM container; just update position each tick. Builds the
+// child <span> brackets once. Eliminates per-frame DOM churn during playback.
 function renderSelectionBrackets(){
   const overlay = document.getElementById('selection-brackets'); if(!overlay) return;
-  overlay.innerHTML = '';
   const sel = getSelectedClip();
-  if(!sel || sel.type !== 'video') return;
   const tS = state.playhead/1000;
-  // Only show when the selected clip is on screen at the current playhead
-  if(tS < clipStartS(sel) || tS > clipEndS(sel)) return;
-
+  const visible = sel && sel.type === 'video' && tS >= clipStartS(sel) && tS <= clipEndS(sel);
+  if(!visible){
+    if(overlay.firstChild) overlay.innerHTML = '';
+    return;
+  }
+  let cont = overlay.querySelector('.sel-brackets');
+  if(!cont){
+    overlay.innerHTML = '';
+    cont = document.createElement('div');
+    cont.className = 'sel-brackets';
+    cont.innerHTML = '<span class="sb tl"></span><span class="sb tr"></span><span class="sb bl"></span><span class="sb br"></span>';
+    overlay.appendChild(cont);
+  }
   const canvas = document.getElementById('viewer-canvas');
   const cRect = canvas.getBoundingClientRect();
   const overlayRect = overlay.getBoundingClientRect();
   const ox = cRect.left - overlayRect.left, oy = cRect.top - overlayRect.top;
   const sx = cRect.width / canvas.width, sy = cRect.height / canvas.height;
-
-  // The video draws aspect-fit and centered on canvas, then transformed.
-  // Approximate the visible region as canvas-sized then scaled by clip.scale.
   const scale = sel.scale ?? 1;
-  const cx = canvas.width/2 + (sel.posX||0);
+  const cx = canvas.width/2  + (sel.posX||0);
   const cy = canvas.height/2 + (sel.posY||0);
-  const dw = canvas.width  * scale * 0.9; // padded a bit so the brackets sit just inside
+  const dw = canvas.width  * scale * 0.9;
   const dh = canvas.height * scale * 0.9;
-
-  const left = cx - dw/2, top = cy - dh/2;
-
-  const cont = document.createElement('div');
-  cont.className = 'sel-brackets';
-  cont.style.left   = (ox + left*sx) + 'px';
-  cont.style.top    = (oy + top*sy) + 'px';
+  cont.style.left   = (ox + (cx - dw/2)*sx) + 'px';
+  cont.style.top    = (oy + (cy - dh/2)*sy) + 'px';
   cont.style.width  = (dw*sx) + 'px';
   cont.style.height = (dh*sy) + 'px';
-  cont.innerHTML = '<span class="sb tl"></span><span class="sb tr"></span><span class="sb bl"></span><span class="sb br"></span>';
-  overlay.appendChild(cont);
 }
 
 // ---------- Mask overlay (DOM, draggable handles) ----------
@@ -1118,7 +1153,9 @@ function renderTimecodeRuler(){
 }
 function renderPlayhead(){
   const ph = document.getElementById('playhead'); if(!ph) return;
-  ph.style.left = (TIMELINE_OFFSET_X + state.playhead/PLAYHEAD_MS_PER_PX) + 'px';
+  // translate3d → compositor-only, no layout, smooth at 60fps
+  const x = TIMELINE_OFFSET_X + state.playhead/PLAYHEAD_MS_PER_PX;
+  ph.style.transform = 'translate3d(' + x + 'px,0,0)';
 }
 function renderTimecode(){
   const tc = document.getElementById('timecode'); if(!tc) return;
@@ -1155,7 +1192,10 @@ function render(){
   renderMaskOverlays(); renderTextOverlays(); renderSelectionBrackets();
   renderTimecodeRuler(); renderPlayhead(); renderTimecode();
   renderTrackHeaders();
-  if(window.lucide) lucide.createIcons();
+  // Lucide replaces <i data-lucide=...> with inline SVG. Only sweep when
+  // unrendered placeholders exist — skipping it on every render eliminates
+  // a major source of icon flicker during inspector/timeline updates.
+  if(window.lucide && document.querySelector('i[data-lucide]')) lucide.createIcons();
 }
 
 // During playback only update the cheap things (not the whole UI tree)
