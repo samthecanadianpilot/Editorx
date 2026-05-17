@@ -6,36 +6,40 @@
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 
 :root{
-  /* ---------- Neutrals (foundation) ---------- */
-  --bg-1:       #0A0A0F;
-  --bg-2:       #1D1D23;
-  --surface-1:  #2C2C32;
-  --surface-2:  #3A3A42;
+  /* ---------- Neutrals — warm-shifted charcoals (editorial cinema room) ---------- */
+  --bg-1:       #0C0B0F;     /* very slight warm undertone vs pure #0A0A0F */
+  --bg-2:       #18161E;
+  --surface-1:  #24222C;
+  --surface-2:  #312E3A;
+  --surface-3:  #3D394A;
 
-  /* ---------- Text hierarchy ---------- */
-  --text-1:     #F5F5F7;
-  --text-2:     #A1A1A6;
-  --text-3:     #767680;
-  --text-4:     #545459;
+  /* ---------- Text hierarchy — cream-warm, easier on long sessions ---------- */
+  --text-1:     #F2EFE8;
+  --text-2:     #A8A39A;
+  --text-3:     #6C6760;
+  --text-4:     #4A4640;
 
-  /* ---------- Accent (purposeful) ---------- */
-  --accent:     #0084FF;
-  --accent-h:   #0070E8;
-  --accent-a:   #0060D0;
-  --accent-soft:rgba(0,132,255,0.15);
+  /* ---------- Accent (purposeful) — kept electric blue, sharper hover/active ---------- */
+  --accent:     #0A84FF;
+  --accent-h:   #1B95FF;
+  --accent-a:   #0070E0;
+  --accent-soft:rgba(10,132,255,0.16);
+  --accent-glow:0 0 24px rgba(10,132,255,0.45);
 
-  --good:       #34C759;
-  --warn:       #FF9500;
-  --danger:     #FF3B30;
-  --danger-soft:rgba(255,59,48,0.14);
+  --good:       #30D158;
+  --warn:       #FFB340;
+  --danger:     #FF453A;
+  --danger-soft:rgba(255,69,58,0.16);
   --purple:     #BF5AF0;
-  --purple-soft:rgba(191,90,240,0.14);
+  --purple-soft:rgba(191,90,240,0.16);
   --pink:       #FF375F;
-  --cyan:       #30B0C0;
+  --cyan:       #5AC8FA;
 
-  /* ---------- Lines / separators ---------- */
-  --sep:        #424245;
-  --border:     #34343C;
+  /* ---------- Lines / separators — slightly warmer ---------- */
+  --sep:        #3A3640;
+  --border:     #2E2A36;
+  --hairline:   rgba(242,239,232,0.06);
+  --hairline-2: rgba(242,239,232,0.10);
 
   /* ---------- Typography — Fraunces (editorial variable serif) across the whole site ---------- */
   --font:       "Fraunces", Georgia, "Times New Roman", serif;
@@ -78,8 +82,20 @@
 
 html,body{
   height:100%;overflow:hidden;background:var(--bg-1);color:var(--text-1);
-  font-family:var(--font);font-size:13px;line-height:1.4;letter-spacing:-.01em;
+  font-family:var(--font);font-size:13px;line-height:1.55;letter-spacing:-.005em;
+  font-optical-sizing:auto;
   -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+
+/* ===========================================================================
+   FILM-GRAIN OVERLAY — atmospheric texture across the whole app.
+   SVG fractal noise rendered to a data: URL so it costs zero requests.
+   Sits above the bg, below all interactive content, never captures clicks.
+   =========================================================================== */
+#grain{
+  position:fixed;inset:0;pointer-events:none;z-index:1000;
+  mix-blend-mode:overlay;opacity:.16;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.5 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  background-size:220px 220px}
 
 button{cursor:pointer;border:none;background:transparent;color:inherit;font-family:inherit;
   transition:background var(--t-fast), color var(--t-fast), transform var(--t-press), border-color var(--t-fast)}
@@ -1055,6 +1071,234 @@ body.tool-blade #cut-indicator.visible{display:block}
 .timecode, .meta-pill, .vi-pill, .insp-value, .mp-value, .kf-time,
 .lc-meta, .dash-duration, .clip-duration, .np-card-meta{font-family:var(--mono);font-feature-settings:"tnum" 1}
 body{line-height:1.5}
+
+/* ===========================================================================
+   REVAMP v2 — Editorial Atelier polish layer
+   These rules override / augment earlier blocks. Kept at the bottom so the
+   cascade naturally wins without me needing to rewrite the whole file.
+   =========================================================================== */
+
+/* App shell — give it the warm-canvas feel */
+html,body{
+  background:
+    radial-gradient(1200px 700px at 80% -10%, rgba(10,132,255,0.06), transparent 60%),
+    radial-gradient(900px 700px at -10% 110%, rgba(191,90,240,0.04), transparent 70%),
+  var(--bg-1)}
+
+/* Refined custom scrollbars (subtle, momentum-feeling) */
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-thumb{background:var(--surface-3);border-radius:8px;border:1px solid transparent;background-clip:padding-box;
+  transition:background var(--t-base)}
+::-webkit-scrollbar-thumb:hover{background:var(--text-4);background-clip:padding-box;border:1px solid transparent}
+::-webkit-scrollbar-corner{background:transparent}
+
+/* Hairline borders everywhere — one consistent token */
+#topbar, #toolbar, #sidebar-left, #sidebar-right,
+#center, #timeline-wrapper, #timeline-ruler,
+.track, .track-header, .modal-header, .modal-footer,
+.insp-section, .panel{border-color:var(--hairline) !important}
+
+/* Buttons: spring micro-interaction on hover/active */
+button{transition: background var(--t-fast), color var(--t-fast), transform var(--t-spring), border-color var(--t-fast), box-shadow var(--t-fast)}
+button:active{transform:scale(.95)}
+.transport-btn:hover,.tool-btn:hover,.ws-tab:hover,.stab:hover,
+.panel-action:hover,.ghost-btn:hover{transform:translateY(-1px)}
+
+/* Topbar — taller, more presence */
+#topbar{
+  height:64px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.025), transparent 80%),
+    var(--bg-2);
+  border-bottom:1px solid var(--hairline)}
+
+/* Logo mark: subtle accent glow */
+.logo-mark{
+  background:linear-gradient(140deg, var(--surface-2), var(--surface-1));
+  box-shadow:0 0 0 1px var(--hairline), inset 0 1px 0 rgba(255,255,255,0.04)}
+
+/* Timecode — more presence with tabular numerals */
+.timecode{
+  font-variant-numeric:tabular-nums;
+  background:linear-gradient(180deg, var(--bg-2), var(--bg-1));
+  border:1px solid var(--hairline-2);
+  font-size:13px;letter-spacing:.06em;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.03)}
+
+/* Export button — accent gradient + glow */
+.export-btn{
+  background:linear-gradient(180deg, var(--accent), var(--accent-a));
+  box-shadow:0 1px 0 rgba(255,255,255,0.18) inset, 0 6px 18px rgba(10,132,255,0.30);
+  letter-spacing:.04em}
+.export-btn:hover{
+  background:linear-gradient(180deg, var(--accent-h), var(--accent));
+  transform:translateY(-1px);
+  box-shadow:0 1px 0 rgba(255,255,255,0.22) inset, 0 10px 22px rgba(10,132,255,0.40)}
+
+/* Sidebars — gradient depth + hairline */
+#sidebar-left{
+  background:linear-gradient(180deg, var(--bg-1) 0%, var(--bg-2) 60%, var(--bg-1) 100%)}
+#sidebar-right{
+  background:linear-gradient(180deg, var(--bg-1) 0%, var(--bg-2) 60%, var(--bg-1) 100%)}
+
+/* Panel headers — Fraunces display with optical sizing */
+.panel-title{
+  font-family:var(--font-d);font-size:14px;font-weight:500;letter-spacing:-.3px;
+  color:var(--text-1);
+  font-variation-settings:"opsz" 144}
+
+/* Preset cards: spring hover + subtle inner highlight */
+.preset-card{transition:transform var(--t-spring), background var(--t-base), border-color var(--t-base)}
+.preset-card:hover{transform:translateY(-2px) scale(1.015)}
+.preset-preview{
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.04), 0 1px 4px rgba(0,0,0,0.4)}
+.preset-name{font-family:var(--font);font-size:11px;letter-spacing:-.1px}
+
+/* List cards — accent-faint hover */
+.list-card:hover{background:var(--accent-soft);border-color:rgba(10,132,255,0.25)}
+.list-card.selected{background:var(--accent-soft);border-color:var(--accent);
+  box-shadow:inset 0 0 0 1px rgba(10,132,255,0.25)}
+
+/* Viewer wrapper — soft inner vignette + warm undertone */
+#viewer-wrapper{
+  background:
+    radial-gradient(ellipse at center, transparent 45%, rgba(0,0,0,0.55) 100%),
+    radial-gradient(800px 500px at 50% 35%, rgba(10,132,255,0.05), transparent 70%),
+    #050507}
+#viewer-frame{
+  box-shadow:
+    0 0 0 1px var(--hairline-2),
+    0 30px 70px rgba(0,0,0,0.55),
+    0 0 1px rgba(10,132,255,0.18)}
+
+/* Timeline — subtle accent line under the ruler */
+#timeline-wrapper{
+  background:linear-gradient(180deg, var(--bg-2), var(--bg-1));
+  border-top:1px solid var(--hairline-2);
+  box-shadow:0 -1px 0 rgba(10,132,255,0.10)}
+
+/* Clip — refined gradient + hover lift */
+.clip{
+  background:linear-gradient(180deg, var(--surface-1), var(--bg-2));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.04)}
+.clip:hover{transform:translateY(-1px);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.05), 0 6px 18px rgba(0,0,0,0.35)}
+.clip.selected{
+  box-shadow:inset 0 0 0 1.5px var(--accent), 0 8px 22px rgba(10,132,255,0.25)}
+
+/* Modals — proper glass treatment */
+.modal-overlay{
+  background:rgba(8,7,12,0.55);
+  backdrop-filter:blur(28px) saturate(150%);
+  -webkit-backdrop-filter:blur(28px) saturate(150%)}
+.modal-content{
+  background:linear-gradient(180deg, var(--surface-1), var(--bg-2));
+  box-shadow:
+    0 28px 80px rgba(0,0,0,0.55),
+    0 0 0 1px var(--hairline-2),
+    inset 0 1px 0 rgba(255,255,255,0.05)}
+
+/* ============ DASHBOARD revamp — bigger headline, breathing room ============ */
+#dash-topbar{
+  height:68px;
+  background:linear-gradient(180deg, rgba(255,255,255,0.025), transparent 80%), var(--bg-2);
+  border-bottom:1px solid var(--hairline)}
+#dash-main{padding:64px var(--s-6) 80px;max-width:1320px}
+.dash-h1{
+  font-family:var(--font-d);font-weight:500;font-size:56px;line-height:1.02;letter-spacing:-1.5px;
+  margin-bottom:10px;font-variation-settings:"opsz" 144}
+.dash-h1 em{font-style:italic;color:var(--accent)}
+.dash-sub{font-size:16px;color:var(--text-2);line-height:1.5;max-width:540px}
+.dash-new{
+  padding:14px 22px;font-size:13px;font-weight:600;
+  background:linear-gradient(180deg, var(--accent), var(--accent-a));
+  box-shadow:0 1px 0 rgba(255,255,255,0.2) inset, 0 8px 22px rgba(10,132,255,0.35)}
+.dash-new:hover{transform:translateY(-1px);
+  box-shadow:0 1px 0 rgba(255,255,255,0.25) inset, 0 12px 28px rgba(10,132,255,0.45)}
+.dash-grid{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));
+  gap:var(--s-5);margin-top:var(--s-5)}
+.dash-card{
+  background:var(--bg-2);border:1px solid var(--hairline);
+  transition:transform var(--t-spring), background var(--t-base), border-color var(--t-base), box-shadow var(--t-base)}
+.dash-card:hover{
+  transform:translateY(-4px) scale(1.005);
+  border-color:var(--accent);
+  background:var(--surface-1);
+  box-shadow:0 16px 40px rgba(0,0,0,0.4), 0 0 0 1px rgba(10,132,255,0.20)}
+.dash-card-name{font-family:var(--font-d);font-size:15px;font-weight:500;letter-spacing:-.2px}
+.dash-empty .empty-title{
+  font-family:var(--font-d);font-size:24px;font-weight:500;letter-spacing:-.5px}
+
+/* ============ STARTER revamp — even bigger editorial headline ============ */
+.starter-hero{
+  background:
+    radial-gradient(800px 600px at 30% 20%, rgba(10,132,255,0.10), transparent 60%),
+    linear-gradient(135deg, var(--bg-1) 0%, var(--bg-2) 100%);
+  padding:80px 64px}
+.starter-headline{
+  font-size:64px;line-height:1.0;letter-spacing:-2px;
+  font-variation-settings:"opsz" 144;font-weight:500}
+.starter-headline em{font-style:italic;color:var(--accent);font-weight:400}
+.starter-sub{font-size:17px;line-height:1.5;color:var(--text-2)}
+.starter-mark{
+  background:linear-gradient(140deg, var(--accent), var(--accent-a));color:#fff;
+  box-shadow:0 0 0 1px rgba(10,132,255,0.4), 0 8px 24px rgba(10,132,255,0.30)}
+.starter-card{padding:80px 64px}
+.starter-title{font-size:42px;line-height:1.05;letter-spacing:-1px}
+.starter-github{
+  background:linear-gradient(180deg, #24272D, #1B1E23);
+  box-shadow:0 1px 0 rgba(255,255,255,0.05) inset, 0 6px 16px rgba(0,0,0,0.3)}
+.starter-github:hover{
+  background:linear-gradient(180deg, #2C2F36, #22252B);
+  box-shadow:0 1px 0 rgba(255,255,255,0.08) inset, 0 10px 22px rgba(0,0,0,0.4);
+  transform:translateY(-2px)}
+
+/* ============ STATUS BAR ============ */
+#statusbar{
+  display:flex;align-items:center;justify-content:space-between;
+  height:26px;padding:0 var(--s-4);flex-shrink:0;
+  background:linear-gradient(180deg, var(--bg-1), #000);
+  border-top:1px solid var(--hairline);
+  font-size:11px;color:var(--text-3);
+  font-variant-numeric:tabular-nums}
+#statusbar .sb-left, #statusbar .sb-center, #statusbar .sb-right{
+  display:flex;align-items:center;gap:var(--s-2)}
+.sb-dot{
+  width:6px;height:6px;border-radius:50%;display:inline-block;
+  background:var(--good);box-shadow:0 0 6px var(--good);
+  transition:background var(--t-base), box-shadow var(--t-base)}
+.sb-dot.saving{background:var(--warn);box-shadow:0 0 6px var(--warn);
+  animation:sb-pulse 1.2s ease-in-out infinite}
+@keyframes sb-pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.sb-project{font-family:var(--font-d);color:var(--text-1);font-weight:500;font-size:12px;letter-spacing:-.1px}
+.sb-meta{color:var(--text-3)}
+.sb-sep{color:var(--text-4);opacity:.6}
+.sb-shortcut{font-family:var(--mono);font-size:10px;color:var(--text-3);letter-spacing:.04em}
+.sb-user{color:var(--text-2);font-weight:500}
+
+/* ============ Screen-transition: fade-with-blur ============ */
+#starter, #dashboard, #app{
+  animation:screen-fade-in .35s cubic-bezier(0.4, 0, 0.2, 1)}
+@keyframes screen-fade-in{
+  from{opacity:0;filter:blur(8px);transform:scale(0.99)}
+  to  {opacity:1;filter:blur(0);transform:scale(1)}
+}
+
+/* ============ Inspector polish ============ */
+.inspector-header{
+  font-family:var(--font-d);font-size:20px;font-weight:500;letter-spacing:-.5px;
+  font-variation-settings:"opsz" 144;
+  background:linear-gradient(180deg, rgba(255,255,255,0.02), transparent)}
+.insp-section-title{
+  font-family:var(--font);text-transform:uppercase;font-size:10px;font-weight:600;
+  letter-spacing:.12em;color:var(--text-3)}
+
+/* ============ Refined input focus rings ============ */
+input[type=text]:focus,input[type=email]:focus,input[type=password]:focus,input[type=number]:focus,
+select:focus{
+  border-color:var(--accent);
+  box-shadow:0 0 0 3px rgba(10,132,255,0.18);outline:none}
 
 /* ---------- Responsive ---------- */
 @media (max-width: 1280px){

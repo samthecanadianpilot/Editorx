@@ -17,6 +17,9 @@
 </head>
 <body>
 
+  <!-- Site-wide film-grain overlay (atmospheric, pointer-events:none) -->
+  <div id="grain" aria-hidden="true"></div>
+
   <!-- ===================== STARTER / AUTH SCREEN ===================== -->
   <div id="starter" class="hidden">
     <div class="starter-grid">
@@ -26,7 +29,7 @@
           <span class="starter-mark"><i data-lucide="hexagon"></i></span>
           <span class="starter-wordmark">EditorX</span>
         </div>
-        <h1 class="starter-headline">Cut, mask, and color in&nbsp;the&nbsp;browser.</h1>
+        <h1 class="starter-headline">Cut, mask, and color <em>in the browser</em>.</h1>
         <p class="starter-sub">A precise, tactile video editor designed for focus. Bring your media, scrub a timeline, mask, color, type — export when you're done.</p>
         <ul class="starter-features">
           <li><i data-lucide="film" width="14" height="14"></i> Real video playback in the canvas</li>
@@ -84,8 +87,8 @@
     <main id="dash-main">
       <section class="dash-hero">
         <div>
-          <h1 class="dash-h1">Your Projects</h1>
-          <p class="dash-sub">Pick up where you left off, or start something new.</p>
+          <h1 class="dash-h1">Your <em>projects</em>.</h1>
+          <p class="dash-sub">Pick up where you left off, or start something new. Everything autosaves locally and syncs to your account.</p>
         </div>
         <button id="btn-new-project" class="primary-btn dash-new">
           <i data-lucide="plus" width="14" height="14"></i><span>New Project</span>
@@ -318,6 +321,26 @@
       </aside>
 
     </div>
+
+    <!-- STATUS BAR (autosave / project / user / sync) -->
+    <footer id="statusbar">
+      <div class="sb-left">
+        <span class="sb-dot sb-dot-on" id="sb-status-dot"></span>
+        <span class="sb-text" id="sb-status">All changes saved</span>
+      </div>
+      <div class="sb-center">
+        <span class="sb-project" id="sb-project">Untitled</span>
+        <span class="sb-sep">·</span>
+        <span class="sb-meta" id="sb-meta">0 clips · 0s</span>
+      </div>
+      <div class="sb-right">
+        <span class="sb-shortcut">⌘S Save</span>
+        <span class="sb-sep">·</span>
+        <span class="sb-shortcut">⌘E Export</span>
+        <span class="sb-sep">·</span>
+        <span class="sb-user" id="sb-user">Guest</span>
+      </div>
+    </footer>
   </div>
 
   <!-- CLIP CONTEXT MENU (right-click on a timeline clip) -->

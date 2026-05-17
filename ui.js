@@ -1279,6 +1279,47 @@ function renderTrackHeaders(){
   });
 }
 
+// ---------- Status bar (bottom of editor) ----------
+function renderStatusBar(){
+  const proj = document.getElementById('sb-project');
+  const meta = document.getElementById('sb-meta');
+  const user = document.getElementById('sb-user');
+  const dot  = document.getElementById('sb-status-dot');
+  const txt  = document.getElementById('sb-status');
+  if(!proj || !meta || !user) return;
+  proj.textContent = state.projectName || 'Untitled';
+  const dur = timelineDurationS();
+  const m = Math.floor(dur/60), s = Math.floor(dur%60);
+  meta.textContent = state.clips.length + ' clip' + (state.clips.length===1?'':'s') + ' · ' + m + ':' + String(s).padStart(2,'0');
+  // Pull user from local session
+  try{
+    const ss = JSON.parse(localStorage.getItem('editorx.session.v1') || 'null');
+    if(ss){
+      user.textContent = ss.name || ss.login || 'Guest';
+      user.title = ss.email || ss.login || '';
+    } else {
+      user.textContent = 'Guest';
+    }
+  }catch{ user.textContent = 'Guest'; }
+  // Autosave indicator pulse
+  if(txt && dot){
+    txt.textContent = 'All changes saved';
+    dot.classList.remove('saving');
+  }
+}
+window.statusbarSaving = function(){
+  const dot = document.getElementById('sb-status-dot');
+  const txt = document.getElementById('sb-status');
+  if(dot) dot.classList.add('saving');
+  if(txt) txt.textContent = 'Saving…';
+};
+window.statusbarSaved = function(){
+  const dot = document.getElementById('sb-status-dot');
+  const txt = document.getElementById('sb-status');
+  if(dot) dot.classList.remove('saving');
+  if(txt) txt.textContent = 'All changes saved';
+};
+
 // ---------- Master render ----------
 function render(){
   renderClips();
@@ -1290,6 +1331,7 @@ function render(){
   renderMaskOverlays(); renderTextOverlays(); renderSelectionBrackets();
   renderTimecodeRuler(); renderPlayhead(); renderTimecode();
   renderTrackHeaders();
+  renderStatusBar();
   // Lucide replaces <i data-lucide=...> with inline SVG. Only sweep when
   // unrendered placeholders exist — skipping it on every render eliminates
   // a major source of icon flicker during inspector/timeline updates.
