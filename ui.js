@@ -478,6 +478,11 @@ function renderInspector(){
 function renderViewer(){
   const c = document.getElementById('viewer-canvas');
   if(!c) return;
+  // Honor the project's chosen dimensions (set when the project was created/loaded)
+  if(state.canvasW && state.canvasH && (c.width !== state.canvasW || c.height !== state.canvasH)){
+    c.width  = state.canvasW;
+    c.height = state.canvasH;
+  }
   const ctx = c.getContext('2d');
 
   // Backdrop

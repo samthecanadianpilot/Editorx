@@ -8,14 +8,35 @@ const TIMELINE_OFFSET_X  = 80;       // px gutter before first clip (track heade
 const TIMELINE_PX_PER_S  = 40;       // 1 second == 40 px on the ruler
 const PLAYHEAD_MS_PER_PX = 1000 / TIMELINE_PX_PER_S; // 25ms / px
 
-const VIEWER_W = 1920;
-const VIEWER_H = 1080;
+// Default viewer dimensions — overridden by the selected project's preset.
+const DEFAULT_VIEWER_W = 1920;
+const DEFAULT_VIEWER_H = 1080;
 const VIEWER_FPS = 30;
+// Kept for back-compat with code that still imports them
+const VIEWER_W = DEFAULT_VIEWER_W;
+const VIEWER_H = DEFAULT_VIEWER_H;
+
+// Format presets — used by the Dashboard new-project picker and stored on the project.
+const PROJECT_PRESETS = [
+  {id:'yt-1080',  name:'YouTube 1080p',     w:1920, h:1080, ratio:'16:9', icon:'youtube',  desc:'Widescreen video'},
+  {id:'yt-4k',    name:'YouTube 4K',        w:3840, h:2160, ratio:'16:9', icon:'monitor',  desc:'Ultra HD'},
+  {id:'tiktok',   name:'TikTok / Shorts',   w:1080, h:1920, ratio:'9:16', icon:'smartphone',desc:'Vertical, full-screen'},
+  {id:'reel',     name:'Instagram Reel',    w:1080, h:1920, ratio:'9:16', icon:'video',    desc:'Vertical IG / Reels'},
+  {id:'ig-square',name:'Instagram Square',  w:1080, h:1080, ratio:'1:1',  icon:'square',   desc:'Feed post'},
+  {id:'ig-4x5',   name:'Instagram 4:5',     w:1080, h:1350, ratio:'4:5',  icon:'rectangle-vertical',desc:'Portrait feed post'},
+  {id:'linkedin', name:'LinkedIn Video',    w:1200, h:1200, ratio:'1:1',  icon:'briefcase',desc:'Square feed'},
+  {id:'twitter',  name:'X / Twitter',       w:1280, h:720,  ratio:'16:9', icon:'twitter',  desc:'In-feed video'},
+  {id:'custom',   name:'Custom Size',       w:1920, h:1080, ratio:'—',    icon:'sliders',  desc:'You pick'}
+];
 
 // ---------- State ----------
 const state = {
+  projectId: null,        // ID into editorx.projects.v1; null = not loaded yet
   projectName: 'Untitled',
-  clips: demoClips(),     // pre-seeded for visual continuity until user imports media
+  presetId: 'yt-1080',
+  canvasW: DEFAULT_VIEWER_W,
+  canvasH: DEFAULT_VIEWER_H,
+  clips: [],              // populated by openProject / newProject
   selectedClipId: null,
   media: [],              // {id,name,url,type,duration}
   masks: {},              // clipId -> [{...}]
@@ -29,7 +50,7 @@ const state = {
   isPlaying: false,
   snap: true,
   activeTool: 'select',   // select | blade | text | hand
-  workspace: 'edit',      // edit | color | effects | export
+  workspace: 'edit',
   history: [],
   historyIndex: -1
 };
@@ -396,30 +417,41 @@ function applySnapshot(snap){
 function undo(){ if(state.historyIndex<=0) return false; state.historyIndex--; applySnapshot(state.history[state.historyIndex]); scheduleAutosave(); return true; }
 function redo(){ if(state.historyIndex>=state.history.length-1) return false; state.historyIndex++; applySnapshot(state.history[state.historyIndex]); scheduleAutosave(); return true; }
 
-// ---------- Project persistence (localStorage + .editorx.json) ----------
-const SAVE_KEY = 'editorx.project.v1';
+// ---------- Project persistence — multi-project model ----------
+//
+// Storage layout:
+//   localStorage['editorx.projects.v1']  = [
+//     { id, name, presetId, canvasW, canvasH,
+//       createdAt, updatedAt, thumbnail, doc:{clips, masks, tracks, ...} },
+//     ...
+//   ]
+//   localStorage['editorx.currentProject.v1'] = projectId
+//
+// Each project autosaves its own doc into the array on every history push.
+
+const PROJECTS_KEY = 'editorx.projects.v1';
+const CURRENT_KEY  = 'editorx.currentProject.v1';
 
 function projectDoc(){
   return {
-    meta: {app:'EditorX', version:1, savedAt: new Date().toISOString()},
-    projectName: state.projectName,
-    clips: state.clips, masks: state.masks, tracks: state.tracks,
+    clips: state.clips,
+    masks: state.masks,
+    tracks: state.tracks,
     selectedClipId: state.selectedClipId,
     playhead: state.playhead
   };
 }
 function applyProjectDoc(o){
   if(!o) return false;
-  state.projectName    = o.projectName || 'Untitled';
   state.clips          = Array.isArray(o.clips)  ? o.clips  : [];
   state.masks          = (o.masks && typeof o.masks==='object') ? o.masks : {};
   state.tracks         = (o.tracks && typeof o.tracks==='object') ? o.tracks : state.tracks;
   state.selectedClipId = o.selectedClipId || null;
   state.playhead       = o.playhead || 0;
-  // Imported media (blob: URLs) won't survive a reload — null those out
-  state.clips.forEach(c => { if(c.sourceUrl && c.sourceUrl.startsWith && c.sourceUrl.startsWith('blob:')) c.sourceUrl = null; });
+  // Imported media (blob: URLs) don't survive a reload — null them out
+  state.clips.forEach(c => { if(c.sourceUrl && typeof c.sourceUrl==='string' && c.sourceUrl.startsWith('blob:')) c.sourceUrl = null; });
   state.history = []; state.historyIndex = -1;
-  pushHistoryNoSave(); // seed history once without re-triggering autosave
+  pushHistoryNoSave();
   return true;
 }
 function pushHistoryNoSave(){
@@ -429,37 +461,136 @@ function pushHistoryNoSave(){
   state.historyIndex = state.history.length - 1;
 }
 
+function listProjects(){
+  try{ const v = JSON.parse(localStorage.getItem(PROJECTS_KEY) || '[]'); return Array.isArray(v) ? v : []; }
+  catch{ return []; }
+}
+function writeProjects(list){
+  try{ localStorage.setItem(PROJECTS_KEY, JSON.stringify(list)); return true; }
+  catch(err){ console.warn('EditorX writeProjects failed:', err); return false; }
+}
+function getCurrentProjectId(){
+  try{ return localStorage.getItem(CURRENT_KEY); }catch{return null;}
+}
+function setCurrentProjectId(id){
+  try{ if(id) localStorage.setItem(CURRENT_KEY, id); else localStorage.removeItem(CURRENT_KEY); }catch{}
+}
+
+// Capture a JPEG thumbnail of the viewer canvas (small + cheap).
+function captureThumbnail(){
+  const cv = document.getElementById('viewer-canvas');
+  if(!cv) return null;
+  const tw = 480, th = Math.round(tw * (state.canvasH/state.canvasW));
+  const tcv = document.createElement('canvas');
+  tcv.width = tw; tcv.height = th;
+  const ctx = tcv.getContext('2d');
+  ctx.fillStyle = '#000'; ctx.fillRect(0,0,tw,th);
+  try{ ctx.drawImage(cv, 0, 0, tw, th); }catch{}
+  try{ return tcv.toDataURL('image/jpeg', 0.55); }catch{ return null; }
+}
+
+// Save the current in-memory project back into the projects list.
+function saveCurrentProject(){
+  if(!state.projectId) return false;
+  const list = listProjects();
+  const idx = list.findIndex(p => p.id === state.projectId);
+  const now = new Date().toISOString();
+  const meta = {
+    id: state.projectId,
+    name: state.projectName,
+    presetId: state.presetId,
+    canvasW: state.canvasW,
+    canvasH: state.canvasH,
+    updatedAt: now,
+    createdAt: (idx >= 0 ? list[idx].createdAt : now),
+    thumbnail: captureThumbnail() || (idx >= 0 ? list[idx].thumbnail : null),
+    clipCount: state.clips.length,
+    durationS: timelineDurationS(),
+    doc: projectDoc()
+  };
+  if(idx >= 0) list[idx] = meta; else list.push(meta);
+  return writeProjects(list);
+}
+
 let _autosaveT = null;
 function scheduleAutosave(){
   if(_autosaveT) clearTimeout(_autosaveT);
-  _autosaveT = setTimeout(()=>{ try{ saveToLocalStorage(); }catch{} }, 600);
+  _autosaveT = setTimeout(()=>{ try{ saveCurrentProject(); }catch{} }, 600);
 }
-function saveToLocalStorage(){
-  try{
-    localStorage.setItem(SAVE_KEY, JSON.stringify(projectDoc()));
-    return true;
-  }catch(err){
-    console.warn('EditorX autosave failed:', err);
-    return false;
-  }
+
+// Replace the editor state with the given project (by id).
+function openProject(id){
+  const list = listProjects();
+  const p = list.find(pr => pr.id === id);
+  if(!p) return false;
+  state.projectId   = p.id;
+  state.projectName = p.name || 'Untitled';
+  state.presetId    = p.presetId || 'yt-1080';
+  state.canvasW     = p.canvasW || DEFAULT_VIEWER_W;
+  state.canvasH     = p.canvasH || DEFAULT_VIEWER_H;
+  applyProjectDoc(p.doc || {});
+  setCurrentProjectId(p.id);
+  applyCanvasSize();
+  return true;
 }
-function loadFromLocalStorage(){
-  try{
-    const raw = localStorage.getItem(SAVE_KEY);
-    if(!raw) return false;
-    return applyProjectDoc(JSON.parse(raw));
-  }catch{return false;}
-}
-function clearSavedProject(){ try{ localStorage.removeItem(SAVE_KEY); }catch{} }
-function newProject(){
-  state.projectName = 'Untitled';
-  state.clips = demoClips();
-  state.masks = {}; state.selectedClipId = null; state.selectedMaskId = null;
+
+// Create a brand-new project from a preset + name. Returns the new id.
+function createProject(name, presetId, customW, customH){
+  const preset = PROJECT_PRESETS.find(p=>p.id===presetId) || PROJECT_PRESETS[0];
+  const id = 'p_' + Math.random().toString(36).slice(2, 10);
+  state.projectId   = id;
+  state.projectName = (name && name.trim()) || preset.name;
+  state.presetId    = preset.id;
+  state.canvasW     = (preset.id==='custom' && customW) ? customW : preset.w;
+  state.canvasH     = (preset.id==='custom' && customH) ? customH : preset.h;
+  state.clips = []; state.masks = {}; state.selectedClipId = null; state.selectedMaskId = null;
   state.playhead = 0;
-  state.tracks = {v1:{muted:false,locked:false,visible:true}, a1:{muted:false,locked:false,visible:true}, t1:{muted:false,locked:false,visible:true}};
+  state.tracks = {v1:{muted:false,locked:false,visible:true},
+                  a1:{muted:false,locked:false,visible:true},
+                  t1:{muted:false,locked:false,visible:true}};
   state.history = []; state.historyIndex = -1;
   pushHistoryNoSave();
-  scheduleAutosave();
+  setCurrentProjectId(id);
+  applyCanvasSize();
+  saveCurrentProject(); // persist immediately so it shows up on the Dashboard
+  return id;
+}
+
+function deleteProject(id){
+  const list = listProjects().filter(p => p.id !== id);
+  writeProjects(list);
+  if(getCurrentProjectId() === id) setCurrentProjectId(null);
+  return true;
+}
+function renameProject(id, newName){
+  const list = listProjects();
+  const p = list.find(pr=>pr.id===id);
+  if(!p) return false;
+  p.name = newName;
+  p.updatedAt = new Date().toISOString();
+  if(state.projectId === id) state.projectName = newName;
+  return writeProjects(list);
+}
+
+// Apply state.canvasW/H to the actual <canvas> element so the viewer renders
+// at the right resolution for the chosen project.
+function applyCanvasSize(){
+  const cv = document.getElementById('viewer-canvas');
+  if(!cv) return;
+  cv.width  = state.canvasW;
+  cv.height = state.canvasH;
+}
+
+// Demo seed: used by "Add demo project" / first-run if user wants something pre-loaded.
+function seedDemoClips(){
+  state.clips = [
+    {id:genId(),type:'video',name:'Welcome.mp4',  track:'v1',x:80, w:240,color:'#1a3a5c',sourceUrl:null,
+      transition:null,lutId:null,lutIntensity:1,effectId:null,fxAmount:null,
+      opacity:1,scale:1,posX:0,posY:0,rotation:0,
+      volume:1,muted:false,speed:1,inS:0},
+    {id:genId(),type:'text', name:'Intro Title', track:'t1',x:80, w:160,color:'#FFFFFF',
+      text:'EditorX', font:'Mona Sans', fontWeight:800, opacity:1,scale:1.6,posX:0,posY:0,rotation:0}
+  ];
 }
 
 pushHistoryNoSave();
@@ -485,9 +616,17 @@ window.startPlayback=startPlayback; window.stopPlayback=stopPlayback; window.tog
 window.seekPlayhead=seekPlayhead; window.nudgePlayhead=nudgePlayhead;
 window.loadFont=loadFont;
 window.pushHistory=pushHistory; window.undo=undo; window.redo=redo;
-window.saveToLocalStorage=saveToLocalStorage;
-window.loadFromLocalStorage=loadFromLocalStorage;
-window.clearSavedProject=clearSavedProject;
-window.newProject=newProject;
 window.applyProjectDoc=applyProjectDoc;
 window.projectDoc=projectDoc;
+window.PROJECT_PRESETS=PROJECT_PRESETS;
+window.listProjects=listProjects;
+window.openProject=openProject;
+window.createProject=createProject;
+window.deleteProject=deleteProject;
+window.renameProject=renameProject;
+window.saveCurrentProject=saveCurrentProject;
+window.applyCanvasSize=applyCanvasSize;
+window.getCurrentProjectId=getCurrentProjectId;
+window.setCurrentProjectId=setCurrentProjectId;
+window.captureThumbnail=captureThumbnail;
+window.seedDemoClips=seedDemoClips;

@@ -657,10 +657,15 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   // Project file buttons
   document.getElementById('btn-save')?.addEventListener('click', ()=>{
-    // Save both: autosave to localStorage AND offer download
-    saveToLocalStorage();
-    const project = projectDoc();
-    const blob = new Blob([JSON.stringify(project,null,2)], {type:'application/json'});
+    saveCurrentProject(); // persist to projects list
+    // Also offer a download of the project JSON
+    const doc = {
+      meta:{app:'EditorX', version:2, savedAt:new Date().toISOString(),
+            projectName:state.projectName, presetId:state.presetId,
+            canvasW:state.canvasW, canvasH:state.canvasH},
+      ...projectDoc()
+    };
+    const blob = new Blob([JSON.stringify(doc,null,2)], {type:'application/json'});
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href = url; a.download = (state.projectName||'EditorX')+'.editorx.json';
     document.body.appendChild(a); a.click(); a.remove();
@@ -669,8 +674,11 @@ document.addEventListener('DOMContentLoaded', ()=>{
   });
   document.getElementById('btn-open')?.addEventListener('click', pickProjectFile);
   document.getElementById('btn-new')?.addEventListener('click', ()=>{
-    if(!confirm('Discard the current project? Your autosave will be reset.')) return;
-    newProject(); render(); flash('New project');
+    // Save the current project first so its progress isn't lost,
+    // then jump back to the Dashboard and open the new-project modal.
+    saveCurrentProject();
+    showDashboard();
+    openNewProjectModal();
   });
 
   // Mask props modal close buttons
@@ -769,79 +777,248 @@ document.addEventListener('DOMContentLoaded', ()=>{
     }
   });
 
-  // Pre-load a few common fonts so the demo title isn't FOUT-y
+  // Pre-load Mona Sans (the UI font) + a few popular text-title fonts.
   if(window.loadFont){
-    ['Inter','Playfair Display','Bebas Neue','Oswald','JetBrains Mono','Fraunces'].forEach(f=>window.loadFont(f));
+    ['Mona Sans','Playfair Display','Bebas Neue','Oswald','JetBrains Mono'].forEach(f=>window.loadFont(f));
   }
 
-  // ----- Auth gate -----
-  // 1. If the URL has ?session=… we just came back from /api/auth/github/callback.
-  //    Decode it, persist, clean the URL, and enter the editor.
-  const urlSession = readSessionFromUrl();
-  if(urlSession){
-    writeSession(urlSession);
-    // Strip the query string so a refresh doesn't replay the OAuth payload.
+  // Dashboard buttons
+  document.getElementById('btn-new-project')?.addEventListener('click', openNewProjectModal);
+  document.getElementById('btn-back-dash')?.addEventListener('click', ()=>{
+    saveCurrentProject(); // make sure the latest is captured before leaving
+    showDashboard();
+  });
+  document.getElementById('btn-signout')?.addEventListener('click', async ()=>{
+    try{ await fetch('/api/auth/signout', {method:'POST', headers:{Accept:'application/json'}}); }catch{}
+    clearSession();
+    showStarter();
+  });
+
+  // ----- Boot flow -----
+  //   1. If we just came back from /api/auth/github/callback (?signed_in=1),
+  //      strip the param and hit /api/me to read the cookie session.
+  //   2. Otherwise check for an existing cookie session OR a local guest session.
+  //   3. session → Dashboard.  no session → Starter.
+  bootBootBoot();
+});
+
+async function bootBootBoot(){
+  const params = new URLSearchParams(location.search);
+  if(params.has('signed_in')){
     history.replaceState({}, '', location.pathname);
-    enterEditor(true);
-    return;
   }
-  // 2. Otherwise check for an existing local session.
-  const session = readSession();
+  // Try the server-side cookie session first (real GitHub login).
+  let session = await fetchServerSession();
+  // Otherwise fall back to a local guest session.
+  if(!session) session = readSession();
+
   if(session){
-    enterEditor(true);
+    writeSession(session);
+    showDashboard();
   } else {
     showStarter();
   }
-});
+}
 
-// Read a base64url-encoded session blob from the URL (?session=…).
-// Set by /api/auth/github/callback after a successful OAuth exchange.
-function readSessionFromUrl(){
+async function fetchServerSession(){
   try{
-    const params = new URLSearchParams(location.search);
-    const raw = params.get('session');
-    if(!raw) return null;
-    // base64url → base64
-    const b64 = raw.replace(/-/g,'+').replace(/_/g,'/') + '==='.slice((raw.length+3)%4);
-    return JSON.parse(atob(b64));
+    const r = await fetch('/api/me', {credentials:'include'});
+    if(!r.ok) return null;
+    return await r.json();
   }catch{return null;}
 }
 
-// ---------- Starter / auth (frontend-only) ----------
+// ---------- Auth + screen routing ----------
 const SESSION_KEY = 'editorx.session.v1';
 function readSession(){ try{ return JSON.parse(localStorage.getItem(SESSION_KEY)||'null'); }catch{return null;} }
 function writeSession(s){ try{ localStorage.setItem(SESSION_KEY, JSON.stringify(s)); }catch{} }
 function clearSession(){ try{ localStorage.removeItem(SESSION_KEY); }catch{} }
 
+function hideAllScreens(){
+  document.getElementById('starter')?.classList.add('hidden');
+  document.getElementById('dashboard')?.classList.add('hidden');
+  document.getElementById('app')?.classList.add('hidden');
+}
 function showStarter(){
-  const starter = document.getElementById('starter'); if(!starter) return;
-  const app     = document.getElementById('app');
-  starter.classList.remove('hidden');
-  if(app) app.classList.add('hidden');
-  if(window.lucide) lucide.createIcons({root:starter});
+  hideAllScreens();
+  document.getElementById('starter')?.classList.remove('hidden');
+  if(window.lucide) lucide.createIcons();
 }
-function hideStarter(){
-  const starter = document.getElementById('starter');
-  const app     = document.getElementById('app');
-  if(starter) starter.classList.add('hidden');
-  if(app) app.classList.remove('hidden');
+function showDashboard(){
+  hideAllScreens();
+  document.getElementById('dashboard')?.classList.remove('hidden');
+  renderDashboard();
+  if(window.lucide) lucide.createIcons();
 }
-
-function enterEditor(restore){
-  hideStarter();
-  // Restore autosaved project (if any) before first render
-  if(restore){
-    if(loadFromLocalStorage()){
-      flash('Welcome back — restored your last session');
-    }
-  }
+function enterEditor(){
+  hideAllScreens();
+  document.getElementById('app')?.classList.remove('hidden');
   render();
 }
-window.enterEditor = enterEditor;
-window.showStarter = showStarter;
-window.readSession = readSession;
-window.writeSession = writeSession;
-window.clearSession = clearSession;
+window.showStarter   = showStarter;
+window.showDashboard = showDashboard;
+window.enterEditor   = enterEditor;
+window.readSession   = readSession;
+window.writeSession  = writeSession;
+window.clearSession  = clearSession;
+
+// ---------- Dashboard render ----------
+function relativeTime(iso){
+  if(!iso) return 'just now';
+  const t = new Date(iso).getTime();
+  if(isNaN(t)) return 'recently';
+  const s = Math.max(1, Math.floor((Date.now() - t)/1000));
+  if(s < 60)     return s + 's ago';
+  const m = Math.floor(s/60);
+  if(m < 60)     return m + (m===1?' minute':' minutes') + ' ago';
+  const h = Math.floor(m/60);
+  if(h < 24)     return h + (h===1?' hour':' hours') + ' ago';
+  const d = Math.floor(h/24);
+  if(d < 30)     return d + (d===1?' day':' days') + ' ago';
+  return new Date(iso).toLocaleDateString();
+}
+
+function renderDashboard(){
+  const root = document.getElementById('dashboard'); if(!root) return;
+  // User card
+  const session = readSession();
+  const nameEl = root.querySelector('#dash-name');
+  const avEl   = root.querySelector('#dash-avatar');
+  if(nameEl) nameEl.textContent = session?.name || session?.login || 'Guest';
+  if(avEl){
+    if(session?.avatar){ avEl.src = session.avatar; avEl.hidden = false; }
+    else                { avEl.hidden = true; }
+  }
+
+  // Project grid
+  const grid  = root.querySelector('#dash-projects');
+  const empty = root.querySelector('#dash-empty');
+  if(!grid || !empty) return;
+  const projects = listProjects();
+  if(!projects.length){
+    grid.innerHTML = '';
+    empty.classList.remove('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
+  // Sort: most recently edited first
+  projects.sort((a,b)=> new Date(b.updatedAt||0) - new Date(a.updatedAt||0));
+  grid.innerHTML = projects.map(p=>{
+    const preset = (PROJECT_PRESETS.find(pr=>pr.id===p.presetId)?.name) || 'Project';
+    const thumb = p.thumbnail
+      ? `<img src="${p.thumbnail}" alt="" loading="lazy">`
+      : `<div class="dash-thumb-fallback"><i data-lucide="film"></i></div>`;
+    const duration = p.durationS ? formatDuration(p.durationS) : '0:00';
+    return `<article class="dash-card" data-id="${p.id}">
+      <div class="dash-thumb" style="aspect-ratio:${p.canvasW||16}/${p.canvasH||9}">
+        ${thumb}
+        <span class="dash-duration">${duration}</span>
+      </div>
+      <div class="dash-card-body">
+        <div class="dash-card-name" title="${escapeAttr(p.name)}">${escapeHtml(p.name)}</div>
+        <div class="dash-card-meta">${preset} · ${p.clipCount||0} clips · edited ${relativeTime(p.updatedAt)}</div>
+      </div>
+      <button class="dash-card-menu" data-act="menu" title="More"><i data-lucide="more-horizontal" width="14" height="14"></i></button>
+    </article>`;
+  }).join('');
+
+  grid.querySelectorAll('.dash-card').forEach(card=>{
+    const id = card.dataset.id;
+    card.addEventListener('click', e=>{
+      if(e.target.closest('[data-act="menu"]')) return;
+      if(openProject(id)){ enterEditor(); flash('Opened ' + (getCurrentProjectName()||'project')); }
+    });
+    card.querySelector('[data-act="menu"]').addEventListener('click', e=>{
+      e.stopPropagation();
+      openProjectCardMenu(e, id);
+    });
+  });
+}
+function getCurrentProjectName(){ return state.projectName; }
+function formatDuration(s){
+  s = Math.max(0, Math.floor(s));
+  const m = Math.floor(s/60), ss = s%60;
+  return m + ':' + String(ss).padStart(2,'0');
+}
+function escapeAttr(s){return String(s||'').replace(/"/g,'&quot;');}
+function escapeHtml(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+function openProjectCardMenu(e, projectId){
+  const items = [
+    {label:'Open',     icon:'play',     action:()=>{ if(openProject(projectId)){ enterEditor(); }}},
+    {label:'Rename',   icon:'edit-3',   action:()=>{
+      const cur = listProjects().find(p=>p.id===projectId);
+      const nn = prompt('Rename project', cur?.name || '');
+      if(nn && nn.trim()){ renameProject(projectId, nn.trim()); renderDashboard(); }
+    }},
+    {separator:true},
+    {label:'Delete',   icon:'trash-2',  danger:true, action:()=>{
+      if(confirm('Delete this project? Cannot be undone.')){ deleteProject(projectId); renderDashboard(); }
+    }}
+  ];
+  // Reuse the editor's context-menu styling
+  const menu = document.getElementById('clip-ctx-menu'); if(!menu) return;
+  menu.innerHTML = items.map((it,i)=>{
+    if(it.separator) return '<div class="ctx-sep"></div>';
+    return `<button class="ctx-item${it.danger?' danger':''}" data-idx="${i}">
+      <i data-lucide="${it.icon}" width="13" height="13"></i><span>${it.label}</span></button>`;
+  }).join('');
+  menu.classList.remove('hidden');
+  const mw = menu.offsetWidth, mh = menu.offsetHeight;
+  const vw = window.innerWidth, vh = window.innerHeight;
+  menu.style.left = Math.min(e.clientX, vw - mw - 6) + 'px';
+  menu.style.top  = Math.min(e.clientY, vh - mh - 6) + 'px';
+  menu.querySelectorAll('.ctx-item').forEach(btn=>{
+    btn.addEventListener('click', ev=>{
+      ev.stopPropagation();
+      const it = items[parseInt(btn.dataset.idx)];
+      closeClipContextMenu();
+      if(it && it.action) it.action();
+    });
+  });
+  if(window.lucide) lucide.createIcons({root:menu});
+}
+
+// ---------- New-project modal ----------
+function openNewProjectModal(){
+  const m = document.getElementById('new-project-modal'); if(!m) return;
+  const grid = m.querySelector('#np-presets');
+  const custom = m.querySelector('#np-custom');
+  let selected = 'yt-1080';
+  grid.innerHTML = PROJECT_PRESETS.map(p=>`
+    <button class="np-card${p.id===selected?' selected':''}" data-id="${p.id}">
+      <div class="np-card-frame" style="aspect-ratio:${p.w}/${p.h}"><div></div></div>
+      <div class="np-card-body">
+        <div class="np-card-name">${p.name}</div>
+        <div class="np-card-meta">${p.w}×${p.h} · ${p.ratio}</div>
+      </div>
+    </button>`).join('');
+  custom.classList.add('hidden');
+  m.querySelector('#np-name').value = '';
+  grid.querySelectorAll('.np-card').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      grid.querySelectorAll('.np-card').forEach(x=>x.classList.remove('selected'));
+      b.classList.add('selected');
+      selected = b.dataset.id;
+      custom.classList.toggle('hidden', selected !== 'custom');
+    });
+  });
+  m.querySelector('#btn-np-cancel').onclick = ()=>m.classList.add('hidden');
+  m.querySelector('#btn-close-newproj').onclick = ()=>m.classList.add('hidden');
+  m.querySelector('.modal-overlay').onclick = ()=>m.classList.add('hidden');
+  m.querySelector('#btn-np-create').onclick = ()=>{
+    const name = m.querySelector('#np-name').value.trim();
+    const cw = parseInt(m.querySelector('#np-cw').value)||1920;
+    const ch = parseInt(m.querySelector('#np-ch').value)||1080;
+    const id = createProject(name, selected, cw, ch);
+    m.classList.add('hidden');
+    enterEditor();
+    flash('Created “' + state.projectName + '”');
+  };
+  m.classList.remove('hidden');
+  if(window.lucide) lucide.createIcons({root:m});
+}
+window.openNewProjectModal = openNewProjectModal;
 
 // ----- Starter screen wiring (real GitHub OAuth + guest fallback) -----
 document.addEventListener('DOMContentLoaded', ()=>{

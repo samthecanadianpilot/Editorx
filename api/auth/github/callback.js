@@ -1,19 +1,18 @@
 // Vercel serverless function: handles the OAuth redirect back from GitHub.
 //
 // Flow:
-//   1. /api/auth/github/start  → 302 to GitHub authorize page (sets state cookie)
+//   1. /api/auth/github/start  → 302 to GitHub authorize (sets state cookie)
 //   2. GitHub                  → 302 back here with ?code & ?state
-//   3. This handler validates state, exchanges the code for an access token,
-//      fetches the user, packs a session object, and redirects to /
-//      with `?session=<base64url>` in the URL.
-//   4. The frontend reads the session param, writes it to localStorage,
-//      and enters the editor.
+//   3. This handler validates state, exchanges code → token, fetches user,
+//      and mints a signed HTTP-only session cookie. Then 302 to /.
+//   4. /api/me returns the session payload to the frontend.
 //
-// Required env vars (set in Vercel → Project Settings → Environment Variables):
-//   GH_CLIENT_ID
-//   GH_CLIENT_SECRET
-// And the GitHub OAuth App must have the callback URL set to:
-//   https://<your-vercel-domain>/api/auth/github/callback
+// Required env vars:
+//   GH_CLIENT_ID, GH_CLIENT_SECRET  — for OAuth
+//   SESSION_SECRET                  — long random string for signing sessions
+//                                     (falls back to GH_CLIENT_SECRET if unset)
+
+import { mintSession, setSessionCookie, getSessionSecret } from '../../_lib/session.js';
 
 export default async function handler(req, res) {
   const clientId     = process.env.GH_CLIENT_ID;
@@ -94,22 +93,27 @@ export default async function handler(req, res) {
     } catch { /* fine to skip */ }
   }
 
-  const session = {
-    provider:    'github',
-    login:       user.login,
-    name:        user.name || user.login,
-    email:       email || null,
-    avatar:      user.avatar_url || null,
-    signedInAt:  new Date().toISOString()
-  };
+  if(!getSessionSecret()){
+    return sendError(res, 500, 'Session secret not configured',
+      'Set <code>SESSION_SECRET</code> (any long random string) in Vercel env vars and redeploy. ' +
+      'It signs the session cookie so the server can trust it without a DB lookup.');
+  }
 
-  // Clear the CSRF state cookie
-  res.setHeader('Set-Cookie', 'gh_oauth_state=; Path=/; Max-Age=0');
+  const token = mintSession({
+    provider: 'github',
+    login:    user.login,
+    name:     user.name || user.login,
+    email:    email || null,
+    avatar:   user.avatar_url || null
+  });
 
-  // Send session via URL param. base64url so it's URL-safe.
-  const encoded = Buffer.from(JSON.stringify(session)).toString('base64url');
+  // Two cookies: real session + clear the OAuth state cookie
+  res.setHeader('Set-Cookie', [
+    `editorx_session=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${60*60*24*30}`,
+    'gh_oauth_state=; Path=/; Max-Age=0'
+  ]);
   res.statusCode = 302;
-  res.setHeader('Location', `/?session=${encoded}`);
+  res.setHeader('Location', '/?signed_in=1');
   res.end();
 }
 

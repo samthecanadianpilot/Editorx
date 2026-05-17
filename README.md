@@ -78,16 +78,49 @@ Already pushed — origin is `git@github.com:samthecanadianpilot/Editorx.git`. A
 6. On the next page: **copy the Client ID**, click **Generate a new client secret**, **copy the secret** (you'll only see it once).
 
 ### 4. Add env vars in Vercel
-1. In Vercel → your project → **Settings** → **Environment Variables**
-2. Add `GH_CLIENT_ID` = your Client ID
-3. Add `GH_CLIENT_SECRET` = your Client Secret
-4. Apply to **Production / Preview / Development** (all three).
-5. Trigger a redeploy (Deployments → ⋯ → Redeploy) so the functions pick up the new env.
+In Vercel → your project → **Settings** → **Environment Variables**, add:
+
+| Name              | Value                                    |
+|-------------------|------------------------------------------|
+| `GH_CLIENT_ID`    | Client ID from GitHub OAuth App          |
+| `GH_CLIENT_SECRET`| Client Secret from GitHub OAuth App      |
+| `SESSION_SECRET`  | Any long random string (32+ chars)       |
+
+Apply to **Production / Preview / Development**. `SESSION_SECRET` signs the HTTP-only session cookie — keep it private and never commit it. If unset, the server falls back to `GH_CLIENT_SECRET` (works but use a dedicated value in real deployments).
+
+Then trigger a redeploy (Deployments → ⋯ → Redeploy) so the functions pick up the new env.
 
 ### 5. Test
 Visit your Vercel URL → **Continue with GitHub** → authorize → you land back in the editor as your real GitHub user (name, avatar, login).
 
 If something is misconfigured, the OAuth function returns a styled error page telling you exactly what's wrong (missing env var, mismatched callback URL, expired state, etc.) instead of a generic crash.
+
+## Backend API
+
+EditorX ships with a small Node serverless API on Vercel.
+
+| Route                            | Method | Auth | Purpose                                                            |
+|----------------------------------|--------|------|--------------------------------------------------------------------|
+| `/api/auth/github/start`         | GET    | —    | Begin OAuth — CSRF state cookie + 302 to GitHub authorize.         |
+| `/api/auth/github/callback`      | GET    | —    | Exchange code → token, fetch user, mint signed session cookie.     |
+| `/api/auth/signout`              | POST   | —    | Clear the session cookie. 302 to `/` (or JSON if `Accept: json`).  |
+| `/api/me`                        | GET    | ✓    | Return the current user (from the signed cookie).                  |
+| `/api/projects`                  | GET    | ✓    | List the signed-in user's projects (metadata only, sorted recent). |
+| `/api/projects?id=<id>`          | GET    | ✓    | Fetch one full project including its document.                     |
+| `/api/projects`                  | POST   | ✓    | Upsert a project (body = full project JSON).                       |
+| `/api/projects?id=<id>`          | DELETE | ✓    | Delete a project.                                                  |
+
+Sessions are signed JWT-style payloads (HMAC-SHA256) in an HTTP-only `Secure` cookie — no server-side session table needed. Tokens expire after 30 days.
+
+### Optional: cloud project storage (Vercel KV)
+
+The Dashboard works offline-first against `localStorage`. To sync projects across devices, enable **Vercel KV**:
+
+1. In your Vercel project → **Storage** tab → **Create Database** → **KV** (free tier is fine).
+2. Connect it to the project. Vercel auto-injects `KV_REST_API_URL` and `KV_REST_API_TOKEN`.
+3. Redeploy. `/api/projects` will start using KV automatically.
+
+Without KV, `/api/projects` returns `503 kv_not_configured` and the frontend keeps using localStorage — nothing breaks.
 
 ## Notes
 

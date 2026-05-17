@@ -8,7 +8,7 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Mona+Sans:ital,wght@0,200..900;1,200..900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ECEAE5' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polygon points='21 16 21 8 12 3 3 8 3 16 12 21 21 16'/></svg>">
 
@@ -68,15 +68,76 @@
     </div>
   </div>
 
+  <!-- ===================== DASHBOARD (project picker) ===================== -->
+  <div id="dashboard" class="hidden">
+    <header id="dash-topbar">
+      <div class="dash-brand">
+        <span class="dash-mark"><i data-lucide="hexagon"></i></span>
+        <span class="dash-wordmark">EditorX</span>
+      </div>
+      <div class="dash-user">
+        <img id="dash-avatar" class="dash-avatar" alt="" hidden>
+        <span id="dash-name" class="dash-name">Guest</span>
+        <button id="btn-signout" class="ghost-btn" title="Sign out"><i data-lucide="log-out"></i><span>Sign out</span></button>
+      </div>
+    </header>
+    <main id="dash-main">
+      <section class="dash-hero">
+        <div>
+          <h1 class="dash-h1">Your Projects</h1>
+          <p class="dash-sub">Pick up where you left off, or start something new.</p>
+        </div>
+        <button id="btn-new-project" class="primary-btn dash-new">
+          <i data-lucide="plus" width="14" height="14"></i><span>New Project</span>
+        </button>
+      </section>
+
+      <div id="dash-projects" class="dash-grid"></div>
+      <div id="dash-empty" class="dash-empty hidden">
+        <div class="empty-icon"><i data-lucide="clapperboard"></i></div>
+        <div class="empty-title">No projects yet</div>
+        <div class="empty-sub">Click <strong>New Project</strong> to create your first.</div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ===================== NEW PROJECT MODAL ===================== -->
+  <div id="new-project-modal" class="modal hidden">
+    <div class="modal-overlay"></div>
+    <div class="modal-content" style="width:680px;max-width:94vw">
+      <div class="modal-header">
+        <span class="modal-icon"><i data-lucide="plus-square"></i></span>
+        <span class="modal-title">New Project</span>
+        <button class="modal-close" id="btn-close-newproj"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-row" style="margin-bottom:16px">
+          <label>Name</label>
+          <input id="np-name" type="text" placeholder="Untitled Project" autocomplete="off">
+        </div>
+        <div class="np-preset-grid" id="np-presets"></div>
+        <div id="np-custom" class="np-custom hidden">
+          <div class="form-row"><label>Width</label><input id="np-cw" type="number" min="64" max="7680" value="1920"></div>
+          <div class="form-row" style="margin-top:8px"><label>Height</label><input id="np-ch" type="number" min="64" max="7680" value="1080"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" id="btn-np-cancel">Cancel</button>
+        <div style="flex:1"></div>
+        <button class="btn-primary" id="btn-np-create">Create Project</button>
+      </div>
+    </div>
+  </div>
+
   <div id="app">
 
     <!-- TOP BAR -->
     <header id="topbar">
       <div class="topbar-left">
-        <div class="logo">
+        <button class="logo logo-btn" id="btn-back-dash" title="Back to projects">
           <span class="logo-mark"><i data-lucide="hexagon"></i></span>
           <span class="logo-text">EditorX</span>
-        </div>
+        </button>
         <nav class="workspace-tabs" aria-label="Workspaces">
           <button class="ws-tab active" data-tab="edit"><i data-lucide="edit-3"></i><span>Edit</span></button>
           <button class="ws-tab" data-tab="color"><i data-lucide="palette"></i><span>Color</span></button>
