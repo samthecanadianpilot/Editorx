@@ -149,7 +149,7 @@ const GRAPHICS = [
   {id:'g-x',          name:'X / Twitter Handle', defaultText:'@yourhandle',       icon:'twitter',  accent:'#FFFFFF', bg:'#000000', fg:'#FFFFFF', style:'card', font:'Fraunces', weight:600, duration:3.0},
   {id:'g-github',     name:'GitHub Handle',      defaultText:'github.com/you',    icon:'github',   accent:'#FFFFFF', bg:'#161B22', fg:'#FFFFFF', style:'card', font:'Fraunces', weight:600, duration:3.0},
   {id:'g-link-bio',   name:'Link in Bio',        defaultText:'Link in bio',       icon:'link',     accent:'#0084FF', bg:'rgba(255,255,255,0.92)', fg:'#0A0A0F', style:'pill', font:'Fraunces', weight:700, duration:2.5, glass:true},
-  {id:'g-lower-3rd',  name:'Lower Third Name',   defaultText:'Sam Balouch · Pilot', icon:'user', accent:'#0084FF', bg:'rgba(10,10,15,0.7)', fg:'#FFFFFF', style:'card', font:'Fraunces', weight:700, duration:4.0, glass:true},
+  {id:'g-lower-3rd',  name:'Lower Third Name',   defaultText:'Your Name · Title', icon:'user', accent:'#0084FF', bg:'rgba(10,10,15,0.7)', fg:'#FFFFFF', style:'card', font:'Fraunces', weight:700, duration:4.0, glass:true},
   {id:'g-tag',        name:'Hashtag Pill',       defaultText:'#trending',         icon:'hash',     accent:'#FFFFFF', bg:'#0084FF', fg:'#FFFFFF', style:'pill', font:'JetBrains Mono', weight:700, duration:3.0},
   {id:'g-ep',         name:'Episode Badge',      defaultText:'EP 01',             icon:'film',     accent:'#FFD60A', bg:'#0A0A0F', fg:'#FFD60A', style:'badge',font:'JetBrains Mono', weight:800, duration:3.0},
   {id:'g-watch-next', name:'Watch Next',         defaultText:'Watch next →',      icon:'play-circle', accent:'#FFFFFF', bg:'rgba(0,132,255,0.92)', fg:'#FFFFFF', style:'pill', font:'Fraunces', weight:700, duration:3.0},
