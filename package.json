@@ -1,0 +1,14 @@
+{
+  "name": "editorx",
+  "version": "0.1.0",
+  "description": "Browser-based professional video editor — masks, LUTs, effects, ~250 Google Fonts, real video playback.",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "dev": "python3 -m http.server 8000",
+    "vercel-build": "echo 'Static site — no build step needed.'"
+  }
+}

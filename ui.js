@@ -92,6 +92,13 @@ function renderClips(){
         state.selectedMaskId = null;
         render();
       });
+      el.addEventListener('contextmenu', (e)=>{
+        if(window.openClipContextMenu){
+          state.selectedClipId = clip.id;
+          renderInspector();
+          window.openClipContextMenu(e, clip);
+        }
+      });
 
       lane.appendChild(el);
       if(window.attachClipInteractions) window.attachClipInteractions(el, clip);

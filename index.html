@@ -42,33 +42,27 @@
 
       <!-- Right: auth card -->
       <main class="starter-card">
-        <div class="starter-tabs">
-          <button class="starter-tab active" data-mode="signup">Sign up</button>
-          <button class="starter-tab" data-mode="signin">Sign in</button>
-        </div>
-        <form id="starter-form" class="starter-form" autocomplete="off">
-          <div class="starter-field" data-field="name">
-            <label>Name</label>
-            <input id="sf-name" type="text" placeholder="Your name" autocomplete="name">
-          </div>
-          <div class="starter-field">
-            <label>Email</label>
-            <input id="sf-email" type="email" placeholder="you@example.com" autocomplete="email" required>
-          </div>
-          <div class="starter-field">
-            <label>Password</label>
-            <input id="sf-pass" type="password" placeholder="At least 6 characters" autocomplete="new-password" required>
-          </div>
-          <button type="submit" id="starter-submit" class="starter-submit">
-            Create account <i data-lucide="arrow-right" width="14" height="14"></i>
-          </button>
-          <button type="button" id="starter-skip" class="starter-skip">
-            Continue without an account
-          </button>
+        <div class="starter-card-inner">
+          <div class="starter-eyebrow">SIGN IN</div>
+          <h2 class="starter-title">Welcome</h2>
+          <p class="starter-lede">Sign in with GitHub to start a project. Your work autosaves to this browser.</p>
+
+          <a id="starter-github" class="starter-github" href="/api/auth/github/start">
+            <i data-lucide="github" width="16" height="16"></i>
+            <span>Continue with GitHub</span>
+          </a>
+
           <div id="starter-msg" class="starter-msg"></div>
-        </form>
+
+          <div class="starter-divider"><span>or</span></div>
+
+          <button type="button" id="starter-skip" class="starter-skip">
+            Continue as guest <i data-lucide="arrow-right" width="13" height="13"></i>
+          </button>
+          <p class="starter-skip-note">Guest sessions stay in this browser. No cloud sync.</p>
+        </div>
         <div class="starter-foot">
-          <span><i data-lucide="lock" width="11" height="11"></i> Stored locally in this browser only</span>
+          <span><i data-lucide="lock" width="11" height="11"></i> GitHub OAuth · CSRF-protected · no password handling</span>
         </div>
       </main>
     </div>
@@ -257,6 +251,9 @@
 
     </div>
   </div>
+
+  <!-- CLIP CONTEXT MENU (right-click on a timeline clip) -->
+  <div id="clip-ctx-menu" class="ctx-menu hidden" role="menu"></div>
 
   <!-- MASK PROPERTIES MODAL -->
   <div id="mask-props-modal" class="modal hidden">

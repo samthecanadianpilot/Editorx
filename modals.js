@@ -324,6 +324,68 @@ function trimBounds(clip, side){
   }
 }
 
+// ---------- Right-click context menu on a clip ----------
+function openClipContextMenu(e, clip){
+  e.preventDefault(); e.stopPropagation();
+  const menu = document.getElementById('clip-ctx-menu'); if(!menu) return;
+  // Build items based on clip type
+  const items = [];
+  if(clip.type === 'video' && !clip.audioDetached){
+    items.push({label:'Detach Audio', icon:'scissors-line-dashed', action:()=>{
+      const a = detachAudio(clip.id);
+      if(a){ state.selectedClipId = a.id; pushHistory(); render(); flash('Audio detached'); }
+    }});
+    items.push({separator:true});
+  }
+  items.push({label:'Duplicate',  icon:'copy',     action:()=>{
+    const c = duplicateClip(clip.id);
+    if(c){ state.selectedClipId = c.id; pushHistory(); render(); flash('Duplicated'); }
+  }});
+  items.push({label:'Select',     icon:'mouse-pointer-2', action:()=>{
+    state.selectedClipId = clip.id; state.selectedMaskId = null; render();
+  }});
+  items.push({separator:true});
+  items.push({label:'Delete',     icon:'trash-2', danger:true, action:()=>{
+    deleteClip(clip.id); pushHistory(); render(); flash('Deleted');
+  }});
+
+  menu.innerHTML = items.map((it,i)=>{
+    if(it.separator) return '<div class="ctx-sep"></div>';
+    return `<button class="ctx-item${it.danger?' danger':''}" data-idx="${i}">
+      <i data-lucide="${it.icon}" width="13" height="13"></i><span>${it.label}</span></button>`;
+  }).join('');
+
+  // Position the menu, keeping it inside the viewport
+  menu.classList.remove('hidden');
+  const mw = menu.offsetWidth, mh = menu.offsetHeight;
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const x = Math.min(e.clientX, vw - mw - 6);
+  const y = Math.min(e.clientY, vh - mh - 6);
+  menu.style.left = x + 'px';
+  menu.style.top  = y + 'px';
+
+  menu.querySelectorAll('.ctx-item').forEach(btn=>{
+    btn.addEventListener('click', ev=>{
+      ev.stopPropagation();
+      const it = items[parseInt(btn.dataset.idx)];
+      closeClipContextMenu();
+      if(it && it.action) it.action();
+    });
+  });
+  if(window.lucide) lucide.createIcons({root:menu});
+}
+function closeClipContextMenu(){
+  document.getElementById('clip-ctx-menu')?.classList.add('hidden');
+}
+document.addEventListener('mousedown', e=>{
+  const menu = document.getElementById('clip-ctx-menu');
+  if(menu && !menu.classList.contains('hidden') && !menu.contains(e.target)){
+    closeClipContextMenu();
+  }
+});
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeClipContextMenu(); });
+window.openClipContextMenu = openClipContextMenu;
+
 // ---------- Clip drag / trim ----------
 function attachClipInteractions(el, clip){
   const cssLeft = (x) => (x - TIMELINE_OFFSET_X);
@@ -712,7 +774,18 @@ document.addEventListener('DOMContentLoaded', ()=>{
     ['Inter','Playfair Display','Bebas Neue','Oswald','JetBrains Mono','Fraunces'].forEach(f=>window.loadFont(f));
   }
 
-  // ----- Auth gate: show starter unless a session exists -----
+  // ----- Auth gate -----
+  // 1. If the URL has ?session=… we just came back from /api/auth/github/callback.
+  //    Decode it, persist, clean the URL, and enter the editor.
+  const urlSession = readSessionFromUrl();
+  if(urlSession){
+    writeSession(urlSession);
+    // Strip the query string so a refresh doesn't replay the OAuth payload.
+    history.replaceState({}, '', location.pathname);
+    enterEditor(true);
+    return;
+  }
+  // 2. Otherwise check for an existing local session.
   const session = readSession();
   if(session){
     enterEditor(true);
@@ -720,6 +793,19 @@ document.addEventListener('DOMContentLoaded', ()=>{
     showStarter();
   }
 });
+
+// Read a base64url-encoded session blob from the URL (?session=…).
+// Set by /api/auth/github/callback after a successful OAuth exchange.
+function readSessionFromUrl(){
+  try{
+    const params = new URLSearchParams(location.search);
+    const raw = params.get('session');
+    if(!raw) return null;
+    // base64url → base64
+    const b64 = raw.replace(/-/g,'+').replace(/_/g,'/') + '==='.slice((raw.length+3)%4);
+    return JSON.parse(atob(b64));
+  }catch{return null;}
+}
 
 // ---------- Starter / auth (frontend-only) ----------
 const SESSION_KEY = 'editorx.session.v1';
@@ -757,67 +843,30 @@ window.readSession = readSession;
 window.writeSession = writeSession;
 window.clearSession = clearSession;
 
-// ----- Starter form wiring -----
+// ----- Starter screen wiring (real GitHub OAuth + guest fallback) -----
 document.addEventListener('DOMContentLoaded', ()=>{
   const starter = document.getElementById('starter'); if(!starter) return;
-  const tabs    = starter.querySelectorAll('.starter-tab');
-  const form    = starter.querySelector('#starter-form');
-  const nameW   = starter.querySelector('[data-field="name"]');
-  const submit  = starter.querySelector('#starter-submit');
   const skip    = starter.querySelector('#starter-skip');
   const msg     = starter.querySelector('#starter-msg');
-  let mode = 'signup';
+  const ghBtn   = starter.querySelector('#starter-github');
 
-  const renderMode = ()=>{
-    tabs.forEach(t=>t.classList.toggle('active', t.dataset.mode===mode));
-    nameW.style.display = mode==='signup' ? '' : 'none';
-    submit.innerHTML = (mode==='signup' ? 'Create account' : 'Sign in') +
-      ' <i data-lucide="arrow-right" width="14" height="14"></i>';
-    if(window.lucide) lucide.createIcons({root:submit});
-    msg.textContent = '';
-  };
-  tabs.forEach(t=>t.addEventListener('click', ()=>{ mode = t.dataset.mode; renderMode(); }));
+  // If OAuth isn't deployed yet (e.g. opening index.html via file://), hitting
+  // /api/auth/github/start gives a 404. Detect that and show a clear message
+  // instead of redirecting to a broken URL.
+  if(ghBtn){
+    ghBtn.addEventListener('click', (e)=>{
+      const isFile = location.protocol === 'file:';
+      if(isFile){
+        e.preventDefault();
+        msg.innerHTML = 'GitHub sign-in only works on a deployed origin (Vercel) — not <code>file://</code>. Use “Continue as guest” for now, or deploy first.';
+      }
+    });
+  }
 
-  // VERY simple frontend-only credential storage. NOT real auth.
-  const USERS_KEY = 'editorx.users.v1';
-  const readUsers  = () => { try{ return JSON.parse(localStorage.getItem(USERS_KEY)||'{}'); }catch{return {}} };
-  const writeUsers = (u) => { try{ localStorage.setItem(USERS_KEY, JSON.stringify(u)); }catch{} };
-  // Rough hash so passwords aren't stored in plaintext (still NOT secure):
-  const hash = async (s) => {
-    if(!crypto.subtle) return 'plain:'+s;
-    const buf = new TextEncoder().encode(s);
-    const h   = await crypto.subtle.digest('SHA-256', buf);
-    return Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,'0')).join('');
-  };
-
-  form.addEventListener('submit', async (e)=>{
-    e.preventDefault();
-    const email = starter.querySelector('#sf-email').value.trim().toLowerCase();
-    const pass  = starter.querySelector('#sf-pass').value;
-    const name  = starter.querySelector('#sf-name').value.trim();
-    if(!email || !pass){ msg.textContent = 'Email and password are required.'; return; }
-    if(pass.length < 6){ msg.textContent = 'Password must be at least 6 characters.'; return; }
-    const users = readUsers();
-    const ph = await hash(pass);
-
-    if(mode==='signup'){
-      if(users[email]){ msg.textContent = 'An account already exists for this email — try Sign In.'; return; }
-      users[email] = {name: name||email.split('@')[0], pass: ph, createdAt: new Date().toISOString()};
-      writeUsers(users);
-      writeSession({email, name: users[email].name, signedInAt: new Date().toISOString()});
+  if(skip){
+    skip.addEventListener('click', ()=>{
+      writeSession({email:null, name:'Guest', login:'guest', guest:true, provider:'guest', signedInAt:new Date().toISOString()});
       enterEditor(true);
-    } else {
-      const u = users[email];
-      if(!u || u.pass !== ph){ msg.textContent = 'No matching account. Check email and password, or sign up.'; return; }
-      writeSession({email, name: u.name, signedInAt: new Date().toISOString()});
-      enterEditor(true);
-    }
-  });
-
-  skip.addEventListener('click', ()=>{
-    writeSession({email: null, name: 'Guest', signedInAt: new Date().toISOString(), guest: true});
-    enterEditor(true);
-  });
-
-  renderMode();
+    });
+  }
 });

@@ -184,6 +184,37 @@ function clipUnderTimelineX(trackId, x){
   return state.clips.find(c=>c.track===trackId && x>=c.x && x<=c.x+c.w) || null;
 }
 
+// Split the audio out of a video clip onto A1, keeping the same timing /
+// in-point / source URL. The video clip is muted (audio is now its own clip,
+// so playing both at the same volume would double the signal).
+function detachAudio(clipId){
+  const c = getClip(clipId); if(!c) return null;
+  if(c.type !== 'video') return null;
+  if(c.audioDetached) return null;
+  const audio = {
+    id: genId(), type: 'audio', name: c.name + ' (audio)',
+    track: 'a1',
+    x: c.x, w: c.w,
+    color: '#2d1a3e',
+    sourceUrl: c.sourceUrl, mediaId: c.mediaId,
+    volume: c.volume ?? 1, muted: false, speed: c.speed || 1,
+    inS: c.inS || 0,
+    detachedFrom: c.id
+  };
+  // Push it through collision-clamp so it doesn't overlap existing A1 clips.
+  // If colliding, place it after the rightmost A1 edge.
+  const onA1 = state.clips.filter(cl=>cl.track==='a1');
+  const overlap = onA1.some(o => audio.x < o.x + o.w && audio.x + audio.w > o.x);
+  if(overlap){
+    const rightEdge = onA1.reduce((m,cl)=>Math.max(m, cl.x+cl.w), TIMELINE_OFFSET_X);
+    audio.x = Math.round(rightEdge + 4);
+  }
+  state.clips.push(audio);
+  c.muted = true;
+  c.audioDetached = true;
+  return audio;
+}
+
 // ---------- Active-clip lookup (for playback / viewer) ----------
 function clipStartS(c){ return (c.x - TIMELINE_OFFSET_X) / TIMELINE_PX_PER_S; }
 function clipEndS(c){ return clipStartS(c) + c.w / TIMELINE_PX_PER_S; }
@@ -257,19 +288,51 @@ function startPlayback(){
   if(state.isPlaying) return;
   state.isPlaying = true;
   _lastT = performance.now();
+  // Make sure videos are seeked + playing before we begin driving the playhead
+  syncMediaToPlayhead();
   const tick = (now) => {
     if(!state.isPlaying){ _rafId=null; return; }
     const dt = now - _lastT; _lastT = now;
-    state.playhead += dt;
-    // Loop or stop at timeline end
+
+    // SOURCE OF TRUTH during playback: if a video clip is active at the
+    // playhead AND the <video> is actually playing, derive the playhead from
+    // its currentTime. This eliminates the dt/video drift loop that caused
+    // the old re-seeking stutter — the playhead now follows the actual
+    // displayed frame instead of fighting it.
+    const leader = pickLeaderVideo();
+    if(leader){
+      const startS = clipStartS(leader.clip);
+      const srcT   = leader.el.currentTime;
+      const newPh  = (startS + (srcT - (leader.clip.inS||0)) / (leader.clip.speed||1)) * 1000;
+      // Only advance forward — don't let small jitter pull playhead backwards
+      if(newPh > state.playhead - 50) state.playhead = newPh;
+      else                            state.playhead += dt;
+    } else {
+      state.playhead += dt;
+    }
+
+    // Loop / cap at timeline end
     const durMs = timelineDurationS()*1000;
     if(durMs>0 && state.playhead > durMs){ state.playhead = 0; }
+
     syncMediaToPlayhead();
     if(window.onPlaybackTick) window.onPlaybackTick();
     _rafId = requestAnimationFrame(tick);
   };
   _rafId = requestAnimationFrame(tick);
-  syncMediaToPlayhead();
+}
+
+// Pick the active "leader" video clip — the one whose currentTime should
+// drive the master playhead during playback. Returns {clip, el} or null.
+function pickLeaderVideo(){
+  const tS = state.playhead/1000;
+  for(const c of state.clips){
+    if(c.type !== 'video' || !c.sourceUrl) continue;
+    if(tS < clipStartS(c) || tS > clipEndS(c)) continue;
+    const el = _mediaPool[c.id];
+    if(el && !el.paused && el.readyState >= 2) return {clip:c, el};
+  }
+  return null;
 }
 function stopPlayback(){
   state.isPlaying = false;
@@ -415,6 +478,7 @@ window.setLut=setLut; window.clearLut=clearLut;
 window.setEffect=setEffect; window.clearEffect=clearEffect;
 window.addTextClipAt=addTextClipAt; window.addClipFromMedia=addClipFromMedia; window.addClipFromMediaAt=addClipFromMediaAt;
 window.clipUnderTimelineX=clipUnderTimelineX;
+window.detachAudio=detachAudio;
 window.activeClipsAt=activeClipsAt; window.clipStartS=clipStartS; window.clipEndS=clipEndS; window.timelineDurationS=timelineDurationS;
 window.getMediaElForClip=getMediaElForClip; window.releaseMediaFor=releaseMediaFor; window.syncMediaToPlayhead=syncMediaToPlayhead;
 window.startPlayback=startPlayback; window.stopPlayback=stopPlayback; window.togglePlayback=togglePlayback;
