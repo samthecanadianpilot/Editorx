@@ -50,6 +50,7 @@ const state = {
   playhead: 0,            // ms
   isPlaying: false,
   snap: true,
+  timelineZoom: 1.0,      // display multiplier — 0.25..4.0
   activeTool: 'select',   // select | blade | text | hand
   workspace: 'edit',
   history: [],

@@ -124,13 +124,15 @@ function renderClips(){
   ['v2','v1','a1','t1'].forEach(tid=>{
     const lane = document.getElementById('track-'+tid); if(!lane) return;
     lane.innerHTML = '';
+    const zoom = state.timelineZoom || 1;
     state.clips.filter(c=>c.track===tid).forEach(clip=>{
       const el = document.createElement('div');
       el.className = 'clip ' + clip.type + (state.selectedClipId===clip.id?' selected':'');
       // CSS left is measured inside .track-lane (which already sits after the
       // 80px header), so subtract the header offset to align with the ruler.
-      el.style.left  = (clip.x - TIMELINE_OFFSET_X) + 'px';
-      el.style.width = clip.w + 'px';
+      // Multiply by zoom so the timeline can be scaled non-destructively.
+      el.style.left  = (clip.x - TIMELINE_OFFSET_X) * zoom + 'px';
+      el.style.width = clip.w * zoom + 'px';
       el.dataset.id = clip.id;
       el.dataset.clipId = clip.id;
 
@@ -175,7 +177,8 @@ function renderClips(){
         if(el.dataset.dragMoved==='1'){ el.dataset.dragMoved='0'; return; }
         if(state.activeTool==='blade'){
           const rect = el.getBoundingClientRect();
-          const splitX = clip.x + (e.clientX - rect.left);
+          const zoom = state.timelineZoom || 1;
+          const splitX = clip.x + (e.clientX - rect.left) / zoom;
           if(window.splitClipAtX(clip.id, splitX)){ pushHistory(); render(); }
           return;
         }
@@ -1724,25 +1727,27 @@ function renderTimecodeRuler(){
   ctx.fillStyle = 'rgba(0,0,0,0.18)'; ctx.fillRect(0,0,c.width,c.height);
   ctx.fillStyle = 'rgba(255,255,255,0.18)';
   ctx.font = '9px JetBrains Mono, monospace';
-  const maxSec = Math.ceil((c.width-TIMELINE_OFFSET_X)/TIMELINE_PX_PER_S)+1;
+  const zoom = state.timelineZoom || 1;
+  const pxPerS = TIMELINE_PX_PER_S * zoom;
+  const maxSec = Math.ceil((c.width)/pxPerS)+1;
+  // Adaptive label step: keep labels ~80px apart regardless of zoom
+  const labelEvery = Math.max(1, Math.round(80 / pxPerS));
   for(let i=0;i<maxSec;i++){
-    const x = TIMELINE_OFFSET_X + i*TIMELINE_PX_PER_S; if(x>c.width) break;
+    const x = i*pxPerS; if(x>c.width) break;
     ctx.fillRect(x, 18, 1, 8);
-    if(i%5===0){ ctx.fillRect(x, 14, 1, 12); ctx.fillText(i+'s', x+4, 12); }
+    if(i%labelEvery===0){ ctx.fillRect(x, 14, 1, 12); ctx.fillText(i+'s', x+4, 12); }
   }
 
   // BEAT MARKERS — vertical accent ticks for every detected beat across all
   // audio clips. Drawn after the seconds grid so they sit on top.
-  // The ruler's canvas is positioned with padding-left:80px inside its
-  // container (see #timeline-ruler CSS). Internally we draw 0..c.width
-  // where x=0 == the "0s" mark visually (= TIMELINE_OFFSET_X in clip-coord
-  // space). Convert: rulerX = clipX - TIMELINE_OFFSET_X.
+  // ruler canvas x=0 == "0s" tick. Convert clip-coord X by subtracting the
+  // offset, then multiply by zoom for the display position.
   ctx.fillStyle = 'rgba(10,132,255,0.65)';
   for(const ac of state.clips){
     if(ac.type !== 'audio' || !ac.beats || !ac.beats.length) continue;
     for(const t of ac.beats){
       const clipAbsX = ac.x + t * TIMELINE_PX_PER_S;
-      const rulerX = clipAbsX - TIMELINE_OFFSET_X;
+      const rulerX = (clipAbsX - TIMELINE_OFFSET_X) * zoom;
       if(rulerX < 0 || rulerX > c.width) continue;
       ctx.fillRect(rulerX, 0, 1, 6);
     }
@@ -1751,7 +1756,8 @@ function renderTimecodeRuler(){
 function renderPlayhead(){
   const ph = document.getElementById('playhead'); if(!ph) return;
   // translate3d → compositor-only, no layout, smooth at 60fps
-  const x = TIMELINE_OFFSET_X + state.playhead/PLAYHEAD_MS_PER_PX;
+  const zoom = state.timelineZoom || 1;
+  const x = TIMELINE_OFFSET_X + (state.playhead/PLAYHEAD_MS_PER_PX) * zoom;
   ph.style.transform = 'translate3d(' + x + 'px,0,0)';
 }
 function renderTimecode(){
@@ -1792,11 +1798,13 @@ function renderStatusBar(){
   const proj = document.getElementById('sb-project');
   const meta = document.getElementById('sb-meta');
   const user = document.getElementById('sb-user');
+  const zoom = document.getElementById('sb-zoom');
   if(!proj || !meta || !user) return;
   proj.textContent = state.projectName || 'Untitled';
   const dur = timelineDurationS();
   const m = Math.floor(dur/60), s = Math.floor(dur%60);
   meta.textContent = state.clips.length + ' clip' + (state.clips.length===1?'':'s') + ' · ' + m + ':' + String(s).padStart(2,'0');
+  if(zoom) zoom.textContent = Math.round((state.timelineZoom || 1) * 100) + '%';
   // Pull user from local session — show name + tiny "cloud" badge if signed in
   try{
     const ss = JSON.parse(localStorage.getItem('editorx.session.v1') || 'null');

@@ -257,6 +257,9 @@
         </div>
       </aside>
 
+      <!-- Draggable resizer between left sidebar and center -->
+      <div id="resizer-left" class="panel-resizer" title="Drag to resize sidebar"></div>
+
       <!-- CENTER -->
       <main id="center">
         <!-- VIEWER -->
@@ -335,6 +338,9 @@
         </div>
       </main>
 
+      <!-- Draggable resizer between center and right inspector -->
+      <div id="resizer-right" class="panel-resizer" title="Drag to resize inspector"></div>
+
       <!-- RIGHT INSPECTOR -->
       <aside id="sidebar-right">
         <div id="inspector">
@@ -357,9 +363,11 @@
         <span class="sb-meta" id="sb-meta">0 clips · 0s</span>
       </div>
       <div class="sb-right">
-        <span class="sb-shortcut">⌘S Save</span>
+        <button id="sb-zoom-out" class="sb-zoom-btn" title="Zoom out">−</button>
+        <span class="sb-zoom" id="sb-zoom" title="Timeline zoom · ⌘0 to reset">100%</span>
+        <button id="sb-zoom-in" class="sb-zoom-btn" title="Zoom in">+</button>
         <span class="sb-sep">·</span>
-        <span class="sb-shortcut">⌘E Export</span>
+        <span class="sb-shortcut">⌘K Cmds</span>
         <span class="sb-sep">·</span>
         <span class="sb-user" id="sb-user">Guest</span>
       </div>

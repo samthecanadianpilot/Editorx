@@ -452,6 +452,11 @@ function commandList(){
     {kw:'black white bw',  label:'Apply Black & White',        icon:'film',        group:'Effects', disabled:!hasSel, run:()=>{ setEffect(state.selectedClipId,'bw'); pushHistory(); render(); flash('B&W applied'); }},
     {kw:'clear effect',    label:'Clear Effect from Clip',     icon:'circle-slash',group:'Effects', disabled:!hasSel, run:()=>{ clearEffect(state.selectedClipId); pushHistory(); render(); flash('Effect cleared'); }},
 
+    // View
+    {kw:'zoom in timeline', label:'Zoom Timeline In',           icon:'zoom-in',     group:'View', shortcut:'⌘=', run:()=> setTimelineZoom((state.timelineZoom||1) * 1.25)},
+    {kw:'zoom out timeline',label:'Zoom Timeline Out',          icon:'zoom-out',    group:'View', shortcut:'⌘-', run:()=> setTimelineZoom((state.timelineZoom||1) / 1.25)},
+    {kw:'zoom reset 100',   label:'Reset Timeline Zoom (100%)', icon:'maximize',    group:'View', shortcut:'⌘0', run:()=> setTimelineZoom(1)},
+
     // Help
     {kw:'shortcuts help',  label:'Show Keyboard Shortcuts',    icon:'keyboard',    group:'Help', shortcut:'?', run:()=> openShortcutsOverlay()},
     {kw:'tour onboarding intro', label:'Show Welcome Tour',    icon:'graduation-cap', group:'Help', run:()=> startOnboardingTour(true)},
@@ -603,7 +608,9 @@ window.openClipContextMenu = openClipContextMenu;
 
 // ---------- Clip drag / trim ----------
 function attachClipInteractions(el, clip){
-  const cssLeft = (x) => (x - TIMELINE_OFFSET_X);
+  // Convert model-coord X → CSS left inside .track-lane (accounting for
+  // both the header offset AND the timeline zoom multiplier).
+  const cssLeft = (x) => (x - TIMELINE_OFFSET_X) * (state.timelineZoom || 1);
 
   // Body drag
   el.addEventListener('mousedown', e=>{
@@ -614,7 +621,8 @@ function attachClipInteractions(el, clip){
     const startX = e.clientX, origX = clip.x;
     let moved = false;
     const onMove = ev=>{
-      const dx = ev.clientX - startX;
+      const zoom = state.timelineZoom || 1;
+      const dx = (ev.clientX - startX) / zoom; // convert display px → model px
       if(Math.abs(dx)>2) moved = true;
       let nx = origX + dx;
       const sl = snapToCandidates(nx, clip.id);
@@ -644,7 +652,8 @@ function attachClipInteractions(el, clip){
     const origX = clip.x, origW = clip.w;
     const bound = trimBounds(clip, side);
     const onMove = ev=>{
-      const dx = ev.clientX - startX;
+      const zoom = state.timelineZoom || 1;
+      const dx = (ev.clientX - startX) / zoom;
       if(side==='left'){
         let nx = snapToCandidates(origX + dx, clip.id);
         // Can't pass right side, can't go before the previous clip's right edge
@@ -658,7 +667,7 @@ function attachClipInteractions(el, clip){
         clip.w = Math.round(edge - origX);
       }
       el.style.left  = cssLeft(clip.x) + 'px';
-      el.style.width = clip.w + 'px';
+      el.style.width = clip.w * (state.timelineZoom || 1) + 'px';
       _invalidateWaveform(clip.id);
     };
     const onUp = ()=>{
@@ -718,8 +727,10 @@ function wireTrackDropTargets(){
       lane.classList.remove('drop-target');
 
       const rect = lane.getBoundingClientRect();
-      // Lane left == ruler "0s" tick == TIMELINE_OFFSET_X in clip-coord space
-      const dropX = (e.clientX - rect.left) + TIMELINE_OFFSET_X;
+      // Lane left == ruler "0s" tick == TIMELINE_OFFSET_X in clip-coord space.
+      // Divide by zoom because the lane is scaled by it.
+      const zoom = state.timelineZoom || 1;
+      const dropX = (e.clientX - rect.left) / zoom + TIMELINE_OFFSET_X;
 
       // (1) Library item drag
       const mediaId = e.dataTransfer.getData('application/x-editorx-media');
@@ -800,6 +811,52 @@ function placeMediaAt(media, trackId, dropX){
   flash('Added '+media.name);
 }
 window.wireTrackDropTargets = wireTrackDropTargets;
+
+// Draggable panel resizer between a sidebar and #center. `side` is 'left' or
+// 'right' — controls drag-direction sign. Persists width to localStorage.
+function wirePanelResizer(id, target, side){
+  const el = document.getElementById(id); if(!el || !target) return;
+  const MIN = side === 'right' ? 220 : 180;
+  const MAX = 600;
+  el.addEventListener('mousedown', e=>{
+    if(e.button !== 0) return;
+    e.preventDefault();
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    el.classList.add('dragging');
+    const startX = e.clientX;
+    const startW = target.offsetWidth;
+    const onMove = ev=>{
+      const dx = ev.clientX - startX;
+      const newW = Math.max(MIN, Math.min(MAX, side === 'right' ? (startW - dx) : (startW + dx)));
+      target.style.width = newW + 'px';
+      // Cheap re-render of timeline-dependent parts (canvas widths follow content)
+      if(window.renderTimecodeRuler) renderTimecodeRuler();
+      if(window.renderPlayhead) renderPlayhead();
+    };
+    const onUp = ()=>{
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      el.classList.remove('dragging');
+      try{ localStorage.setItem('editorx.sidebar.'+side, target.offsetWidth.toString()); }catch{}
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+}
+
+// Clamp + apply a timeline zoom level, then re-render the timeline parts.
+function setTimelineZoom(z){
+  state.timelineZoom = Math.max(0.25, Math.min(4.0, z || 1));
+  // Re-render the cheap parts; full render isn't needed
+  if(window.renderClips) renderClips();
+  if(window.renderTimecodeRuler) renderTimecodeRuler();
+  if(window.renderPlayhead) renderPlayhead();
+  if(window.renderStatusBar) renderStatusBar();
+}
+window.setTimelineZoom = setTimelineZoom;
 
 // ---------- Blade cut-line indicator ----------
 // While the Blade tool is active, a thin vertical line follows the cursor over
@@ -960,7 +1017,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const seekFromEvent = ev=>{
       const rect = ruler.getBoundingClientRect();
       const x = ev.clientX - rect.left;
-      const ms = Math.max(0, (x - TIMELINE_OFFSET_X) * PLAYHEAD_MS_PER_PX);
+      // ruler has padding-left:80px (= TIMELINE_OFFSET_X). Divide by zoom
+      // to get model time. (x - PADDING) / zoom = display-canvas px.
+      const zoom = state.timelineZoom || 1;
+      const ms = Math.max(0, (x - TIMELINE_OFFSET_X) / zoom * PLAYHEAD_MS_PER_PX);
       seekPlayhead(ms);
       renderPlayhead(); renderTimecode(); renderViewer();
     };
@@ -1022,6 +1082,31 @@ document.addEventListener('DOMContentLoaded', ()=>{
   // Blade tool — vertical cut-line indicator that follows the cursor over the timeline
   wireCutIndicator();
 
+  // Zoom buttons in status bar
+  document.getElementById('sb-zoom-in')?.addEventListener('click',  ()=> setTimelineZoom((state.timelineZoom||1) * 1.25));
+  document.getElementById('sb-zoom-out')?.addEventListener('click', ()=> setTimelineZoom((state.timelineZoom||1) / 1.25));
+  document.getElementById('sb-zoom')?.addEventListener('click',     ()=> setTimelineZoom(1));
+
+  // Panel resizers — drag the dividers between sidebars and center
+  wirePanelResizer('resizer-left',  document.getElementById('sidebar-left'),  'left');
+  wirePanelResizer('resizer-right', document.getElementById('sidebar-right'), 'right');
+  // Restore persisted widths
+  try{
+    const L = parseInt(localStorage.getItem('editorx.sidebar.left')); if(L>=180 && L<=600) document.getElementById('sidebar-left').style.width = L+'px';
+    const R = parseInt(localStorage.getItem('editorx.sidebar.right')); if(R>=200 && R<=600) document.getElementById('sidebar-right').style.width = R+'px';
+  }catch{}
+
+  // Timeline zoom: ⌘/Ctrl + wheel on the timeline area
+  const tlWrapForZoom = document.getElementById('timeline-wrapper');
+  if(tlWrapForZoom){
+    tlWrapForZoom.addEventListener('wheel', e=>{
+      if(!(e.metaKey || e.ctrlKey)) return;
+      e.preventDefault();
+      const factor = e.deltaY < 0 ? 1.15 : (1/1.15);
+      setTimelineZoom((state.timelineZoom || 1) * factor);
+    }, {passive:false});
+  }
+
   // Click empty viewer area deselects mask
   document.getElementById('viewer-canvas')?.addEventListener('click', ()=>{ state.selectedMaskId=null; render(); });
 
@@ -1044,6 +1129,9 @@ document.addEventListener('DOMContentLoaded', ()=>{
       if(k==='e'){ e.preventDefault(); openExport(); return; }
       if(k==='k'){ e.preventDefault(); openCommandPalette(); return; }
       if(k==='s'){ e.preventDefault(); document.getElementById('btn-save')?.click(); return; }
+      if(k==='0'){ e.preventDefault(); setTimelineZoom(1); return; }
+      if(k==='='){ e.preventDefault(); setTimelineZoom((state.timelineZoom||1) * 1.2); return; }
+      if(k==='-'){ e.preventDefault(); setTimelineZoom((state.timelineZoom||1) / 1.2); return; }
       return;
     }
     // Plain "?" opens the shortcut help (handles shift on US keyboards too)
