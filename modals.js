@@ -250,15 +250,25 @@ function pickMedia(){
     if(!files.length) return;
     files.forEach(f=>{
       const url = URL.createObjectURL(f);
+      // Preserve real type so we know to extract image-vs-video thumbnails
       const type = f.type.startsWith('audio') ? 'audio'
-                 : f.type.startsWith('image') ? 'video' // images treated as video for the v1 timeline
+                 : f.type.startsWith('image') ? 'image'
                  : 'video';
-      const item = {id:'m_'+Math.random().toString(36).slice(2,9), name:f.name, url, type, duration:0};
+      const item = {id:'m_'+Math.random().toString(36).slice(2,9), name:f.name, url, type, duration:0, thumbnail:null};
       state.media.push(item);
-      const probe = document.createElement(type==='audio' ? 'audio' : 'video');
-      probe.preload='metadata';
-      probe.onloadedmetadata = ()=>{ item.duration = probe.duration; render(); };
-      probe.src = url;
+      // Probe duration (audio/video only; images are instantaneous on the timeline)
+      if(type !== 'image'){
+        const probe = document.createElement(type==='audio' ? 'audio' : 'video');
+        probe.preload='metadata';
+        probe.onloadedmetadata = ()=>{ item.duration = probe.duration; render(); };
+        probe.src = url;
+      }
+      // Extract thumbnail (skips audio)
+      if(window.makeMediaThumbnail){
+        window.makeMediaThumbnail(url, type).then(thumb=>{
+          if(thumb){ item.thumbnail = thumb; render(); }
+        });
+      }
     });
     pushHistory(); render();
     flash(files.length+' file'+(files.length===1?'':'s')+' added');
@@ -521,19 +531,26 @@ function wireTrackDropTargets(){
         let firstX = dropX;
         for(const f of files){
           const url = URL.createObjectURL(f);
-          const type = f.type.startsWith('audio') ? 'audio' : 'video';
-          const item = {id:'m_'+Math.random().toString(36).slice(2,9), name:f.name, url, type, duration:0};
+          const type = f.type.startsWith('audio') ? 'audio'
+                     : f.type.startsWith('image') ? 'image' : 'video';
+          const item = {id:'m_'+Math.random().toString(36).slice(2,9), name:f.name, url, type, duration:0, thumbnail:null};
           state.media.push(item);
-          // Resolve duration before placing the clip
-          await new Promise(res=>{
-            const probe = document.createElement(type==='audio' ? 'audio' : 'video');
-            probe.preload='metadata';
-            probe.onloadedmetadata = ()=>{ item.duration = probe.duration; res(); };
-            probe.onerror = ()=>res();
-            probe.src = url;
-          });
+          if(type !== 'image'){
+            await new Promise(res=>{
+              const probe = document.createElement(type==='audio' ? 'audio' : 'video');
+              probe.preload='metadata';
+              probe.onloadedmetadata = ()=>{ item.duration = probe.duration; res(); };
+              probe.onerror = ()=>res();
+              probe.src = url;
+            });
+          }
+          // Extract a thumbnail in the background (don't block placement)
+          if(window.makeMediaThumbnail){
+            window.makeMediaThumbnail(url, type).then(thumb=>{
+              if(thumb){ item.thumbnail = thumb; render(); }
+            });
+          }
           placeMediaAt(item, tid, firstX);
-          // Stack subsequent files end-to-end after the previous
           const w = Math.max(60, Math.round((item.duration||4)*TIMELINE_PX_PER_S));
           firstX += w + 4;
         }
@@ -848,6 +865,10 @@ function showDashboard(){
   hideAllScreens();
   document.getElementById('dashboard')?.classList.remove('hidden');
   renderDashboard();
+  // Pull this user's projects from the cloud and merge in the background.
+  // If signed in as a real user AND Vercel KV is enabled, this is where
+  // cross-device projects show up. Silently no-ops for guests / no-KV.
+  if(window.cloudHydrateDashboard) window.cloudHydrateDashboard();
   if(window.lucide) lucide.createIcons();
 }
 function enterEditor(){

@@ -37,10 +37,13 @@
   --sep:        #424245;
   --border:     #34343C;
 
-  /* ---------- Typography — Mona Sans (GitHub's UI font), consistent across platforms ---------- */
-  --font:       "Mona Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
-  --font-d:     "Mona Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  /* ---------- Typography — Fraunces (editorial variable serif) across the whole site ---------- */
+  --font:       "Fraunces", Georgia, "Times New Roman", serif;
+  --font-d:     "Fraunces", Georgia, "Times New Roman", serif;
   --mono:       "JetBrains Mono", "SF Mono", ui-monospace, Menlo, Monaco, monospace;
+  /* Slight optical-size tuning so small UI text stays readable in serif */
+  font-feature-settings: "ss01" 1, "ss02" 1;
+  font-optical-sizing: auto;
 
   /* ---------- Spacing scale (4px grid) ---------- */
   --s-1: 4px;
@@ -523,6 +526,18 @@ body.tool-blade #cut-indicator.visible{display:block}
 .insp-toggle-row{display:flex;align-items:center;gap:var(--s-2);margin-bottom:var(--s-2)}
 .insp-toggle-row label{font-size:11px;color:var(--text-2);flex:1;font-weight:500}
 
+.insp-actions{display:flex;gap:6px;flex:1}
+.ghost-btn.small{padding:6px 10px;font-size:11px}
+.ghost-btn.small i{width:12px;height:12px}
+.ghost-btn.rec{
+  color:#fff;background:var(--danger);border-color:var(--danger);
+  animation:rec-pulse 1.2s ease-in-out infinite}
+.ghost-btn.rec:hover{background:var(--danger);color:#fff}
+@keyframes rec-pulse{
+  0%,100%{box-shadow:0 0 0 0 rgba(255,59,48,.45)}
+  50%   {box-shadow:0 0 0 6px rgba(255,59,48,0)}
+}
+
 .ip-row{
   display:flex;align-items:center;gap:var(--s-2);padding:var(--s-2) var(--s-3);background:var(--surface-1);
   border:0.5px solid var(--sep);border-radius:var(--r-2);margin-bottom:var(--s-2)}
@@ -849,6 +864,117 @@ body.tool-blade #cut-indicator.visible{display:block}
   display:flex;align-items:center;gap:var(--s-2);
   transition:opacity var(--t-fast)}
 .logo-btn:hover{opacity:.7}
+
+/* ===========================================================================
+   SMART GUIDES — red alignment lines that appear while dragging text/masks
+   =========================================================================== */
+#smart-guides{position:absolute;inset:0;pointer-events:none;z-index:8}
+.sg-line{position:absolute;background:var(--danger);opacity:.85;
+  box-shadow:0 0 6px rgba(255,59,48,0.6)}
+.sg-line.sg-v{top:0;bottom:0;width:1px}
+.sg-line.sg-h{left:0;right:0;height:1px}
+
+/* ===========================================================================
+   LIBRARY MEDIA THUMBNAILS
+   =========================================================================== */
+.lc-thumb{
+  background-color:#000;background-size:cover;background-position:center;
+  width:40px !important;height:40px !important;border-radius:var(--r-2)}
+
+/* ===========================================================================
+   LIST-CARD PREVIEW (used by transitions + LUTs)
+   =========================================================================== */
+.lc-preview{
+  width:44px;height:30px;flex-shrink:0;border-radius:var(--r-2);
+  overflow:hidden;position:relative;background:#000;
+  border:0.5px solid var(--sep)}
+.list-card .lc-preview ~ .lc-body{margin-left:0}
+
+/* ===========================================================================
+   LUT graded swatch
+   The base is a stylized cinematic gradient (sky → highlight → shadow).
+   The grade layer applies the LUT color with its blend mode + intensity,
+   exactly the way it's composited in the viewer.
+   =========================================================================== */
+.lut-preview .lp-base{
+  position:absolute;inset:0;
+  background:linear-gradient(135deg, #5985b8 0%, #cf9b67 55%, #2a2438 100%)}
+.lut-preview .lp-grade{
+  position:absolute;inset:0;
+  background:var(--lut-color, transparent);
+  opacity:var(--lut-alpha, 0);
+  mix-blend-mode:var(--lut-blend, multiply)}
+
+/* ===========================================================================
+   TRANSITION mini previews — looping CSS animations per transition id
+   =========================================================================== */
+.tr-preview .tp-a, .tr-preview .tp-b{position:absolute;inset:0}
+.tr-preview .tp-a{background:linear-gradient(135deg, #4f7fb8, #c98c5a)}
+.tr-preview .tp-b{background:linear-gradient(135deg, #3a2b56, #b7794f)}
+.list-card:hover .tr-preview .tp-a,
+.list-card:hover .tr-preview .tp-b,
+.list-card.selected .tr-preview .tp-a,
+.list-card.selected .tr-preview .tp-b{animation-play-state:running}
+
+/* Cross dissolve — B fades in over A */
+.tr-fade      .tp-b{animation:tr-fade 1.6s ease-in-out infinite alternate}
+@keyframes tr-fade{0%{opacity:0}100%{opacity:1}}
+
+/* Dip to black — A and B both dip out with a black underlay */
+.tr-dipBlack  {background:#000}
+.tr-dipBlack  .tp-a{animation:tr-dipA 1.6s ease-in-out infinite}
+.tr-dipBlack  .tp-b{animation:tr-dipB 1.6s ease-in-out infinite}
+@keyframes tr-dipA{0%{opacity:1}45%{opacity:0}100%{opacity:0}}
+@keyframes tr-dipB{0%{opacity:0}55%{opacity:0}100%{opacity:1}}
+
+/* Dip to white */
+.tr-dipWhite  {background:#fff}
+.tr-dipWhite  .tp-a{animation:tr-dipA 1.6s ease-in-out infinite}
+.tr-dipWhite  .tp-b{animation:tr-dipB 1.6s ease-in-out infinite}
+
+/* Wipe Left — B wipes in from the left edge */
+.tr-wipeL     .tp-b{animation:tr-wipeL 1.6s ease-in-out infinite alternate;
+  clip-path:inset(0 100% 0 0)}
+@keyframes tr-wipeL{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
+
+/* Wipe Right */
+.tr-wipeR     .tp-b{animation:tr-wipeR 1.6s ease-in-out infinite alternate;
+  clip-path:inset(0 0 0 100%)}
+@keyframes tr-wipeR{from{clip-path:inset(0 0 0 100%)}to{clip-path:inset(0 0 0 0)}}
+
+/* Slide Up */
+.tr-slideUp   .tp-b{animation:tr-slideU 1.6s ease-in-out infinite alternate;
+  transform:translateY(100%)}
+@keyframes tr-slideU{from{transform:translateY(100%)}to{transform:translateY(0)}}
+
+/* Slide Down */
+.tr-slideDown .tp-b{animation:tr-slideD 1.6s ease-in-out infinite alternate;
+  transform:translateY(-100%)}
+@keyframes tr-slideD{from{transform:translateY(-100%)}to{transform:translateY(0)}}
+
+/* Zoom In — B scales up from nothing */
+.tr-zoomIn    .tp-b{animation:tr-zoomI 1.6s ease-out infinite alternate;
+  transform:scale(0);transform-origin:center}
+@keyframes tr-zoomI{from{transform:scale(0);opacity:0}to{transform:scale(1);opacity:1}}
+
+/* Zoom Out — A scales out over B */
+.tr-zoomOut   .tp-a{animation:tr-zoomO 1.6s ease-out infinite alternate;
+  transform:scale(1);transform-origin:center}
+@keyframes tr-zoomO{from{transform:scale(1);opacity:1}to{transform:scale(2.5);opacity:0}}
+
+/* Whip Pan — both slide with blur */
+.tr-whip      .tp-a{animation:tr-whipA 1.2s ease-in-out infinite alternate;filter:blur(0)}
+.tr-whip      .tp-b{animation:tr-whipB 1.2s ease-in-out infinite alternate;filter:blur(0);transform:translateX(100%)}
+@keyframes tr-whipA{0%{transform:translateX(0);filter:blur(0)}50%{filter:blur(4px)}100%{transform:translateX(-100%);filter:blur(0)}}
+@keyframes tr-whipB{0%{transform:translateX(100%);filter:blur(0)}50%{filter:blur(4px)}100%{transform:translateX(0);filter:blur(0)}}
+
+/* ===========================================================================
+   Serif legibility tuning — Fraunces benefits from slightly higher line-height
+   in small UI surfaces. Numbers + mono stay tabular.
+   =========================================================================== */
+.timecode, .meta-pill, .vi-pill, .insp-value, .mp-value, .kf-time,
+.lc-meta, .dash-duration, .clip-duration, .np-card-meta{font-family:var(--mono);font-feature-settings:"tnum" 1}
+body{line-height:1.5}
 
 /* ---------- Responsive ---------- */
 @media (max-width: 1280px){

@@ -8,7 +8,7 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Mona+Sans:ital,wght@0,200..900;1,200..900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ECEAE5' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polygon points='21 16 21 8 12 3 3 8 3 16 12 21 21 16'/></svg>">
 
@@ -36,7 +36,7 @@
           <li><i data-lucide="save" width="14" height="14"></i> Autosaved locally · pick up where you left off</li>
         </ul>
         <div class="starter-fineprint">
-          Frontend-only demo — no real authentication or server-side storage. Your project autosaves to this browser only.
+          Real GitHub OAuth (signed HTTP-only cookie sessions). Projects autosave locally for instant access, and sync to your account when signed in.
         </div>
       </aside>
 
@@ -249,6 +249,7 @@
             <div id="mask-overlay"></div>
             <div id="text-overlay"></div>
             <div id="selection-brackets"></div>
+            <div id="smart-guides"></div>
             <div id="viewer-safe-zones"  class="viewer-overlay hidden"></div>
             <div id="viewer-crosshair"   class="viewer-overlay hidden"></div>
             <div id="viewer-grid"        class="viewer-overlay hidden"></div>
@@ -339,5 +340,6 @@
   <script src="engine.js"></script>
   <script src="ui.js"></script>
   <script src="modals.js"></script>
+  <script src="cloud.js"></script>
 </body>
 </html>

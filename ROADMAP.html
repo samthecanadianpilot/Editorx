@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>EditorX — Project Roadmap</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    *{box-sizing:border-box}
+    html,body{margin:0;padding:0;background:#FAF8F4;color:#1A1A1F;font-family:"Fraunces",Georgia,serif;font-size:13px;line-height:1.55;font-optical-sizing:auto}
+    .page{max-width:740px;margin:0 auto;padding:48px 56px 80px}
+    .meta{font-family:"JetBrains Mono",monospace;font-size:10px;color:#7A7A7A;margin-bottom:24px;letter-spacing:.05em}
+    h1{font-weight:700;font-size:48px;line-height:1.05;letter-spacing:-1px;margin:0 0 8px}
+    h2{font-weight:600;font-size:24px;line-height:1.15;letter-spacing:-.4px;margin:36px 0 4px;border-bottom:1px solid #C8C4BC;padding-bottom:8px}
+    h3{font-weight:600;font-size:16px;line-height:1.2;margin:24px 0 8px;color:#26262E}
+    h4{font-weight:600;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:#5A574E;margin:18px 0 6px}
+    p{margin:6px 0 12px;color:#26262E}
+    ul,ol{margin:6px 0 14px;padding-left:22px}
+    li{margin:3px 0;color:#26262E}
+    li strong{color:#1A1A1F}
+    a{color:#0084FF;text-decoration:none}
+    a:hover{text-decoration:underline}
+    code{font-family:"JetBrains Mono",monospace;font-size:11px;background:#EEE9DF;padding:1px 6px;border-radius:3px;color:#4A2C1F}
+    blockquote{border-left:3px solid #C8C4BC;padding:4px 14px;margin:14px 0;color:#5A574E;font-style:italic}
+    .lead{font-size:16px;line-height:1.5;color:#3D3D45;margin:6px 0 28px}
+    .pill{display:inline-block;font-family:"JetBrains Mono",monospace;font-size:9px;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:999px;background:#1A1A1F;color:#FAF8F4;margin-right:6px;vertical-align:1px}
+    .pill.done{background:#34C759;color:#0A2A12}
+    .pill.now{background:#0084FF;color:#fff}
+    .pill.soon{background:#FF9500;color:#3A1F00}
+    .pill.later{background:#A1A1A6;color:#1A1A1F}
+    .pill.out{background:#FF3B30;color:#fff}
+    .two-col{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+    table{width:100%;border-collapse:collapse;margin:10px 0 18px;font-size:12px}
+    th,td{text-align:left;padding:7px 10px;border-bottom:1px solid #E2DED5;vertical-align:top}
+    th{font-weight:600;color:#5A574E;font-size:11px;letter-spacing:.04em;text-transform:uppercase}
+    hr{border:none;border-top:1px solid #C8C4BC;margin:36px 0}
+    .footer{margin-top:48px;font-size:11px;color:#7A7A7A;text-align:center;font-family:"JetBrains Mono",monospace}
+    .toolbar{position:sticky;top:0;background:rgba(250,248,244,0.94);backdrop-filter:blur(8px);
+      padding:10px 56px;border-bottom:1px solid #E2DED5;display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#5A574E}
+    .toolbar button{font-family:inherit;font-size:11px;font-weight:600;padding:6px 12px;border-radius:6px;border:1px solid #C8C4BC;background:#fff;color:#1A1A1F;cursor:pointer}
+    .toolbar button:hover{background:#1A1A1F;color:#FAF8F4;border-color:#1A1A1F}
+
+    @media print{
+      .toolbar{display:none}
+      html,body{background:#fff}
+      .page{padding:24px 36px}
+      h2{page-break-after:avoid}
+      h3{page-break-after:avoid}
+      ul, li, p{page-break-inside:avoid}
+    }
+    @page{size:letter;margin:18mm}
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <span>EditorX — Project Roadmap</span>
+    <button onclick="window.print()">Save as PDF</button>
+  </div>
+  <div class="page">
+
+    <div class="meta">Last updated: 2026-05-16 · samthecanadianpilot/Editorx · editorx-beta.vercel.app</div>
+    <h1>EditorX</h1>
+    <p class="lead">A precise, tactile, browser-based video editor that feels professional without requiring a download or a beefy workstation. <strong>Real video pipeline. Real auth. Real cloud storage. No fake demos.</strong></p>
+
+    <h2>1. Today — What's shipped <span class="pill done">Live</span></h2>
+
+    <h3>Editor core</h3>
+    <ul>
+      <li>Multi-track timeline (V1/A1/T1) with drag, trim, snap, collision protection, blade-tool splitting.</li>
+      <li>Library → Timeline drag-and-drop; OS file drop onto track lanes.</li>
+      <li>Library thumbnails — first-frame for video, the image itself for images, icon for audio.</li>
+      <li>Real video playback to a canvas viewer with proper aspect-fit, transform, per-clip CSS-filter effect, and LUT compositing.</li>
+      <li>Playhead is driven by the active video's <code>currentTime</code> (video is source of truth) — no more re-seek stutter.</li>
+      <li>17 LUTs with live-graded preview swatches; 10 transitions with animated CSS preview thumbnails; 13 standalone effects.</li>
+      <li>7 mask types (Rectangle / Ellipse / Bezier / Gradient / Feathered / Animated / Inverted) with drag, corner-handle resize, animated keyframes.</li>
+      <li>Text clips with ~250 Google Fonts, color picker, transform; <strong>smart guides</strong> snap to canvas center, thirds, and edges with red alignment lines while dragging.</li>
+      <li><strong>Speech-to-text dictation</strong> directly into the title text field; <strong>text-to-speech preview</strong> button.</li>
+      <li>Right-click clip context menu: Detach Audio / Duplicate / Delete.</li>
+      <li>Undo / redo, autosave (debounced 600 ms).</li>
+      <li>Export: WebM always; MP4/H.264 where the browser supports it; <code>.editorx.json</code> project files. Dynamic format detection.</li>
+    </ul>
+
+    <h3>Dashboard + projects</h3>
+    <ul>
+      <li>Real <strong>GitHub OAuth</strong> sign-in (no demo).</li>
+      <li>Projects Dashboard with thumbnails, "edited X ago" stamps, per-card menu (Open / Rename / Delete).</li>
+      <li>New-Project modal with 9 size presets (YouTube 1080p / 4K, TikTok, Reel, IG Square, IG 4:5, LinkedIn, X, Custom).</li>
+      <li>Dynamic viewer canvas dimensions per project — 9:16, 1:1, 4:5 render at real dimensions.</li>
+    </ul>
+
+    <h3>Backend</h3>
+    <ul>
+      <li><code>/api/auth/github/start</code> + <code>/api/auth/github/callback</code> — real OAuth flow with CSRF state cookie.</li>
+      <li><code>/api/auth/signout</code> — clears session cookie.</li>
+      <li><code>/api/me</code> — returns the current user (verifies the cookie's HMAC).</li>
+      <li><code>/api/projects</code> — list / get / upsert / delete, backed by Vercel KV. Returns clean <code>503 kv_not_configured</code> if KV isn't enabled; frontend falls back to localStorage automatically.</li>
+      <li>Signed HTTP-only <code>Secure</code> <code>SameSite=Lax</code> session cookies (HMAC-SHA256, 30-day expiry).</li>
+      <li>Local-first cloud sync (<code>cloud.js</code>): every local save schedules a 1.5 s debounced cloud push when signed in. Dashboard hydrates the cloud list on load and merges with local.</li>
+    </ul>
+
+    <h3>Visual / design</h3>
+    <ul>
+      <li><strong>Fraunces</strong> editorial serif site-wide (variable font, italic + roman).</li>
+      <li>Apple Design tokens: <code>#0084FF</code> accent, neutral charcoal scale, 4 px spacing grid, 0.15 s ease-out timing.</li>
+      <li>FCPX-style selection brackets on the selected video clip in the viewer.</li>
+      <li>Scissor cursor + vertical cut-line indicator on the timeline while the Blade tool is active.</li>
+    </ul>
+
+    <hr>
+
+    <h2>2. Short-term <span class="pill now">Next 2–3 sessions</span></h2>
+
+    <div class="two-col">
+      <div>
+        <h4>A. Project durability</h4>
+        <ul>
+          <li>Media re-link flow when <code>blob:</code> URLs are invalidated by reload.</li>
+          <li>Drop a <code>.editorx.json</code> onto the Dashboard to import.</li>
+        </ul>
+        <h4>B. Audio workflow</h4>
+        <ul>
+          <li>Volume rubber band on the audio waveform (FCPX-style).</li>
+          <li>Audio-only export (<code>.wav</code> / <code>.mp3</code>).</li>
+          <li>Voiceover-as-clip from TTS via <code>MediaRecorder</code>.</li>
+        </ul>
+      </div>
+      <div>
+        <h4>C. Title polish</h4>
+        <ul>
+          <li>Text animations: typewriter / fade-up / scale-bounce / word-by-word / glitch.</li>
+          <li>Lower-third compositions (text + animated entry bar).</li>
+        </ul>
+        <h4>D. Backend extension</h4>
+        <ul>
+          <li>Cloud media upload via Vercel Blob.</li>
+          <li>Project sharing — read-only <code>/p/&lt;short-id&gt;</code> link.</li>
+        </ul>
+      </div>
+    </div>
+
+    <h2>3. Mid-term <span class="pill soon">This month</span></h2>
+    <h3>Video pipeline</h3>
+    <ul>
+      <li>WebCodecs encode path for high-quality H.264 export on Chromium.</li>
+      <li>Real clipping-mask compositing on the canvas (currently DOM outlines only).</li>
+      <li>Per-clip in/out trim that trims source playback (not just width).</li>
+    </ul>
+    <h3>Editor UX</h3>
+    <ul>
+      <li>Magnetic snap lines during clip drag (visual).</li>
+      <li>Keyboard nudge for selected clips (← / → = 1 frame; +Shift = 10 frames).</li>
+      <li>Per-project workspace memory (last panel + zoom).</li>
+      <li>Ripple / roll / slip / slide edits in the clip context menu.</li>
+    </ul>
+    <h3>Backend</h3>
+    <ul>
+      <li>Vercel Postgres user table — profile, email recovery, settings sync.</li>
+      <li>API rate limits + audit log for project mutations.</li>
+    </ul>
+
+    <h2>4. Long-term <span class="pill later">Next quarter</span></h2>
+    <h3>Collaboration</h3>
+    <ul>
+      <li>Real-time multi-user editing (Yjs + WebSocket relay).</li>
+      <li>Comments anchored to clips or timecodes.</li>
+      <li>Version history with named snapshots and rollback.</li>
+    </ul>
+    <h3>AI features</h3>
+    <ul>
+      <li>Auto-subtitle generation (Whisper).</li>
+      <li>One-click reframe (square / vertical / wide) with face/motion tracking.</li>
+      <li>Background-music search by mood / tempo.</li>
+    </ul>
+    <h3>Distribution</h3>
+    <ul>
+      <li>Desktop wrapper (Tauri) for offline editing.</li>
+      <li>Marketplace — shareable LUTs, transitions, title templates.</li>
+    </ul>
+
+    <h2>5. Out of scope <span class="pill out">Won't do</span></h2>
+    <ul>
+      <li>Non-linear effects compositor (After Effects-style node graph).</li>
+      <li>3D camera / 3D layers.</li>
+      <li>DAW-grade audio mixing (volume + pan + speed is the bar).</li>
+      <li>Hardware-decode optimization for old browsers.</li>
+    </ul>
+
+    <h2>6. Architecture decisions</h2>
+    <ul>
+      <li><strong>No build step.</strong> Plain HTML + ES modules in the browser, plain ESM in Vercel Node functions.</li>
+      <li><strong>Local-first.</strong> Everything works offline against <code>localStorage</code>. Cloud sync is an enhancement.</li>
+      <li><strong>Vercel-native.</strong> No separate backend service — <code>/api/*</code> is serverless functions; sessions are signed cookies; storage is Vercel KV; media will be Vercel Blob.</li>
+      <li><strong>Honest auth.</strong> HMAC-SHA256-signed cookies, HttpOnly + Secure + SameSite=Lax.</li>
+    </ul>
+
+    <h2>7. Decisions still open</h2>
+    <table>
+      <thead><tr><th>Topic</th><th>Question</th></tr></thead>
+      <tbody>
+        <tr><td>Pricing</td><td>Free forever, or free tier + paid? Affects whether we add Stripe + a real user table.</td></tr>
+        <tr><td>TTS provider</td><td>Stay browser-native (free, limited voices) or add ElevenLabs / OpenAI server-side?</td></tr>
+        <tr><td>STT for transcripts</td><td>Browser-native works only in Chrome. Server-side Whisper is universal but costs money per minute.</td></tr>
+        <tr><td>Mobile editing</td><td>Full mobile UI, or preview-only on small screens?</td></tr>
+      </tbody>
+    </table>
+
+    <div class="footer">
+      Hit <strong>⌘P</strong> (or the “Save as PDF” button above) to save this roadmap as a PDF.<br>
+      Generated for the EditorX project · samthecanadianpilot
+    </div>
+
+  </div>
+</body>
+</html>

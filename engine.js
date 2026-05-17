@@ -162,13 +162,29 @@ function setEffect(clipId, id, amount){
 function clearEffect(clipId){ const c=getClip(clipId); if(c){c.effectId=null;c.fxAmount=null} }
 
 function addTextClipAt(playheadMs, preset){
-  const x = Math.round(TIMELINE_OFFSET_X + playheadMs/PLAYHEAD_MS_PER_PX);
+  let nx = Math.round(TIMELINE_OFFSET_X + playheadMs/PLAYHEAD_MS_PER_PX);
+  const w = Math.max(80, Math.round((preset.duration||3)*TIMELINE_PX_PER_S));
+  // Collision-clamp on T1: walk forward past anything we'd overlap so
+  // repeated clicks add stacked-to-the-right titles instead of piling on
+  // top of each other at the playhead.
+  const onT1 = state.clips.filter(c => c.track==='t1').sort((a,b)=>a.x-b.x);
+  let safe = false, guard = 0;
+  while(!safe && guard++ < 100){
+    safe = true;
+    for(const o of onT1){
+      if(nx < o.x + o.w && nx + w > o.x){
+        nx = o.x + o.w + 4;
+        safe = false;
+        break;
+      }
+    }
+  }
   const clip = {
     id: genId(), type:'text', name: preset.name, track:'t1',
-    x, w: Math.max(80, Math.round((preset.duration||3)*TIMELINE_PX_PER_S)),
+    x: nx, w,
     color: preset.color || '#FFFFFF',
     text: preset.defaultText || preset.name,
-    font: preset.font || 'Inter',
+    font: preset.font || 'Fraunces',
     fontWeight: preset.weight || 700,
     opacity: 1, scale: preset.scale||1, posX:0, posY:0, rotation:0
   };
@@ -265,6 +281,55 @@ function getMediaElForClip(clip){
 function releaseMediaFor(clipId){
   const el = _mediaPool[clipId];
   if(el){ try{ el.pause(); el.src=''; el.remove(); }catch{} delete _mediaPool[clipId]; }
+}
+
+// Generate a small JPEG thumbnail data URL from a media URL.
+//   video: seek to ~5% in (or 0.2s, whichever is bigger), grab a frame
+//   image: draw directly
+//   audio: returns null
+async function makeMediaThumbnail(url, type){
+  if(type === 'audio') return null;
+  return new Promise(resolve => {
+    if(type === 'image'){
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => { resolve(_drawToJpeg(img, img.naturalWidth, img.naturalHeight)); };
+      img.onerror = () => resolve(null);
+      img.src = url;
+      return;
+    }
+    // video
+    const v = document.createElement('video');
+    v.preload = 'auto'; v.muted = true; v.playsInline = true; v.crossOrigin = 'anonymous';
+    v.style.cssText = 'position:absolute;left:-99999px;width:1px;height:1px';
+    document.body.appendChild(v);
+    let done = false;
+    const cleanup = () => { try{ v.remove(); }catch{} };
+    const finish = (data) => { if(done) return; done = true; cleanup(); resolve(data); };
+    v.onloadeddata = () => {
+      const t = Math.min(0.2 + 0.05 * (v.duration||0), Math.max(0.1, (v.duration||1) * 0.05));
+      try{ v.currentTime = isFinite(t) ? t : 0.1; }catch{ finish(null); }
+    };
+    v.onseeked = () => {
+      if(!v.videoWidth) return finish(null);
+      finish(_drawToJpeg(v, v.videoWidth, v.videoHeight));
+    };
+    v.onerror = () => finish(null);
+    setTimeout(() => finish(null), 5000); // 5s safety timeout
+    v.src = url;
+  });
+}
+function _drawToJpeg(source, sw, sh){
+  const W = 200;
+  const H = Math.max(1, Math.round(W * (sh / sw)));
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  try{
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+    ctx.drawImage(source, 0, 0, W, H);
+    return c.toDataURL('image/jpeg', 0.6);
+  }catch{ return null; }
 }
 
 // Sync all media elements to the current playhead.
@@ -612,6 +677,7 @@ window.clipUnderTimelineX=clipUnderTimelineX;
 window.detachAudio=detachAudio;
 window.activeClipsAt=activeClipsAt; window.clipStartS=clipStartS; window.clipEndS=clipEndS; window.timelineDurationS=timelineDurationS;
 window.getMediaElForClip=getMediaElForClip; window.releaseMediaFor=releaseMediaFor; window.syncMediaToPlayhead=syncMediaToPlayhead;
+window.makeMediaThumbnail=makeMediaThumbnail;
 window.startPlayback=startPlayback; window.stopPlayback=stopPlayback; window.togglePlayback=togglePlayback;
 window.seekPlayhead=seekPlayhead; window.nudgePlayhead=nudgePlayhead;
 window.loadFont=loadFont;

@@ -15,6 +15,72 @@ function flash(msg){
   bar._t = setTimeout(()=>bar.classList.remove('visible'), 1600);
 }
 
+// ---------- Speech APIs (browser-native) ----------
+// Speech-to-text dictation. While the mic is active the button glows red.
+// Recognized phrases stream into the selected clip's text field live.
+let _activeRecognition = null;
+function startDictation(clip, btn){
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SR){ flash('Speech recognition not supported in this browser'); return; }
+  if(_activeRecognition){
+    try{ _activeRecognition.stop(); }catch{}
+    _activeRecognition = null;
+    if(btn) btn.classList.remove('rec');
+    return;
+  }
+  const rec = new SR();
+  rec.lang = 'en-US';
+  rec.interimResults = true;
+  rec.continuous = true;
+  let finalTxt = clip.text || '';
+  if(finalTxt && !finalTxt.endsWith(' ')) finalTxt += ' ';
+  rec.onresult = (ev) => {
+    let interim = '';
+    for(let i = ev.resultIndex; i < ev.results.length; i++){
+      const r = ev.results[i];
+      if(r.isFinal) finalTxt += r[0].transcript;
+      else interim += r[0].transcript;
+    }
+    const composed = (finalTxt + interim).trim();
+    updateClip(clip.id, {text: composed});
+    // Live-update the text input in the inspector without a full re-render
+    const inp = document.querySelector('input[type=text][data-prop="text"]');
+    if(inp) inp.value = composed;
+    renderViewer(); renderTextOverlays(); renderClips();
+  };
+  rec.onerror = (e) => { flash('Mic: ' + (e.error || 'error')); };
+  rec.onend = () => {
+    _activeRecognition = null;
+    if(btn) btn.classList.remove('rec');
+    pushHistory();
+  };
+  try{
+    rec.start();
+    _activeRecognition = rec;
+    if(btn) btn.classList.add('rec');
+    flash('Listening… click Dictate again to stop');
+  }catch(err){
+    flash('Mic could not start: ' + err.message);
+  }
+}
+
+// Text-to-speech preview. Uses the platform's voices.
+function speakText(text){
+  if(!('speechSynthesis' in window)){ flash('TTS not supported'); return; }
+  if(!text || !text.trim()){ flash('No text to speak'); return; }
+  const u = new SpeechSynthesisUtterance(text);
+  // Prefer a high-quality local voice if available
+  const voices = speechSynthesis.getVoices() || [];
+  const preferred = voices.find(v => /en[-_]US/i.test(v.lang) && /Samantha|Alex|Karen|Google|Apple/i.test(v.name))
+                 || voices.find(v => /en/i.test(v.lang)) || voices[0];
+  if(preferred) u.voice = preferred;
+  u.rate = 1; u.pitch = 1; u.volume = 1;
+  speechSynthesis.cancel(); // stop anything already speaking
+  speechSynthesis.speak(u);
+}
+// Some browsers populate voices asynchronously
+if(typeof speechSynthesis !== 'undefined') speechSynthesis.onvoiceschanged = ()=>{};
+
 // Stable per-clip waveform (deterministic from id)
 const _waveformCache = {};
 function _waveformFor(clip){
@@ -118,9 +184,13 @@ function renderMediaList(){
     row.draggable = true;
     row.dataset.mediaId = m.id;
     const icon = m.type==='audio' ? 'music' : (m.type==='video' ? 'film' : 'image');
-    row.innerHTML = `<div class="lc-icon"><i data-lucide="${icon}" width="14" height="14"></i></div>
+    // Audio gets an icon (no visual makes sense); video & image show real thumbnails
+    const visual = (m.thumbnail && m.type !== 'audio')
+      ? `<div class="lc-icon lc-thumb" style="background-image:url('${m.thumbnail}')"></div>`
+      : `<div class="lc-icon"><i data-lucide="${icon}" width="14" height="14"></i></div>`;
+    row.innerHTML = `${visual}
       <div class="lc-body"><div class="lc-name">${escapeHtml(m.name)}</div>
-      <div class="lc-meta">${m.type} · ${m.duration?m.duration.toFixed(1)+'s':'…'}</div></div>
+      <div class="lc-meta">${m.type} · ${m.duration?m.duration.toFixed(1)+'s':(m.type==='image'?'image':'…')}</div></div>
       <button class="lc-action" title="Add to timeline"><i data-lucide="plus" width="12" height="12"></i></button>`;
     row.addEventListener('click', ()=>{ addClipFromMedia(m); pushHistory(); render(); flash('Added '+m.name); });
     row.addEventListener('dragstart', e=>{
@@ -142,7 +212,10 @@ function renderTransitionsList(){
   TRANSITIONS.forEach(tr=>{
     const isApplied = sel && sel.transition===tr.id;
     const card = document.createElement('div'); card.className = 'list-card' + (isApplied?' selected':'');
-    card.innerHTML = `<div class="lc-icon"><i data-lucide="${tr.icon}" width="14" height="14"></i></div>
+    card.innerHTML = `
+      <div class="lc-preview tr-preview tr-${tr.id}">
+        <span class="tp-a"></span><span class="tp-b"></span>
+      </div>
       <div class="lc-body"><div class="lc-name">${tr.name}</div>
       <div class="lc-meta">${tr.desc} · ${tr.duration}s</div></div>
       <button class="lc-action" title="${isApplied?'Remove':'Apply'}"><i data-lucide="${isApplied?'check':'plus'}" width="12" height="12"></i></button>`;
@@ -163,7 +236,18 @@ function renderLUTs(){
   LUTS.forEach(lut=>{
     const isApplied = sel && sel.lutId===lut.id;
     const card = document.createElement('div'); card.className = 'list-card' + (isApplied?' selected':'');
-    card.innerHTML = `<div class="lc-icon" style="background:${lut.color}33;color:${lut.color}"><i data-lucide="palette" width="14" height="14"></i></div>
+    // Color-graded preview: a sample gradient with the LUT's color blended on top
+    // using its declared blend mode and intensity, so each card actually shows
+    // what the grade looks like.
+    const intensity = (sel && isApplied ? (sel.lutIntensity ?? lut.def) : lut.def) || 0;
+    const previewStyle = lut.id === 'none'
+      ? ''
+      : `--lut-color:${lut.color};--lut-alpha:${intensity};--lut-blend:${lut.blend}`;
+    card.innerHTML = `
+      <div class="lc-preview lut-preview" style="${previewStyle}">
+        <div class="lp-base"></div>
+        <div class="lp-grade"></div>
+      </div>
       <div class="lc-body"><div class="lc-name">${lut.name}</div>
       <div class="lc-meta">${lut.cat}${isApplied?` · ${Math.round((sel.lutIntensity??lut.def)*100)}%`:''}</div></div>
       <button class="lc-action" title="${isApplied?'Remove':'Apply'}"><i data-lucide="${isApplied?'check':'plus'}" width="12" height="12"></i></button>`;
@@ -335,14 +419,21 @@ function renderInspector(){
       inspNumRow('Speed',  (clip.speed??1)*100, 25, 400, 1, '%', 'speed', 'v/100'));
   }
 
-  // TEXT (with font picker)
+  // TEXT (with font picker + speech-to-text + text-to-speech)
   if(clip.type==='text'){
     const fontOpts = (window.FONTS||[]).map(f=>`<option value="${escapeHtml(f)}" ${clip.font===f?'selected':''}>${escapeHtml(f)}</option>`).join('');
     html += inspSection('TEXT', true,
       inspTextRow('Text','text',clip.text||'')+
+      `<div class="insp-row"><label></label>
+         <div class="insp-actions">
+           <button class="ghost-btn small" data-action="dictate" title="Dictate (speech → text)">
+             <i data-lucide="mic" width="12" height="12"></i><span>Dictate</span></button>
+           <button class="ghost-btn small" data-action="speak" title="Speak this text aloud">
+             <i data-lucide="volume-2" width="12" height="12"></i><span>Speak</span></button>
+         </div></div>`+
       inspColorRow('Color','color',clip.color||'#FFFFFF')+
       `<div class="insp-row"><label>Font</label>
-         <input type="text" class="insp-text" data-font-search list="fontlist-${clip.id}" value="${escapeHtml(clip.font||'Inter')}" placeholder="Search Google Fonts…">
+         <input type="text" class="insp-text" data-font-search list="fontlist-${clip.id}" value="${escapeHtml(clip.font||'Fraunces')}" placeholder="Search Google Fonts…">
          <datalist id="fontlist-${clip.id}">${fontOpts}</datalist></div>`+
       `<div class="insp-row"><label>Weight</label>
         <select data-prop-num="fontWeight" class="insp-select">
@@ -462,6 +553,13 @@ function renderInspector(){
   content.querySelector('[data-action="rm-lut"]')  ?.addEventListener('click', ()=>{ clearLut(clip.id); pushHistory(); render(); });
   content.querySelector('[data-action="rm-fx"]')   ?.addEventListener('click', ()=>{ clearEffect(clip.id); pushHistory(); render(); });
   content.querySelector('#insp-add-mask')          ?.addEventListener('click', ()=>{ addMask(clip.id,'rectangle'); pushHistory(); render(); });
+  content.querySelector('[data-action="dictate"]') ?.addEventListener('click', (e)=>{
+    const btn = e.currentTarget;
+    startDictation(clip, btn);
+  });
+  content.querySelector('[data-action="speak"]')   ?.addEventListener('click', ()=>{
+    speakText(clip.text || clip.name || '');
+  });
 
   // Mask sub-clicks
   content.querySelectorAll('.mask-insp-item').forEach(el=>{
@@ -610,6 +708,74 @@ function drawTextClip(ctx, canvas, clip){
   ctx.restore();
 }
 
+// ---------- Smart guides (alignment helpers while dragging) ----------
+// Snap an object's center (cx, cy) to canvas alignment lines:
+//   horizontal: center / left third / right third / left edge / right edge
+//   vertical:   center / upper third / lower third / top edge / bottom edge
+// Plus the object's own edges to those same horizontal/vertical lines.
+// Returns {snapX, snapY, lines:[{kind:'v'|'h', at:number}]}.
+function computeSmartGuides(cx, cy, w, h, canvas){
+  const SNAP = 10; // snap radius in canvas-space px
+  const xs = [
+    {at: canvas.width/2,   label:'center'},
+    {at: canvas.width/3,   label:'third'},
+    {at: canvas.width*2/3, label:'third'},
+    {at: 0,                label:'edge'},
+    {at: canvas.width,     label:'edge'}
+  ];
+  const ys = [
+    {at: canvas.height/2,   label:'center'},
+    {at: canvas.height/3,   label:'third'},
+    {at: canvas.height*2/3, label:'third'},
+    {at: 0,                 label:'edge'},
+    {at: canvas.height,     label:'edge'}
+  ];
+
+  let snapX = null, snapY = null;
+  const lines = [];
+
+  // X: check the object center + its left + right edges against each target
+  const xCandidates = [['c', cx], ['l', cx - w/2], ['r', cx + w/2]];
+  for(const t of xs){
+    for(const [tag, v] of xCandidates){
+      if(Math.abs(v - t.at) < SNAP){
+        snapX = cx + (t.at - v); // shift center so the matching point lands on the guide
+        lines.push({kind:'v', at: t.at});
+        break;
+      }
+    }
+    if(snapX != null) break;
+  }
+  const yCandidates = [['c', cy], ['t', cy - h/2], ['b', cy + h/2]];
+  for(const t of ys){
+    for(const [tag, v] of yCandidates){
+      if(Math.abs(v - t.at) < SNAP){
+        snapY = cy + (t.at - v);
+        lines.push({kind:'h', at: t.at});
+        break;
+      }
+    }
+    if(snapY != null) break;
+  }
+  return {snapX, snapY, lines};
+}
+function drawSmartGuides(guides, canvas, ox, oy, sx, sy){
+  const layer = document.getElementById('smart-guides'); if(!layer) return;
+  if(!guides || !guides.lines.length){ layer.innerHTML = ''; return; }
+  layer.innerHTML = guides.lines.map(l=>{
+    if(l.kind === 'v'){
+      const x = ox + l.at*sx;
+      return `<div class="sg-line sg-v" style="left:${x}px"></div>`;
+    } else {
+      const y = oy + l.at*sy;
+      return `<div class="sg-line sg-h" style="top:${y}px"></div>`;
+    }
+  }).join('');
+}
+function clearSmartGuides(){
+  const layer = document.getElementById('smart-guides'); if(layer) layer.innerHTML = '';
+}
+
 // ---------- Text overlay (DOM, draggable text bounding box) ----------
 function renderTextOverlays(){
   const overlay = document.getElementById('text-overlay'); if(!overlay) return;
@@ -658,7 +824,7 @@ function renderTextOverlays(){
       render();
     });
 
-    // Drag updates posX/posY
+    // Drag updates posX/posY with smart guides + snap to canvas alignment lines
     el.addEventListener('mousedown', e=>{
       if(e.button !== 0) return;
       e.preventDefault(); e.stopPropagation();
@@ -669,14 +835,23 @@ function renderTextOverlays(){
         const dx = (ev.clientX - startX) / sx;
         const dy = (ev.clientY - startY) / sy;
         if(Math.abs(dx)>1 || Math.abs(dy)>1) moved = true;
-        clip.posX = Math.round(origX + dx);
-        clip.posY = Math.round(origY + dy);
+        // Proposed new center position in canvas coordinates
+        const baseCx = canvas.width/2 + (origX + dx);
+        const baseCy = (canvas.height - 160) + (origY + dy);
+        // Snap to nearest guide
+        const guides = computeSmartGuides(baseCx, baseCy, w, h, canvas);
+        const newCx = guides.snapX != null ? guides.snapX : baseCx;
+        const newCy = guides.snapY != null ? guides.snapY : baseCy;
+        clip.posX = Math.round(newCx - canvas.width/2);
+        clip.posY = Math.round(newCy - (canvas.height - 160));
         renderTextOverlays();
+        drawSmartGuides(guides, canvas, ox, oy, sx, sy);
         renderViewer();
       };
       const onUp = ()=>{
         document.removeEventListener('mousemove', onMove);
         document.removeEventListener('mouseup', onUp);
+        clearSmartGuides();
         if(moved){ pushHistory(); renderInspector(); }
       };
       document.addEventListener('mousemove', onMove);
