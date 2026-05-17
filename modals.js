@@ -865,7 +865,10 @@ async function fetchServerSession(){
   try{
     const r = await fetch('/api/me', {credentials:'include'});
     if(!r.ok) return null;
-    return await r.json();
+    const j = await r.json();
+    // New format: { signedIn: false } for guests; only return a session if true.
+    if(j && j.signedIn === false) return null;
+    return j;
   }catch{return null;}
 }
 

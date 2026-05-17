@@ -18,7 +18,9 @@
     if(_cloudOk !== null) return _cloudOk;
     try{
       const r = await fetch('/api/me', {credentials:'include'});
-      _cloudOk = r.ok;
+      if(!r.ok){ _cloudOk = false; return _cloudOk; }
+      const j = await r.json();
+      _cloudOk = !!(j && j.signedIn);
     }catch{ _cloudOk = false; }
     return _cloudOk;
   }
