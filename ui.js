@@ -557,6 +557,40 @@ function renderInspector(){
     );
   }
 
+  // GRAPHIC — appears only for clips with a graphicStyle (i.e. ones
+  // dropped from the Graphics & Call-outs panel). Lets the user edit the
+  // pill/card style, background color, accent color, icon, and glass.
+  if(clip.graphicStyle){
+    const iconList = window.GRAPHIC_ICONS ? Object.keys(window.GRAPHIC_ICONS) : [];
+    // The background can be a solid color or a CSS linear-gradient string.
+    // We can't show a gradient in a <input type=color>, so we offer either a
+    // color picker (solid) or a text field if it's a gradient.
+    const isGradient = typeof clip.graphicBg === 'string' && clip.graphicBg.startsWith('linear-gradient');
+    const bgRow = isGradient
+      ? `<div class="insp-row"><label>Background</label>
+           <input type="text" class="insp-text" data-prop="graphicBg" value="${escapeHtml(clip.graphicBg)}" placeholder="linear-gradient(...)"></div>
+         <div class="empty-sub" style="margin-bottom:6px">Tip: paste any CSS <code>linear-gradient(…)</code> string, or replace with a solid <code>#hex</code>.</div>`
+      : `<div class="insp-row"><label>Background</label>
+           <input type="color" data-prop="graphicBg" value="${(clip.graphicBg||'#000000').slice(0,7)}" class="insp-color"></div>`;
+    html += inspSection('GRAPHIC', true,
+      `<div class="insp-row"><label>Style</label>
+         <select class="insp-select" data-prop="graphicStyle">
+           <option value="pill"  ${clip.graphicStyle==='pill'?'selected':''}>Pill</option>
+           <option value="card"  ${clip.graphicStyle==='card'?'selected':''}>Card</option>
+           <option value="badge" ${clip.graphicStyle==='badge'?'selected':''}>Badge</option>
+         </select></div>`+
+      bgRow+
+      `<div class="insp-row"><label>Accent</label>
+         <input type="color" data-prop="graphicAccent" value="${(clip.graphicAccent||'#FFFFFF').slice(0,7)}" class="insp-color"></div>`+
+      `<div class="insp-row"><label>Icon</label>
+         <select class="insp-select" data-prop="graphicIcon">
+           ${iconList.map(name => `<option value="${name}" ${clip.graphicIcon===name?'selected':''}>${name}</option>`).join('')}
+         </select></div>`+
+      `<div class="insp-toggle-row"><label>Glass highlight</label>
+         <input type="checkbox" data-toggle="graphicGlass" ${clip.graphicGlass?'checked':''}></div>`
+    );
+  }
+
   // TRANSITION
   const tr = clip.transition && (window.TRANSITIONS||[]).find(t=>t.id===clip.transition);
   html += inspSection('TRANSITION', false, tr
@@ -699,6 +733,13 @@ function renderInspector(){
     sel.addEventListener('change', e=>{
       updateClip(clip.id, {[sel.dataset.propNum]: parseInt(e.target.value)});
       pushHistory(); renderViewer();
+    });
+  });
+  // Wire string-valued selects (graphic style, icon, etc.)
+  content.querySelectorAll('select[data-prop]').forEach(sel=>{
+    sel.addEventListener('change', e=>{
+      updateClip(clip.id, {[sel.dataset.prop]: e.target.value});
+      pushHistory(); renderViewer(); renderClips();
     });
   });
 
