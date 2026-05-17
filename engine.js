@@ -186,7 +186,12 @@ function addTextClipAt(playheadMs, preset){
     text: preset.defaultText || preset.name,
     font: preset.font || 'Fraunces',
     fontWeight: preset.weight || 700,
-    opacity: 1, scale: preset.scale||1, posX:0, posY:0, rotation:0
+    opacity: 1, scale: preset.scale || 1,
+    // Honor preset positioning so Left/Right Lower Thirds etc actually
+    // land at the right corner instead of all stacking centered.
+    posX: preset.posX || 0,
+    posY: preset.posY || 0,
+    rotation: 0
   };
   state.clips.push(clip);
   state.selectedClipId = clip.id;
@@ -416,17 +421,31 @@ function applyKenBurns(clipId, endScale){
 }
 
 // Fade In / Out via opacity keyframes.
+// IMPORTANT: capture the base value BEFORE adding any keyframes. Otherwise
+// the second call to clipPropAt sees the first keyframe (opacity=0) and
+// returns that as the "base", so the ramp ends at 0 instead of 1.
 function applyFadeIn(clipId, durS){
   const c = getClip(clipId); if(!c) return;
   const d = durS || 0.4;
+  const baseOpacity = clipPropAt(c, 'opacity', c.opacity ?? 1);
+  // Wipe any existing opacity kfs in our fade window so re-applying is clean
+  if(c.keyframes && c.keyframes.opacity){
+    c.keyframes.opacity = c.keyframes.opacity.filter(k => k.t > d + 0.01);
+    if(!c.keyframes.opacity.length) delete c.keyframes.opacity;
+  }
   addKeyframeTo(clipId, 'opacity', 0, 0, 'easeOut');
-  addKeyframeTo(clipId, 'opacity', d, clipPropAt(c, 'opacity', c.opacity ?? 1), 'easeOut');
+  addKeyframeTo(clipId, 'opacity', d, baseOpacity, 'easeOut');
 }
 function applyFadeOut(clipId, durS){
   const c = getClip(clipId); if(!c) return;
   const totalDur = c.w / TIMELINE_PX_PER_S;
   const d = durS || 0.4;
-  addKeyframeTo(clipId, 'opacity', totalDur - d, clipPropAt(c, 'opacity', c.opacity ?? 1), 'easeIn');
+  const baseOpacity = clipPropAt(c, 'opacity', c.opacity ?? 1);
+  if(c.keyframes && c.keyframes.opacity){
+    c.keyframes.opacity = c.keyframes.opacity.filter(k => k.t < totalDur - d - 0.01);
+    if(!c.keyframes.opacity.length) delete c.keyframes.opacity;
+  }
+  addKeyframeTo(clipId, 'opacity', totalDur - d, baseOpacity, 'easeIn');
   addKeyframeTo(clipId, 'opacity', totalDur,     0, 'easeIn');
 }
 

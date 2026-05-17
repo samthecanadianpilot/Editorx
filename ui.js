@@ -909,18 +909,34 @@ function drawVideoClip(ctx, canvas, clip){
   const el = getMediaElForClip(clip);
   ctx.save();
   // Animated values via keyframes; falls back to the static prop if none
-  const opacity = clipPropAt(clip, 'opacity', clip.opacity ?? 1);
-  const posX    = clipPropAt(clip, 'posX',    clip.posX    ?? 0);
-  const posY    = clipPropAt(clip, 'posY',    clip.posY    ?? 0);
-  const scale   = clipPropAt(clip, 'scale',   clip.scale   ?? 1);
-  const rot     = clipPropAt(clip, 'rotation',clip.rotation?? 0);
+  let opacity = clipPropAt(clip, 'opacity', clip.opacity ?? 1);
+  let posX    = clipPropAt(clip, 'posX',    clip.posX    ?? 0);
+  let posY    = clipPropAt(clip, 'posY',    clip.posY    ?? 0);
+  let scale   = clipPropAt(clip, 'scale',   clip.scale   ?? 1);
+  const rot   = clipPropAt(clip, 'rotation',clip.rotation?? 0);
+
+  // Entry transition: modulate the same values during the first N seconds
+  const tx = transitionEntry(clip);
+  let extraBlur = 0;
+  if(tx){
+    opacity *= tx.opacity;
+    posX    += tx.dx;
+    posY    += tx.dy;
+    scale   *= tx.dscale;
+    extraBlur = tx.blur;
+  }
   ctx.globalAlpha = opacity;
 
-  // Effect (CSS filter on context)
+  // Effect (CSS filter on context) + transition blur if any
+  let filter = 'none';
   if(clip.effectId){
     const fx = (window.EFFECTS||[]).find(e=>e.id===clip.effectId);
-    if(fx && fx.cssFilter) ctx.filter = fx.cssFilter(clip);
+    if(fx && fx.cssFilter) filter = fx.cssFilter(clip);
   }
+  if(extraBlur){
+    filter = (filter === 'none' ? '' : filter + ' ') + `blur(${extraBlur}px)`;
+  }
+  ctx.filter = filter;
 
   // Transform
   const cx = canvas.width/2 + posX;
@@ -974,12 +990,23 @@ function drawVideoClip(ctx, canvas, clip){
 // rounded background + Lucide-style icon + text + soft shadow.
 function drawGraphicClip(ctx, canvas, clip){
   ctx.save();
-  const opacity = clipPropAt(clip, 'opacity', clip.opacity ?? 1);
-  const posX    = clipPropAt(clip, 'posX',    clip.posX    ?? 0);
-  const posY    = clipPropAt(clip, 'posY',    clip.posY    ?? 0);
-  const scale   = clipPropAt(clip, 'scale',   clip.scale   ?? 1);
-  const rot     = clipPropAt(clip, 'rotation',clip.rotation?? 0);
+  let opacity = clipPropAt(clip, 'opacity', clip.opacity ?? 1);
+  let posX    = clipPropAt(clip, 'posX',    clip.posX    ?? 0);
+  let posY    = clipPropAt(clip, 'posY',    clip.posY    ?? 0);
+  let scale   = clipPropAt(clip, 'scale',   clip.scale   ?? 1);
+  const rot   = clipPropAt(clip, 'rotation',clip.rotation?? 0);
+
+  const tx = transitionEntry(clip);
+  let extraBlur = 0;
+  if(tx){
+    opacity *= tx.opacity;
+    posX    += tx.dx;
+    posY    += tx.dy;
+    scale   *= tx.dscale;
+    extraBlur = tx.blur;
+  }
   ctx.globalAlpha = opacity;
+  if(extraBlur) ctx.filter = `blur(${extraBlur}px)`;
 
   const cx = canvas.width/2  + posX;
   const cy = canvas.height - 200 + posY;
@@ -1078,12 +1105,24 @@ function drawGraphicClip(ctx, canvas, clip){
 
 function drawTextClip(ctx, canvas, clip){
   ctx.save();
-  const opacity = clipPropAt(clip, 'opacity', clip.opacity ?? 1);
-  const posX    = clipPropAt(clip, 'posX',    clip.posX    ?? 0);
-  const posY    = clipPropAt(clip, 'posY',    clip.posY    ?? 0);
-  const scale   = clipPropAt(clip, 'scale',   clip.scale   ?? 1);
-  const rot     = clipPropAt(clip, 'rotation',clip.rotation?? 0);
+  let opacity = clipPropAt(clip, 'opacity', clip.opacity ?? 1);
+  let posX    = clipPropAt(clip, 'posX',    clip.posX    ?? 0);
+  let posY    = clipPropAt(clip, 'posY',    clip.posY    ?? 0);
+  let scale   = clipPropAt(clip, 'scale',   clip.scale   ?? 1);
+  const rot   = clipPropAt(clip, 'rotation',clip.rotation?? 0);
+
+  const tx = transitionEntry(clip);
+  let extraBlur = 0;
+  if(tx){
+    opacity *= tx.opacity;
+    posX    += tx.dx;
+    posY    += tx.dy;
+    scale   *= tx.dscale;
+    extraBlur = tx.blur;
+  }
   ctx.globalAlpha = opacity;
+  if(extraBlur) ctx.filter = `blur(${extraBlur}px)`;
+
   const cx = canvas.width/2 + posX;
   const cy = canvas.height - 160 + posY;
   ctx.translate(cx, cy);
@@ -1100,6 +1139,37 @@ function drawTextClip(ctx, canvas, clip){
   ctx.fillStyle = clip.color || '#FFFFFF';
   ctx.fillText(clip.text || clip.name, 0, 0);
   ctx.restore();
+}
+
+// ---------- Transition entry-animation ----------
+// When clip.transition is set we animate the clip's entry over the
+// transition's duration (first N seconds of the clip). Returns a
+// {opacity, dx, dy, dscale, blur, dipColor} object the drawXxx callers
+// fold into their transform. `dipColor` is a non-null value when this
+// transition should paint a full-frame flash over the canvas.
+function transitionEntry(clip){
+  if(!clip.transition) return null;
+  const tr = (window.TRANSITIONS || []).find(t => t.id === clip.transition);
+  if(!tr) return null;
+  const tRel = clipTimeAtPlayhead(clip);
+  const dur = tr.duration || 0.5;
+  if(tRel >= dur) return null;
+  const p = Math.max(0, Math.min(1, tRel / dur));     // 0 → 1
+  const ease = 1 - (1-p)*(1-p);                       // easeOut
+  const e = {opacity:1, dx:0, dy:0, dscale:1, blur:0, dipColor:null};
+  switch(tr.id){
+    case 'fade':      e.opacity = ease; break;
+    case 'dipBlack':  e.opacity = ease; e.dipColor = `rgba(0,0,0,${1-ease})`; break;
+    case 'dipWhite':  e.opacity = ease; e.dipColor = `rgba(255,255,255,${1-ease})`; break;
+    case 'wipeL':     e.dx = -(1-ease) * 1200; break;
+    case 'wipeR':     e.dx =  (1-ease) * 1200; break;
+    case 'slideUp':   e.dy =  (1-ease) * 600;  break;
+    case 'slideDown': e.dy = -(1-ease) * 600;  break;
+    case 'zoomIn':    e.dscale = 0.2 + ease*0.8; e.opacity = ease; break;
+    case 'zoomOut':   e.dscale = 1.6 - ease*0.6; e.opacity = ease; break;
+    case 'whip':      e.dx = (1-ease) * 1600; e.blur = (1-ease) * 8; break;
+  }
+  return e;
 }
 
 // ---------- Smart guides (alignment helpers while dragging) ----------

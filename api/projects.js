@@ -20,6 +20,35 @@ import { readSession } from './_lib/session.js';
 const KV_URL   = process.env.KV_REST_API_URL;
 const KV_TOKEN = process.env.KV_REST_API_TOKEN;
 
+// Per-user sliding-window rate limit. In-memory means it resets when the
+// function cold-starts — that's fine for serverless and stops accidental
+// runaway autosave loops without needing a separate KV table.
+const RATE_LIMIT  = 60;   // requests
+const RATE_WINDOW = 60_000; // ms
+const _rate = new Map();
+function checkRate(key){
+  const now = Date.now();
+  const arr = (_rate.get(key) || []).filter(t => now - t < RATE_WINDOW);
+  arr.push(now);
+  _rate.set(key, arr);
+  return arr.length <= RATE_LIMIT;
+}
+
+// Reject obvious garbage early — clip count, name length, payload size.
+const MAX_BYTES   = 5 * 1024 * 1024;   // 5 MB / project
+const MAX_NAME    = 200;
+const MAX_CLIPS   = 5000;
+function validateProject(p){
+  if(!p || typeof p !== 'object')          return 'project must be an object';
+  if(typeof p.id !== 'string' || !p.id)    return 'project.id required';
+  if(p.id.length > 64)                     return 'project.id too long';
+  if(typeof p.name !== 'string')           return 'project.name must be a string';
+  if(p.name.length > MAX_NAME)             return 'project.name too long';
+  if(p.doc && typeof p.doc !== 'object')   return 'project.doc must be an object';
+  if(p.doc && Array.isArray(p.doc.clips) && p.doc.clips.length > MAX_CLIPS) return 'too many clips';
+  return null;
+}
+
 async function kv(cmd){
   // Upstash/Vercel KV REST: POST a Redis command as JSON array.
   if(!KV_URL || !KV_TOKEN) throw new Error('KV not configured');
@@ -51,9 +80,14 @@ export default async function handler(req, res){
   if(!session || !session.login){
     return err(res, 401, 'not_signed_in', 'Sign in first.');
   }
+  // Rate-limit per signed-in user
+  if(!checkRate('u:' + session.login)){
+    res.setHeader('Retry-After', '60');
+    return err(res, 429, 'rate_limited', `Too many requests. Limit is ${RATE_LIMIT}/min.`);
+  }
   if(!KV_URL || !KV_TOKEN){
     return err(res, 503, 'kv_not_configured',
-      'Vercel KV is not enabled. The Dashboard will fall back to local storage. ' +
+      'Vercel KV is not enabled. The Dashboard falls back to local storage. ' +
       'Enable Vercel KV in your project Storage tab to sync projects across devices.');
   }
   const key = userKey(session.login);
@@ -75,11 +109,15 @@ export default async function handler(req, res){
 
     if(req.method === 'POST'){
       const project = await readJsonBody(req);
-      if(!project || !project.id) return err(res, 400, 'bad_request', 'project.id is required.');
+      const bad = validateProject(project);
+      if(bad) return err(res, 400, 'bad_request', bad);
+      const serialized = JSON.stringify(project);
+      if(serialized.length > MAX_BYTES){
+        return err(res, 413, 'too_large', `Project exceeds ${MAX_BYTES} bytes.`);
+      }
       project.updatedAt = new Date().toISOString();
       if(!project.createdAt) project.createdAt = project.updatedAt;
       await kv(['HSET', key, project.id, JSON.stringify(project)]);
-      // Lite metadata only in the response
       const meta = { ...project }; delete meta.doc;
       return ok(res, meta);
     }
@@ -101,7 +139,7 @@ async function readJsonBody(req){
   if(req.body && typeof req.body === 'object') return req.body; // Vercel auto-parses JSON
   return new Promise((resolve, reject)=>{
     let chunks = '';
-    req.on('data', c => { chunks += c; if(chunks.length > 8*1024*1024){ reject(new Error('body too large')); }});
+    req.on('data', c => { chunks += c; if(chunks.length > MAX_BYTES){ reject(new Error('body too large')); }});
     req.on('end', () => { try{ resolve(chunks ? JSON.parse(chunks) : null); }catch(e){ reject(e); } });
     req.on('error', reject);
   });

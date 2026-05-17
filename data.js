@@ -63,15 +63,37 @@ const TRANSITIONS = [
   {id:'whip',       name:'Whip Pan',       icon:'fast-forward',   desc:'Quick directional blur',   duration:0.3}
 ];
 
+// Title presets — modelled after DaVinci Resolve's Titles catalog.
+// Each can carry posX/posY to land the text at a specific viewer position
+// (lower thirds, corners, watermarks, etc.). addTextClipAt() applies these
+// when creating the clip.
 const TITLES = [
-  {id:'simple',  name:'Simple Title', defaultText:'Title',           color:'#FFFFFF', duration:3, scale:1.6, font:'Inter',          weight:800, icon:'type'},
-  {id:'lower',   name:'Lower Third',  defaultText:'Speaker Name',    color:'#FFFFFF', duration:4, scale:1.0, font:'Inter',          weight:600, icon:'baseline'},
-  {id:'callout', name:'Callout',      defaultText:'CALLOUT',         color:'#FFD60A', duration:2.5,scale:1.2,font:'Bebas Neue',     weight:400, icon:'megaphone'},
-  {id:'sub',     name:'Subtitle',     defaultText:'Subtitle text',   color:'#EFEFEF', duration:3, scale:0.9, font:'Inter',          weight:500, icon:'captions'},
-  {id:'credits', name:'Credits',      defaultText:'Directed By',     color:'#EFEFEF', duration:5, scale:1.1, font:'Playfair Display',weight:700,icon:'film'},
-  {id:'banner',  name:'News Banner',  defaultText:'BREAKING NEWS',   color:'#FF375F', duration:4, scale:1.3, font:'Oswald',         weight:700, icon:'rss'},
-  {id:'bigQuote',name:'Big Quote',    defaultText:'"All you need..."',color:'#FFFFFF',duration:5, scale:1.4, font:'Playfair Display',weight:900,icon:'quote'},
-  {id:'tag',     name:'Tag Pill',     defaultText:'#tag',            color:'#0A7FF5', duration:3, scale:0.8, font:'JetBrains Mono', weight:700, icon:'hash'}
+  // Originals (cleaned up)
+  {id:'simple',  name:'Simple Title', defaultText:'Title',           color:'#FFFFFF', duration:3, scale:1.6, font:'Fraunces',        weight:800, icon:'type'},
+  {id:'callout', name:'Callout',      defaultText:'CALLOUT',         color:'#FFD60A', duration:2.5,scale:1.2, font:'Bebas Neue',     weight:400, icon:'megaphone'},
+  {id:'credits', name:'Credits',      defaultText:'Directed By',     color:'#EFEFEF', duration:5, scale:1.1, font:'Playfair Display',weight:700, icon:'film'},
+  {id:'bigQuote',name:'Big Quote',    defaultText:'“All you need…”', color:'#FFFFFF',duration:5,scale:1.4,font:'Playfair Display',weight:900,icon:'quote'},
+  {id:'tag',     name:'Tag Pill',     defaultText:'#tag',            color:'#0A84FF', duration:3, scale:0.8, font:'JetBrains Mono', weight:700, icon:'hash'},
+
+  // Lower thirds (DaVinci-style — name + role line, positioned at lower frame)
+  {id:'lt-left',   name:'Left Lower Third',   defaultText:'Speaker Name',     color:'#FFFFFF', duration:4, scale:1.0, font:'Fraunces', weight:600, icon:'align-left',   posX:-540, posY:300},
+  {id:'lt-middle', name:'Middle Lower Third', defaultText:'Speaker Name',     color:'#FFFFFF', duration:4, scale:1.0, font:'Fraunces', weight:600, icon:'align-center', posX:0,    posY:300},
+  {id:'lt-right',  name:'Right Lower Third',  defaultText:'Speaker Name',     color:'#FFFFFF', duration:4, scale:1.0, font:'Fraunces', weight:600, icon:'align-right',  posX:540,  posY:300},
+
+  // DaVinci core
+  {id:'basic',     name:'Basic Title',        defaultText:'Basic Title',      color:'#FFFFFF', duration:3, scale:1.4, font:'Fraunces', weight:700, icon:'type'},
+  {id:'text',      name:'Text',               defaultText:'Sample Text',      color:'#FFFFFF', duration:3, scale:1.0, font:'Fraunces', weight:500, icon:'baseline'},
+  {id:'big',       name:'Big Headline',       defaultText:'BIG HEADLINE',     color:'#FFFFFF', duration:3, scale:2.2, font:'Fraunces', weight:800, icon:'heading-1'},
+  {id:'sub',       name:'Subtitle',           defaultText:'Subtitle line',    color:'#EFEFEF', duration:3, scale:0.75,font:'Fraunces', weight:500, icon:'captions',     posY:360},
+
+  // Editorial extras
+  {id:'date',      name:'Date Stamp',         defaultText:'MAR 14, 2026',     color:'#FFD60A', duration:3, scale:0.7, font:'JetBrains Mono', weight:700, icon:'calendar', posX:-720, posY:-440},
+  {id:'loc',       name:'Location',           defaultText:'LOS ANGELES, CA',  color:'#FFFFFF', duration:3, scale:0.7, font:'Fraunces',       weight:600, icon:'map-pin',  posX:-540, posY:420},
+  {id:'watermark', name:'Watermark',          defaultText:'@yourhandle',      color:'#FFFFFF', duration:5, scale:0.55,font:'JetBrains Mono', weight:600, icon:'shield',   posX:720,  posY:-460},
+  {id:'cta-bot',   name:'CTA (Bottom)',       defaultText:'WATCH UNTIL THE END', color:'#FFD60A', duration:3, scale:0.95,font:'Fraunces',     weight:800, icon:'arrow-down', posY:420},
+  {id:'chapter',   name:'Chapter Mark',       defaultText:'01 — CHAPTER',     color:'#FFFFFF', duration:3, scale:1.1, font:'Fraunces', weight:300, icon:'bookmark'},
+  {id:'banner',    name:'News Banner',        defaultText:'BREAKING NEWS',    color:'#FF375F', duration:4, scale:1.3, font:'Oswald',          weight:700, icon:'rss'},
+  {id:'caption',   name:'Caption (Inline)',   defaultText:'A short caption.', color:'#FFFFFF', duration:3, scale:0.85,font:'Fraunces',       weight:500, icon:'captions',  posY:360}
 ];
 
 // Curated subset of Google Fonts — ~250 of the most-used families.
