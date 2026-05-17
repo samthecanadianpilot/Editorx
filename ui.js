@@ -521,6 +521,53 @@ function renderInspector(){
   }
   html += inspSection('EFFECT', false, fxBody);
 
+  // ANIMATION — quick presets + keyframe list
+  let animBody = `
+    <div class="anim-presets">
+      <button class="anim-btn" data-anim="zoom" title="Snap-zoom on a beat">
+        <i data-lucide="zoom-in" width="13" height="13"></i><span>Zoom Punch</span></button>
+      <button class="anim-btn" data-anim="shake" title="Beat-synced shake">
+        <i data-lucide="vibrate" width="13" height="13"></i><span>Beat Shake</span></button>
+      <button class="anim-btn" data-anim="pan" title="Smooth horizontal pan">
+        <i data-lucide="move-horizontal" width="13" height="13"></i><span>Pan</span></button>
+      <button class="anim-btn" data-anim="ken" title="Slow continuous zoom (Ken Burns)">
+        <i data-lucide="trending-up" width="13" height="13"></i><span>Ken Burns</span></button>
+      <button class="anim-btn" data-anim="fadeIn" title="Fade in over 0.4s">
+        <i data-lucide="sunrise" width="13" height="13"></i><span>Fade In</span></button>
+      <button class="anim-btn" data-anim="fadeOut" title="Fade out over 0.4s">
+        <i data-lucide="sunset" width="13" height="13"></i><span>Fade Out</span></button>
+    </div>`;
+  // Per-property keyframe rows
+  const kfMap = clip.keyframes || {};
+  const animProps = ['posX','posY','scale','rotation','opacity'];
+  const animPropLabels = {posX:'Position X', posY:'Position Y', scale:'Scale', rotation:'Rotation', opacity:'Opacity'};
+  let kfRows = '';
+  animProps.forEach(p=>{
+    const arr = kfMap[p] || [];
+    if(arr.length === 0) return;
+    kfRows += `<div class="kf-prop">
+      <div class="kf-prop-head">
+        <span><i data-lucide="diamond" width="9" height="9"></i> ${animPropLabels[p]}</span>
+        <button class="kf-clear-btn" data-action="clear-kf" data-prop="${p}" title="Clear all">×</button>
+      </div>
+      <div class="kf-list">`;
+    arr.forEach(kf=>{
+      kfRows += `<div class="kf-chip" data-prop="${p}" data-t="${kf.t}">
+        <span class="kf-chip-time">${kf.t.toFixed(2)}s</span>
+        <span class="kf-chip-val">${typeof kf.v==='number' ? Number(kf.v).toFixed(2) : kf.v}</span>
+        <button class="kf-chip-rm" title="Delete"><i data-lucide="x" width="9" height="9"></i></button>
+      </div>`;
+    });
+    kfRows += '</div></div>';
+  });
+  if(!kfRows) kfRows = '<div class="empty-sub" style="padding:8px 0;text-align:center">No keyframes. Use a preset above or click ◇ next to any transform value to keyframe at the playhead.</div>';
+  // Diamond buttons to keyframe individual props at the playhead
+  animBody += `<div class="kf-quick">
+    ${animProps.map(p=>`<button class="kf-diamond-btn" data-kf-prop="${p}" title="Keyframe ${animPropLabels[p]} at playhead">◇ ${animPropLabels[p]}</button>`).join('')}
+  </div>`;
+  animBody += kfRows;
+  html += inspSection('ANIMATION', true, animBody);
+
   // MASKS
   const masks = state.masks[clip.id] || [];
   let masksBody = '';
@@ -613,6 +660,45 @@ function renderInspector(){
   content.querySelector('[data-action="speak"]')   ?.addEventListener('click', ()=>{
     speakText(clip.text || clip.name || '');
   });
+  // Animation preset buttons
+  content.querySelectorAll('.anim-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const kind = btn.dataset.anim;
+      switch(kind){
+        case 'zoom':    applyZoomPunch(clip.id); break;
+        case 'shake':   applyBeatShake(clip.id); break;
+        case 'pan':     applyPan(clip.id, 100, 'right'); break;
+        case 'ken':     applyKenBurns(clip.id, 1.18); break;
+        case 'fadeIn':  applyFadeIn(clip.id, 0.4); break;
+        case 'fadeOut': applyFadeOut(clip.id, 0.4); break;
+      }
+      pushHistory(); renderInspector(); renderViewer();
+      flash(btn.textContent.trim() + ' added');
+    });
+  });
+  // Diamond keyframe buttons — snapshot current value at playhead
+  content.querySelectorAll('.kf-diamond-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const prop = btn.dataset.kfProp;
+      addKeyframeAtPlayhead(clip.id, prop);
+      pushHistory(); renderInspector(); renderViewer();
+    });
+  });
+  // Remove a single keyframe chip
+  content.querySelectorAll('.kf-chip').forEach(chip=>{
+    chip.querySelector('.kf-chip-rm').addEventListener('click', e=>{
+      e.stopPropagation();
+      removeKeyframe(clip.id, chip.dataset.prop, parseFloat(chip.dataset.t));
+      pushHistory(); renderInspector(); renderViewer();
+    });
+  });
+  // Clear all keyframes for a property
+  content.querySelectorAll('[data-action="clear-kf"]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      clearKeyframes(clip.id, btn.dataset.prop);
+      pushHistory(); renderInspector(); renderViewer();
+    });
+  });
 
   // Mask sub-clicks
   content.querySelectorAll('.mask-insp-item').forEach(el=>{
@@ -684,7 +770,13 @@ function renderViewer(){
 function drawVideoClip(ctx, canvas, clip){
   const el = getMediaElForClip(clip);
   ctx.save();
-  ctx.globalAlpha = clip.opacity ?? 1;
+  // Animated values via keyframes; falls back to the static prop if none
+  const opacity = clipPropAt(clip, 'opacity', clip.opacity ?? 1);
+  const posX    = clipPropAt(clip, 'posX',    clip.posX    ?? 0);
+  const posY    = clipPropAt(clip, 'posY',    clip.posY    ?? 0);
+  const scale   = clipPropAt(clip, 'scale',   clip.scale   ?? 1);
+  const rot     = clipPropAt(clip, 'rotation',clip.rotation?? 0);
+  ctx.globalAlpha = opacity;
 
   // Effect (CSS filter on context)
   if(clip.effectId){
@@ -693,11 +785,10 @@ function drawVideoClip(ctx, canvas, clip){
   }
 
   // Transform
-  const cx = canvas.width/2 + (clip.posX||0);
-  const cy = canvas.height/2 + (clip.posY||0);
+  const cx = canvas.width/2 + posX;
+  const cy = canvas.height/2 + posY;
   ctx.translate(cx, cy);
-  ctx.rotate(((clip.rotation||0)*Math.PI)/180);
-  const scale = clip.scale ?? 1;
+  ctx.rotate((rot*Math.PI)/180);
   ctx.scale(scale, scale);
 
   // Draw the video frame (or a placeholder if no source)
@@ -745,14 +836,17 @@ function drawVideoClip(ctx, canvas, clip){
 // rounded background + Lucide-style icon + text + soft shadow.
 function drawGraphicClip(ctx, canvas, clip){
   ctx.save();
-  ctx.globalAlpha = clip.opacity ?? 1;
+  const opacity = clipPropAt(clip, 'opacity', clip.opacity ?? 1);
+  const posX    = clipPropAt(clip, 'posX',    clip.posX    ?? 0);
+  const posY    = clipPropAt(clip, 'posY',    clip.posY    ?? 0);
+  const scale   = clipPropAt(clip, 'scale',   clip.scale   ?? 1);
+  const rot     = clipPropAt(clip, 'rotation',clip.rotation?? 0);
+  ctx.globalAlpha = opacity;
 
-  // Position: lower-third by default, transform-able
-  const cx = canvas.width/2  + (clip.posX || 0);
-  const cy = canvas.height - 200 + (clip.posY || 0);
+  const cx = canvas.width/2  + posX;
+  const cy = canvas.height - 200 + posY;
   ctx.translate(cx, cy);
-  ctx.rotate(((clip.rotation || 0) * Math.PI) / 180);
-  const scale = clip.scale ?? 1;
+  ctx.rotate((rot * Math.PI) / 180);
   ctx.scale(scale, scale);
 
   // Layout metrics
@@ -846,12 +940,16 @@ function drawGraphicClip(ctx, canvas, clip){
 
 function drawTextClip(ctx, canvas, clip){
   ctx.save();
-  ctx.globalAlpha = clip.opacity ?? 1;
-  const cx = canvas.width/2 + (clip.posX||0);
-  const cy = canvas.height - 160 + (clip.posY||0);
+  const opacity = clipPropAt(clip, 'opacity', clip.opacity ?? 1);
+  const posX    = clipPropAt(clip, 'posX',    clip.posX    ?? 0);
+  const posY    = clipPropAt(clip, 'posY',    clip.posY    ?? 0);
+  const scale   = clipPropAt(clip, 'scale',   clip.scale   ?? 1);
+  const rot     = clipPropAt(clip, 'rotation',clip.rotation?? 0);
+  ctx.globalAlpha = opacity;
+  const cx = canvas.width/2 + posX;
+  const cy = canvas.height - 160 + posY;
   ctx.translate(cx, cy);
-  ctx.rotate(((clip.rotation||0)*Math.PI)/180);
-  const scale = clip.scale ?? 1;
+  ctx.rotate((rot*Math.PI)/180);
   ctx.scale(scale, scale);
   const family = clip.font || 'Inter';
   const weight = clip.fontWeight || 700;

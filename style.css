@@ -530,6 +530,49 @@ body.tool-blade #cut-indicator.visible{display:block}
 .insp-toggle-row{display:flex;align-items:center;gap:var(--s-2);margin-bottom:var(--s-2)}
 .insp-toggle-row label{font-size:11px;color:var(--text-2);flex:1;font-weight:500}
 
+/* ===== ANIMATION (keyframes) inspector controls ===== */
+.anim-presets{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:var(--s-3)}
+.anim-btn{
+  display:flex;align-items:center;gap:6px;
+  padding:8px 10px;border-radius:var(--r-2);
+  background:var(--surface-1);border:0.5px solid var(--sep);color:var(--text-1);
+  font-size:11px;font-weight:500;text-align:left}
+.anim-btn i{flex-shrink:0;color:var(--accent)}
+.anim-btn:hover{background:var(--surface-2);border-color:var(--text-4)}
+.anim-btn:active{transform:scale(.97)}
+
+.kf-quick{
+  display:flex;flex-wrap:wrap;gap:4px;margin:var(--s-3) 0 var(--s-3);
+  padding:var(--s-2) 0;border-top:0.5px solid var(--sep)}
+.kf-diamond-btn{
+  font-size:10px;color:var(--text-2);padding:5px 8px;border-radius:4px;
+  background:transparent;border:0.5px dashed var(--sep)}
+.kf-diamond-btn:hover{color:var(--accent);border-color:var(--accent);background:var(--accent-soft)}
+
+.kf-prop{margin-bottom:var(--s-3)}
+.kf-prop-head{
+  display:flex;align-items:center;justify-content:space-between;
+  font-size:10px;color:var(--text-2);font-weight:600;margin-bottom:5px;
+  letter-spacing:.04em;text-transform:uppercase}
+.kf-prop-head i{color:var(--accent);margin-right:4px;vertical-align:-1px}
+.kf-clear-btn{
+  width:18px;height:18px;display:grid;place-items:center;border-radius:4px;
+  color:var(--text-3);font-size:14px;line-height:1;background:transparent}
+.kf-clear-btn:hover{color:var(--danger);background:var(--danger-soft)}
+
+.kf-list{display:flex;flex-wrap:wrap;gap:3px}
+.kf-chip{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:4px 7px;border-radius:var(--r-1);
+  background:var(--accent-soft);border:0.5px solid rgba(0,132,255,0.3);
+  font-size:10px;color:var(--text-1);font-family:var(--mono)}
+.kf-chip-time{color:var(--accent);font-weight:600}
+.kf-chip-val{color:var(--text-2);font-size:9px}
+.kf-chip-rm{
+  width:14px;height:14px;display:grid;place-items:center;border-radius:3px;
+  color:var(--text-3);opacity:.7;background:transparent}
+.kf-chip-rm:hover{opacity:1;color:var(--danger);background:rgba(255,59,48,.2)}
+
 .insp-actions{display:flex;gap:6px;flex:1}
 .ghost-btn.small{padding:6px 10px;font-size:11px}
 .ghost-btn.small i{width:12px;height:12px}

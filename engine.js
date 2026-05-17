@@ -287,6 +287,149 @@ function detachAudio(clipId){
   return audio;
 }
 
+// ---------- Keyframes (per-clip animated properties) ----------
+//
+// Each clip can carry a `keyframes` map keyed by property name:
+//   clip.keyframes = {
+//     scale:  [{t:0.00, v:1.00, e:'easeOut'}, {t:0.08, v:1.25, e:'easeIn'}, ...],
+//     posX:   [...],
+//     opacity:[...],
+//     rotation: [...],
+//   }
+// Time `t` is RELATIVE to the clip's start (in seconds), not absolute timeline
+// time — so trimming/moving a clip preserves its animation.
+//
+// Renderers should read animated values via clipPropAt(clip, prop, fallback).
+
+const KF_EASINGS = {
+  linear:  u => u,
+  ease:    u => u<.5 ? 2*u*u : 1 - 2*(1-u)*(1-u),
+  easeIn:  u => u*u,
+  easeOut: u => 1 - (1-u)*(1-u)
+};
+
+function evalKeyframes(arr, tRel, fallback){
+  if(!arr || !arr.length) return fallback;
+  // Clip outside the range to the boundary values
+  if(tRel <= arr[0].t)              return arr[0].v;
+  if(tRel >= arr[arr.length-1].t)   return arr[arr.length-1].v;
+  // Linear scan (small arrays). Find the bracketing pair.
+  for(let i=0; i<arr.length-1; i++){
+    const a = arr[i], b = arr[i+1];
+    if(tRel >= a.t && tRel <= b.t){
+      const u = (tRel - a.t) / (b.t - a.t || 1);
+      const ease = KF_EASINGS[b.e || 'ease'] || KF_EASINGS.ease;
+      return a.v + (b.v - a.v) * ease(u);
+    }
+  }
+  return fallback;
+}
+
+function clipTimeAtPlayhead(clip){
+  const tS = state.playhead / 1000;
+  return Math.max(0, tS - clipStartS(clip));
+}
+
+// Read a clip property at the current playhead, honoring keyframes if present.
+function clipPropAt(clip, prop, fallback){
+  if(clip.keyframes && clip.keyframes[prop] && clip.keyframes[prop].length){
+    return evalKeyframes(clip.keyframes[prop], clipTimeAtPlayhead(clip), fallback);
+  }
+  return fallback;
+}
+
+function addKeyframeTo(clipId, prop, tRel, value, easing){
+  const c = getClip(clipId); if(!c) return null;
+  if(!c.keyframes) c.keyframes = {};
+  if(!c.keyframes[prop]) c.keyframes[prop] = [];
+  // Replace if there's already a kf within 10ms of this time
+  c.keyframes[prop] = c.keyframes[prop].filter(k => Math.abs(k.t - tRel) > 0.01);
+  const kf = {t: Math.max(0, tRel), v: value, e: easing || 'ease'};
+  c.keyframes[prop].push(kf);
+  c.keyframes[prop].sort((a,b)=>a.t - b.t);
+  return kf;
+}
+function removeKeyframe(clipId, prop, tRel){
+  const c = getClip(clipId); if(!c || !c.keyframes || !c.keyframes[prop]) return;
+  c.keyframes[prop] = c.keyframes[prop].filter(k => Math.abs(k.t - tRel) > 0.001);
+  if(c.keyframes[prop].length === 0) delete c.keyframes[prop];
+  if(c.keyframes && Object.keys(c.keyframes).length === 0) delete c.keyframes;
+}
+function clearKeyframes(clipId, prop){
+  const c = getClip(clipId); if(!c || !c.keyframes) return;
+  if(prop) delete c.keyframes[prop];
+  else c.keyframes = {};
+}
+
+// Snapshot the current static value of a property as a keyframe at the playhead.
+function addKeyframeAtPlayhead(clipId, prop){
+  const c = getClip(clipId); if(!c) return null;
+  const tRel = clipTimeAtPlayhead(c);
+  const cur  = clipPropAt(c, prop, c[prop]);
+  return addKeyframeTo(clipId, prop, tRel, cur, 'ease');
+}
+
+// ---------- Animation presets ----------
+// Zoom Punch — snap-zoom on a beat. 3 scale keyframes over ~0.22s.
+function applyZoomPunch(clipId, intensity){
+  const c = getClip(clipId); if(!c) return;
+  const tRel = clipTimeAtPlayhead(c);
+  const base = clipPropAt(c, 'scale', c.scale ?? 1);
+  const peak = base * (intensity || 1.25);
+  addKeyframeTo(clipId, 'scale', tRel,        base, 'easeOut');
+  addKeyframeTo(clipId, 'scale', tRel + 0.08, peak, 'easeIn');
+  addKeyframeTo(clipId, 'scale', tRel + 0.22, base, 'ease');
+}
+
+// Beat Shake — alternating posX/posY pulses over ~0.3s.
+function applyBeatShake(clipId, amount){
+  const c = getClip(clipId); if(!c) return;
+  const tRel = clipTimeAtPlayhead(c);
+  const baseX = clipPropAt(c, 'posX', c.posX ?? 0);
+  const baseY = clipPropAt(c, 'posY', c.posY ?? 0);
+  const A = amount || 28;
+  const pattern = [0, 1, -.85, .65, -.5, .3, 0];
+  pattern.forEach((m, i) => {
+    const t = tRel + i * 0.045;
+    addKeyframeTo(clipId, 'posX', t, baseX + A * m,            'linear');
+    addKeyframeTo(clipId, 'posY', t, baseY + (i%2 ? A*.3 : -A*.3), 'linear');
+  });
+}
+
+// Smooth Pan — gentle left→right (or right→left) over the full clip.
+function applyPan(clipId, distancePx, direction){
+  const c = getClip(clipId); if(!c) return;
+  const dur = (c.w / TIMELINE_PX_PER_S);
+  const baseX = clipPropAt(c, 'posX', c.posX ?? 0);
+  const target = baseX + (distancePx || 80) * (direction === 'right' ? 1 : -1);
+  addKeyframeTo(clipId, 'posX', 0,    baseX,  'ease');
+  addKeyframeTo(clipId, 'posX', dur,  target, 'ease');
+}
+
+// Ken Burns — slow continuous scale-up over the full clip.
+function applyKenBurns(clipId, endScale){
+  const c = getClip(clipId); if(!c) return;
+  const dur = (c.w / TIMELINE_PX_PER_S);
+  const baseScale = clipPropAt(c, 'scale', c.scale ?? 1);
+  addKeyframeTo(clipId, 'scale', 0,    baseScale,                 'ease');
+  addKeyframeTo(clipId, 'scale', dur,  baseScale * (endScale || 1.18), 'ease');
+}
+
+// Fade In / Out via opacity keyframes.
+function applyFadeIn(clipId, durS){
+  const c = getClip(clipId); if(!c) return;
+  const d = durS || 0.4;
+  addKeyframeTo(clipId, 'opacity', 0, 0, 'easeOut');
+  addKeyframeTo(clipId, 'opacity', d, clipPropAt(c, 'opacity', c.opacity ?? 1), 'easeOut');
+}
+function applyFadeOut(clipId, durS){
+  const c = getClip(clipId); if(!c) return;
+  const totalDur = c.w / TIMELINE_PX_PER_S;
+  const d = durS || 0.4;
+  addKeyframeTo(clipId, 'opacity', totalDur - d, clipPropAt(c, 'opacity', c.opacity ?? 1), 'easeIn');
+  addKeyframeTo(clipId, 'opacity', totalDur,     0, 'easeIn');
+}
+
 // ---------- Active-clip lookup (for playback / viewer) ----------
 function clipStartS(c){ return (c.x - TIMELINE_OFFSET_X) / TIMELINE_PX_PER_S; }
 function clipEndS(c){ return clipStartS(c) + c.w / TIMELINE_PX_PER_S; }
@@ -712,6 +855,12 @@ window.addGraphicAt=addGraphicAt;
 window.clipUnderTimelineX=clipUnderTimelineX;
 window.detachAudio=detachAudio;
 window.activeClipsAt=activeClipsAt; window.clipStartS=clipStartS; window.clipEndS=clipEndS; window.timelineDurationS=timelineDurationS;
+window.clipPropAt=clipPropAt; window.clipTimeAtPlayhead=clipTimeAtPlayhead;
+window.addKeyframeTo=addKeyframeTo; window.removeKeyframe=removeKeyframe;
+window.clearKeyframes=clearKeyframes; window.addKeyframeAtPlayhead=addKeyframeAtPlayhead;
+window.applyZoomPunch=applyZoomPunch; window.applyBeatShake=applyBeatShake;
+window.applyPan=applyPan; window.applyKenBurns=applyKenBurns;
+window.applyFadeIn=applyFadeIn; window.applyFadeOut=applyFadeOut;
 window.getMediaElForClip=getMediaElForClip; window.releaseMediaFor=releaseMediaFor; window.syncMediaToPlayhead=syncMediaToPlayhead;
 window.makeMediaThumbnail=makeMediaThumbnail;
 window.startPlayback=startPlayback; window.stopPlayback=stopPlayback; window.togglePlayback=togglePlayback;
