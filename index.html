@@ -199,13 +199,13 @@
       <!-- LEFT SIDEBAR -->
       <aside id="sidebar-left">
         <div class="sidebar-tabs">
-          <button class="stab active" data-panel="media"      title="Media library"><i data-lucide="folder"></i></button>
-          <button class="stab"        data-panel="transitions" title="Transitions"><i data-lucide="blend"></i></button>
-          <button class="stab"        data-panel="luts"        title="LUTs"><i data-lucide="palette"></i></button>
-          <button class="stab"        data-panel="effects"     title="Effects"><i data-lucide="sparkles"></i></button>
-          <button class="stab"        data-panel="titles"      title="Titles"><i data-lucide="type"></i></button>
-          <button class="stab"        data-panel="graphics"    title="Graphics & Call-outs"><i data-lucide="sticker"></i></button>
-          <button class="stab"        data-panel="masks"       title="Masks"><i data-lucide="layers"></i></button>
+          <button class="stab active" data-panel="media"      title="Media library"><i data-lucide="folder"></i><span>Library</span></button>
+          <button class="stab"        data-panel="transitions" title="Transitions"><i data-lucide="blend"></i><span>Trans.</span></button>
+          <button class="stab"        data-panel="luts"        title="Color LUTs"><i data-lucide="palette"></i><span>Color</span></button>
+          <button class="stab"        data-panel="effects"     title="Effects"><i data-lucide="sparkles"></i><span>FX</span></button>
+          <button class="stab"        data-panel="titles"      title="Titles"><i data-lucide="type"></i><span>Titles</span></button>
+          <button class="stab"        data-panel="graphics"    title="Graphics & Call-outs"><i data-lucide="sticker"></i><span>Graphics</span></button>
+          <button class="stab"        data-panel="masks"       title="Masks"><i data-lucide="layers"></i><span>Masks</span></button>
         </div>
         <div class="sidebar-content">
           <!-- MEDIA -->
@@ -267,6 +267,12 @@
             <div id="text-overlay"></div>
             <div id="selection-brackets"></div>
             <div id="smart-guides"></div>
+            <!-- Drop-zone affordance — only shows when the project has 0 video clips -->
+            <button id="viewer-dropzone" class="hidden" type="button">
+              <i data-lucide="upload-cloud" width="36" height="36"></i>
+              <div class="vdz-title">Drop video here</div>
+              <div class="vdz-sub">or click to import — MP4, MOV, WebM, MP3, JPG, PNG</div>
+            </button>
             <div id="viewer-safe-zones"  class="viewer-overlay hidden"></div>
             <div id="viewer-crosshair"   class="viewer-overlay hidden"></div>
             <div id="viewer-grid"        class="viewer-overlay hidden"></div>
@@ -362,6 +368,69 @@
 
   <!-- CLIP CONTEXT MENU (right-click on a timeline clip) -->
   <div id="clip-ctx-menu" class="ctx-menu hidden" role="menu"></div>
+
+  <!-- COMMAND PALETTE — ⌘K to open, type to search every action -->
+  <div id="command-palette" class="modal hidden">
+    <div class="modal-overlay"></div>
+    <div class="cmdk-content">
+      <div class="cmdk-input-row">
+        <i data-lucide="search" width="16" height="16" class="cmdk-search-icon"></i>
+        <input id="cmdk-input" type="text" placeholder="Type a command, or search…" autocomplete="off" spellcheck="false">
+        <span class="cmdk-hint">ESC</span>
+      </div>
+      <div id="cmdk-results" class="cmdk-results"></div>
+      <div class="cmdk-foot">
+        <span><kbd>↑</kbd><kbd>↓</kbd> navigate</span>
+        <span><kbd>↵</kbd> run</span>
+        <span><kbd>esc</kbd> close</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- KEYBOARD SHORTCUTS OVERLAY — ? to open -->
+  <div id="shortcuts-overlay" class="modal hidden">
+    <div class="modal-overlay"></div>
+    <div class="modal-content" style="width:680px;max-width:94vw">
+      <div class="modal-header">
+        <span class="modal-icon"><i data-lucide="keyboard"></i></span>
+        <span class="modal-title">Keyboard Shortcuts</span>
+        <button class="modal-close" id="btn-close-shortcuts"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body shortcuts-grid">
+        <div class="sc-group">
+          <h4>Transport</h4>
+          <div class="sc-row"><span>Play / Pause</span><kbd>Space</kbd></div>
+          <div class="sc-row"><span>Step −1s</span><kbd>J</kbd></div>
+          <div class="sc-row"><span>Stop</span><kbd>K</kbd></div>
+          <div class="sc-row"><span>Step +1s</span><kbd>L</kbd></div>
+          <div class="sc-row"><span>Step ±100ms</span><kbd>←</kbd><kbd>→</kbd></div>
+          <div class="sc-row"><span>Step ±1s</span><kbd>⇧</kbd>+<kbd>←</kbd><kbd>→</kbd></div>
+        </div>
+        <div class="sc-group">
+          <h4>Tools</h4>
+          <div class="sc-row"><span>Select</span><kbd>V</kbd></div>
+          <div class="sc-row"><span>Blade</span><kbd>B</kbd></div>
+          <div class="sc-row"><span>Text</span><kbd>T</kbd></div>
+          <div class="sc-row"><span>Hand</span><kbd>H</kbd></div>
+          <div class="sc-row"><span>Snap on/off</span><kbd>N</kbd></div>
+        </div>
+        <div class="sc-group">
+          <h4>Edit</h4>
+          <div class="sc-row"><span>Undo</span><kbd>⌘Z</kbd></div>
+          <div class="sc-row"><span>Redo</span><kbd>⌘⇧Z</kbd></div>
+          <div class="sc-row"><span>Duplicate clip</span><kbd>⌘D</kbd></div>
+          <div class="sc-row"><span>Delete clip / mask</span><kbd>⌫</kbd></div>
+          <div class="sc-row"><span>Export</span><kbd>⌘E</kbd></div>
+        </div>
+        <div class="sc-group">
+          <h4>Help</h4>
+          <div class="sc-row"><span>Command Palette</span><kbd>⌘K</kbd></div>
+          <div class="sc-row"><span>This shortcuts list</span><kbd>?</kbd></div>
+          <div class="sc-row"><span>Close any modal</span><kbd>ESC</kbd></div>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- MASK PROPERTIES MODAL -->
   <div id="mask-props-modal" class="modal hidden">

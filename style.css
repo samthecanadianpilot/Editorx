@@ -1457,6 +1457,106 @@ html,body{
   background:var(--bg-1) !important;
   background-image:none !important}
 
+/* ===========================================================================
+   COMMAND PALETTE (⌘K) — fast keyboard-first action search
+   =========================================================================== */
+#command-palette{align-items:flex-start;padding-top:14vh}
+.cmdk-content{
+  position:relative;z-index:1;width:640px;max-width:92vw;
+  background:var(--bg-2);border:1px solid var(--hairline-2);border-radius:14px;
+  box-shadow:0 28px 64px rgba(0,0,0,0.6);
+  display:flex;flex-direction:column;max-height:70vh;overflow:hidden}
+.cmdk-input-row{
+  display:flex;align-items:center;gap:10px;
+  padding:14px 16px;border-bottom:1px solid var(--hairline)}
+.cmdk-search-icon{color:var(--text-3);flex-shrink:0}
+#cmdk-input{
+  flex:1;background:transparent !important;border:none !important;padding:0 !important;
+  font-family:var(--font-d);font-size:16px;color:var(--text-1);outline:none;
+  box-shadow:none !important;letter-spacing:-.2px}
+#cmdk-input::placeholder{color:var(--text-3);font-style:italic}
+.cmdk-hint{
+  font-family:var(--mono);font-size:10px;color:var(--text-3);
+  padding:3px 8px;border:1px solid var(--hairline-2);border-radius:4px}
+.cmdk-results{flex:1;overflow-y:auto;padding:6px}
+.cmdk-group-head{
+  font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--text-3);padding:10px 12px 4px}
+.cmdk-row{
+  display:flex;align-items:center;gap:11px;width:100%;
+  padding:9px 12px;border-radius:6px;
+  font-size:13px;color:var(--text-1);text-align:left;background:transparent;
+  border:none;cursor:pointer;font-family:var(--font);transition:background 80ms ease}
+.cmdk-row i{color:var(--text-3);flex-shrink:0}
+.cmdk-row .cmdk-label{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cmdk-row kbd{
+  font-family:var(--mono);font-size:10px;color:var(--text-3);
+  padding:2px 6px;border:1px solid var(--hairline-2);border-radius:4px;background:var(--bg-1)}
+.cmdk-row.cmdk-active{background:var(--accent);color:#fff}
+.cmdk-row.cmdk-active i, .cmdk-row.cmdk-active kbd{color:#fff;border-color:rgba(255,255,255,.4)}
+.cmdk-row.is-disabled{opacity:.35;cursor:not-allowed}
+.cmdk-empty{padding:32px 16px;text-align:center;color:var(--text-3);font-style:italic}
+.cmdk-foot{
+  display:flex;justify-content:flex-end;gap:14px;
+  padding:8px 16px;border-top:1px solid var(--hairline);
+  font-size:10px;color:var(--text-3);font-family:var(--mono)}
+.cmdk-foot kbd{padding:1px 5px;border:1px solid var(--hairline-2);border-radius:3px;color:var(--text-2);margin:0 1px}
+
+/* ===========================================================================
+   KEYBOARD SHORTCUT OVERLAY (?)
+   =========================================================================== */
+.shortcuts-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:24px;padding:24px !important}
+.sc-group h4{
+  font-family:var(--font-d);font-size:11px;font-weight:600;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--text-3);margin-bottom:10px;
+  padding-bottom:6px;border-bottom:1px solid var(--hairline)}
+.sc-row{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:6px 0;font-size:12px;color:var(--text-1)}
+.sc-row kbd{
+  font-family:var(--mono);font-size:10px;color:var(--text-2);
+  padding:2px 7px;border:1px solid var(--hairline-2);border-radius:4px;
+  background:var(--bg-1);margin-left:4px}
+
+/* ===========================================================================
+   SIDEBAR TAB LABELS (under icons)
+   =========================================================================== */
+.stab{
+  flex-direction:column !important;height:auto !important;padding:6px 2px !important;
+  gap:3px}
+.stab span{
+  font-size:9px;font-weight:600;letter-spacing:.04em;
+  font-family:var(--font);color:inherit;opacity:.85}
+.stab.active span{opacity:1}
+
+/* ===========================================================================
+   VIEWER DROP-ZONE (empty state)
+   =========================================================================== */
+#viewer-dropzone{
+  position:absolute;inset:16% 14%;z-index:6;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+  background:transparent;border:2px dashed var(--hairline-2);border-radius:18px;
+  color:var(--text-2);font-family:var(--font);cursor:pointer;
+  transition:border-color var(--t-base), background var(--t-base), color var(--t-base)}
+#viewer-dropzone.hidden{display:none}
+#viewer-dropzone:hover, #viewer-dropzone.drop-active{
+  border-color:var(--accent);background:rgba(10,132,255,0.06);color:var(--text-1)}
+#viewer-dropzone i{color:var(--text-3);transition:color var(--t-base)}
+#viewer-dropzone:hover i, #viewer-dropzone.drop-active i{color:var(--accent)}
+.vdz-title{font-family:var(--font-d);font-size:22px;font-weight:500;letter-spacing:-.4px;color:var(--text-1)}
+.vdz-sub{font-size:11px;color:var(--text-3);font-family:var(--mono);letter-spacing:.02em}
+
+/* ===========================================================================
+   ACTION SUCCESS PULSE — fires briefly when a preset gets applied
+   =========================================================================== */
+.btn-pulse{animation:btn-pulse .6s cubic-bezier(0.4,0,0.2,1)}
+@keyframes btn-pulse{
+  0%  {box-shadow:0 0 0 0 var(--accent-soft); background-color:var(--accent-soft)}
+  60% {box-shadow:0 0 0 8px rgba(10,132,255,0); background-color:var(--accent-soft)}
+  100%{box-shadow:0 0 0 0 rgba(10,132,255,0); background-color:transparent}
+}
+
 /* ---------- Responsive ---------- */
 @media (max-width: 1280px){
   #sidebar-left,#sidebar-right{width:220px;min-width:200px}

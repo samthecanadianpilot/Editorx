@@ -334,6 +334,139 @@ function trimBounds(clip, side){
   }
 }
 
+// ---------- Command Palette (⌘K) ----------
+// A searchable index of every meaningful action the user can take from
+// anywhere in the editor. Fuzzy-ish substring matching, keyboard nav.
+function commandList(){
+  const sel = (typeof getSelectedClip === 'function') ? getSelectedClip() : null;
+  const hasSel = !!sel;
+  return [
+    // Files & projects
+    {kw:'new project',     label:'New Project',                icon:'plus-square', group:'Project', run:()=>{ saveCurrentProject(); showDashboard(); openNewProjectModal(); }},
+    {kw:'open project file', label:'Open Project File',        icon:'folder-open', group:'Project', run:()=> pickProjectFile()},
+    {kw:'save',            label:'Save Project',               icon:'save',        group:'Project', shortcut:'⌘S', run:()=> document.getElementById('btn-save')?.click()},
+    {kw:'export',          label:'Export Video',               icon:'upload',      group:'Project', shortcut:'⌘E', run:()=> openExport()},
+    {kw:'dashboard',       label:'Back to Dashboard',          icon:'layout-grid', group:'Project', run:()=>{ saveCurrentProject(); showDashboard(); }},
+    {kw:'sign out',        label:'Sign Out',                   icon:'log-out',     group:'Account', run:async()=>{ try{await fetch('/api/auth/signout',{method:'POST'});}catch{} clearSession(); showStarter(); }},
+
+    // Transport
+    {kw:'play pause',      label:'Play / Pause',               icon:'play',        group:'Transport', shortcut:'Space', run:()=> document.getElementById('btn-play')?.click()},
+    {kw:'jump start',      label:'Jump to Start',              icon:'skip-back',   group:'Transport', run:()=> document.getElementById('btn-home')?.click()},
+    {kw:'jump end',        label:'Jump to End',                icon:'skip-forward',group:'Transport', run:()=> document.getElementById('btn-end')?.click()},
+    {kw:'rewind',          label:'Rewind 1s',                  icon:'rewind',      group:'Transport', shortcut:'J', run:()=> document.getElementById('btn-rewind')?.click()},
+    {kw:'forward',         label:'Forward 1s',                 icon:'fast-forward',group:'Transport', shortcut:'L', run:()=> document.getElementById('btn-forward')?.click()},
+
+    // Edit (only enabled when there's a selected clip)
+    {kw:'duplicate clip',  label:'Duplicate Selected Clip',    icon:'copy',        group:'Edit', shortcut:'⌘D', disabled:!hasSel, run:()=>{ const c=duplicateClip(state.selectedClipId); if(c){state.selectedClipId=c.id;pushHistory();render();} }},
+    {kw:'delete clip',     label:'Delete Selected Clip',       icon:'trash-2',     group:'Edit', shortcut:'⌫', disabled:!hasSel, run:()=>{ if(state.selectedClipId){deleteClip(state.selectedClipId);pushHistory();render();} }},
+    {kw:'undo',            label:'Undo',                       icon:'undo-2',      group:'Edit', shortcut:'⌘Z', run:()=>{ if(undo()) render(); }},
+    {kw:'redo',            label:'Redo',                       icon:'redo-2',      group:'Edit', shortcut:'⌘⇧Z', run:()=>{ if(redo()) render(); }},
+    {kw:'snap toggle',     label:'Toggle Snap',                icon:'magnet',      group:'Edit', shortcut:'N', run:()=> document.getElementById('btn-snap')?.click()},
+    {kw:'detach audio',    label:'Detach Audio from Video',    icon:'scissors-line-dashed', group:'Edit', disabled:!(hasSel && sel.type==='video'), run:()=>{ const a=detachAudio(state.selectedClipId); if(a){state.selectedClipId=a.id;pushHistory();render();flash('Audio detached');} }},
+
+    // Animation presets — operate on selected clip
+    {kw:'zoom punch',      label:'Add Zoom Punch',             icon:'zoom-in',     group:'Animation', disabled:!hasSel, run:()=>{ applyZoomPunch(state.selectedClipId); pushHistory(); render(); flash('Zoom Punch added'); }},
+    {kw:'beat shake',      label:'Add Beat Shake',             icon:'vibrate',     group:'Animation', disabled:!hasSel, run:()=>{ applyBeatShake(state.selectedClipId); pushHistory(); render(); flash('Beat Shake added'); }},
+    {kw:'pan',             label:'Add Pan',                    icon:'move-horizontal', group:'Animation', disabled:!hasSel, run:()=>{ applyPan(state.selectedClipId, 100, 'right'); pushHistory(); render(); flash('Pan added'); }},
+    {kw:'ken burns',       label:'Add Ken Burns',              icon:'trending-up', group:'Animation', disabled:!hasSel, run:()=>{ applyKenBurns(state.selectedClipId, 1.18); pushHistory(); render(); flash('Ken Burns added'); }},
+    {kw:'fade in',         label:'Add Fade In',                icon:'sunrise',     group:'Animation', disabled:!hasSel, run:()=>{ applyFadeIn(state.selectedClipId, 0.4); pushHistory(); render(); flash('Fade In added'); }},
+    {kw:'fade out',        label:'Add Fade Out',               icon:'sunset',      group:'Animation', disabled:!hasSel, run:()=>{ applyFadeOut(state.selectedClipId, 0.4); pushHistory(); render(); flash('Fade Out added'); }},
+    {kw:'speed ramp',      label:'Add Speed Ramp',             icon:'gauge',       group:'Animation', disabled:!hasSel, run:()=>{ applySpeedRamp(state.selectedClipId, 2.0); pushHistory(); render(); flash('Speed Ramp added'); }},
+
+    // Effects (apply by name)
+    {kw:'vignette',        label:'Apply Vignette Effect',      icon:'circle-dashed', group:'Effects', disabled:!hasSel, run:()=>{ setEffect(state.selectedClipId,'vignette'); pushHistory(); render(); flash('Vignette applied'); }},
+    {kw:'glitch rgb split',label:'Apply Glitch / RGB Split',   icon:'unplug',      group:'Effects', disabled:!hasSel, run:()=>{ setEffect(state.selectedClipId,'glitch'); pushHistory(); render(); flash('Glitch applied'); }},
+    {kw:'grain',           label:'Apply Film Grain',           icon:'tally-3',     group:'Effects', disabled:!hasSel, run:()=>{ setEffect(state.selectedClipId,'grainOv'); pushHistory(); render(); flash('Film Grain applied'); }},
+    {kw:'blur',            label:'Apply Blur Effect',          icon:'droplet',     group:'Effects', disabled:!hasSel, run:()=>{ setEffect(state.selectedClipId,'blur'); pushHistory(); render(); flash('Blur applied'); }},
+    {kw:'black white bw',  label:'Apply Black & White',        icon:'film',        group:'Effects', disabled:!hasSel, run:()=>{ setEffect(state.selectedClipId,'bw'); pushHistory(); render(); flash('B&W applied'); }},
+    {kw:'clear effect',    label:'Clear Effect from Clip',     icon:'circle-slash',group:'Effects', disabled:!hasSel, run:()=>{ clearEffect(state.selectedClipId); pushHistory(); render(); flash('Effect cleared'); }},
+
+    // Help
+    {kw:'shortcuts help',  label:'Show Keyboard Shortcuts',    icon:'keyboard',    group:'Help', shortcut:'?', run:()=> openShortcutsOverlay()},
+  ];
+}
+
+function openCommandPalette(){
+  const modal = document.getElementById('command-palette'); if(!modal) return;
+  const input = document.getElementById('cmdk-input');
+  modal.classList.remove('hidden');
+  input.value = '';
+  renderCommandResults('');
+  setTimeout(()=> input.focus(), 10);
+  if(window.lucide) lucide.createIcons({root:modal});
+}
+function closeCommandPalette(){
+  document.getElementById('command-palette')?.classList.add('hidden');
+}
+function renderCommandResults(query){
+  const list = document.getElementById('cmdk-results'); if(!list) return;
+  const q = (query || '').trim().toLowerCase();
+  const all = commandList();
+  let filtered = q
+    ? all.filter(c => c.kw.includes(q) || c.label.toLowerCase().includes(q) || c.group.toLowerCase().includes(q))
+    : all;
+  if(!filtered.length){
+    list.innerHTML = `<div class="cmdk-empty">No commands match "${query}"</div>`;
+    return;
+  }
+  // Group by group
+  const groups = {};
+  for(const c of filtered){ (groups[c.group] = groups[c.group] || []).push(c); }
+  let html = '';
+  for(const g of Object.keys(groups)){
+    html += `<div class="cmdk-group-head">${g}</div>`;
+    for(const c of groups[g]){
+      html += `<button class="cmdk-row${c.disabled?' is-disabled':''}" data-idx="${all.indexOf(c)}" ${c.disabled?'disabled':''}>
+        <i data-lucide="${c.icon || 'corner-down-right'}" width="14" height="14"></i>
+        <span class="cmdk-label">${c.label}</span>
+        ${c.shortcut?`<kbd>${c.shortcut}</kbd>`:''}
+      </button>`;
+    }
+  }
+  list.innerHTML = html;
+  // Auto-highlight first enabled row
+  const first = list.querySelector('.cmdk-row:not(.is-disabled)');
+  if(first) first.classList.add('cmdk-active');
+  list.querySelectorAll('.cmdk-row').forEach(row=>{
+    row.addEventListener('mouseenter', ()=>{
+      list.querySelectorAll('.cmdk-row').forEach(r=>r.classList.remove('cmdk-active'));
+      row.classList.add('cmdk-active');
+    });
+    row.addEventListener('click', ()=>{
+      const cmd = commandList()[parseInt(row.dataset.idx)];
+      if(cmd && !cmd.disabled){ closeCommandPalette(); cmd.run(); }
+    });
+  });
+  if(window.lucide) lucide.createIcons({root:list});
+}
+function cmdkRunActive(){
+  const active = document.querySelector('#cmdk-results .cmdk-row.cmdk-active:not(.is-disabled)');
+  if(!active) return;
+  const cmd = commandList()[parseInt(active.dataset.idx)];
+  if(cmd && !cmd.disabled){ closeCommandPalette(); cmd.run(); }
+}
+function cmdkNavigate(dir){
+  const rows = Array.from(document.querySelectorAll('#cmdk-results .cmdk-row:not(.is-disabled)'));
+  if(!rows.length) return;
+  let idx = rows.findIndex(r => r.classList.contains('cmdk-active'));
+  if(idx < 0) idx = 0;
+  idx = (idx + dir + rows.length) % rows.length;
+  rows.forEach(r => r.classList.remove('cmdk-active'));
+  rows[idx].classList.add('cmdk-active');
+  rows[idx].scrollIntoView({block:'nearest'});
+}
+window.openCommandPalette = openCommandPalette;
+window.closeCommandPalette = closeCommandPalette;
+
+// ---------- Keyboard shortcuts overlay ----------
+function openShortcutsOverlay(){
+  const m = document.getElementById('shortcuts-overlay'); if(!m) return;
+  m.classList.remove('hidden');
+  if(window.lucide) lucide.createIcons({root:m});
+}
+function closeShortcutsOverlay(){ document.getElementById('shortcuts-overlay')?.classList.add('hidden'); }
+window.openShortcutsOverlay = openShortcutsOverlay;
+
 // ---------- Right-click context menu on a clip ----------
 function openClipContextMenu(e, clip){
   e.preventDefault(); e.stopPropagation();
@@ -773,6 +906,47 @@ document.addEventListener('DOMContentLoaded', ()=>{
   wireTrackHeaders();
   // Drop targets: drag library cards (or OS files) onto any track lane
   wireTrackDropTargets();
+  // Viewer drop-zone: click opens file picker, drag-drop imports + places
+  const dz = document.getElementById('viewer-dropzone');
+  if(dz){
+    dz.addEventListener('click', pickMedia);
+    dz.addEventListener('dragover', e=>{
+      const types = (e.dataTransfer && e.dataTransfer.types) || [];
+      if(types.indexOf('Files') < 0) return;
+      e.preventDefault(); e.dataTransfer.dropEffect = 'copy';
+      dz.classList.add('drop-active');
+    });
+    dz.addEventListener('dragleave', ()=>dz.classList.remove('drop-active'));
+    dz.addEventListener('drop', async e=>{
+      e.preventDefault(); dz.classList.remove('drop-active');
+      const files = Array.from(e.dataTransfer.files || []);
+      if(!files.length) return;
+      for(const f of files){
+        const url = URL.createObjectURL(f);
+        const type = f.type.startsWith('audio') ? 'audio'
+                   : f.type.startsWith('image') ? 'image' : 'video';
+        const item = {id:'m_'+Math.random().toString(36).slice(2,9), name:f.name, url, type, duration:0, thumbnail:null};
+        state.media.push(item);
+        if(type !== 'image'){
+          await new Promise(res=>{
+            const probe = document.createElement(type==='audio' ? 'audio' : 'video');
+            probe.preload='metadata';
+            probe.onloadedmetadata = ()=>{ item.duration = probe.duration; res(); };
+            probe.onerror = ()=>res();
+            probe.src = url;
+          });
+        }
+        if(window.makeMediaThumbnail){
+          window.makeMediaThumbnail(url, type).then(thumb=>{
+            if(thumb){ item.thumbnail = thumb; render(); }
+          });
+        }
+        addClipFromMedia(item);
+      }
+      pushHistory(); render();
+      flash(files.length+' file'+(files.length===1?'':'s')+' added');
+    });
+  }
   // Blade tool — vertical cut-line indicator that follows the cursor over the timeline
   wireCutIndicator();
 
@@ -796,8 +970,12 @@ document.addEventListener('DOMContentLoaded', ()=>{
         return;
       }
       if(k==='e'){ e.preventDefault(); openExport(); return; }
+      if(k==='k'){ e.preventDefault(); openCommandPalette(); return; }
+      if(k==='s'){ e.preventDefault(); document.getElementById('btn-save')?.click(); return; }
       return;
     }
+    // Plain "?" opens the shortcut help (handles shift on US keyboards too)
+    if(k==='?' || (k==='/' && e.shiftKey)){ e.preventDefault(); openShortcutsOverlay(); return; }
     switch(k){
       case ' ': e.preventDefault(); document.getElementById('btn-play').click(); break;
       case 'v': document.querySelector('[data-tool="select"]').click(); break;
@@ -815,6 +993,27 @@ document.addEventListener('DOMContentLoaded', ()=>{
         if(state.selectedMaskId && state.selectedClipId){ removeMask(state.selectedClipId, state.selectedMaskId); pushHistory(); render(); }
         else if(state.selectedClipId){ deleteClip(state.selectedClipId); pushHistory(); render(); }
         break;
+    }
+  });
+
+  // Command Palette wiring
+  document.getElementById('cmdk-input')?.addEventListener('input', e=>{
+    renderCommandResults(e.target.value);
+  });
+  document.getElementById('cmdk-input')?.addEventListener('keydown', e=>{
+    if(e.key === 'ArrowDown'){ e.preventDefault(); cmdkNavigate(1); }
+    else if(e.key === 'ArrowUp'){ e.preventDefault(); cmdkNavigate(-1); }
+    else if(e.key === 'Enter'){ e.preventDefault(); cmdkRunActive(); }
+    else if(e.key === 'Escape'){ e.preventDefault(); closeCommandPalette(); }
+  });
+  document.querySelector('#command-palette .modal-overlay')?.addEventListener('click', closeCommandPalette);
+  document.getElementById('btn-close-shortcuts')?.addEventListener('click', closeShortcutsOverlay);
+  document.querySelector('#shortcuts-overlay .modal-overlay')?.addEventListener('click', closeShortcutsOverlay);
+  // ESC closes either modal
+  document.addEventListener('keydown', e=>{
+    if(e.key === 'Escape'){
+      if(!document.getElementById('command-palette')?.classList.contains('hidden')) closeCommandPalette();
+      if(!document.getElementById('shortcuts-overlay')?.classList.contains('hidden')) closeShortcutsOverlay();
     }
   });
 

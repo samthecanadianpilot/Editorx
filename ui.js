@@ -791,6 +791,8 @@ function renderInspector(){
       }
       pushHistory(); renderInspector(); renderViewer();
       flash(btn.textContent.trim() + ' added');
+      btn.classList.add('btn-pulse');
+      setTimeout(()=>btn.classList.remove('btn-pulse'), 600);
     });
   });
   // Diamond keyframe buttons — snapshot current value at playhead
@@ -1700,6 +1702,15 @@ function renderTrackHeaders(){
   });
 }
 
+// ---------- Viewer drop-zone (empty state) ----------
+// Only visible when the project has no video clips yet. Click → file
+// picker. Drag-drop a file onto it → imports + places on V1.
+function renderDropzone(){
+  const dz = document.getElementById('viewer-dropzone'); if(!dz) return;
+  const hasVideo = state.clips.some(c => c.type === 'video');
+  dz.classList.toggle('hidden', hasVideo);
+}
+
 // ---------- Status bar (bottom of editor) ----------
 function renderStatusBar(){
   const proj = document.getElementById('sb-project');
@@ -1749,6 +1760,7 @@ function render(){
   renderTimecodeRuler(); renderPlayhead(); renderTimecode();
   renderTrackHeaders();
   renderStatusBar();
+  renderDropzone();
   // Lucide replaces <i data-lucide=...> with inline SVG. Only sweep when
   // unrendered placeholders exist — skipping it on every render eliminates
   // a major source of icon flicker during inspector/timeline updates.
