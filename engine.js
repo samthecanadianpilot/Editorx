@@ -474,16 +474,26 @@ function timelineDurationS(){
 }
 
 // ---------- Media playback (video/audio element pool) ----------
-const _mediaPool = {}; // clipId -> HTMLMediaElement
+const _mediaPool = {}; // clipId -> HTMLMediaElement | HTMLImageElement
 function getMediaElForClip(clip){
   if(!clip.sourceUrl) return null;
   if(_mediaPool[clip.id]) return _mediaPool[clip.id];
-  const el = document.createElement(clip.type==='audio' ? 'audio' : 'video');
+  const isImage = clip.type === 'image';
+  const el = isImage
+    ? new Image()
+    : document.createElement(clip.type === 'audio' ? 'audio' : 'video');
+  if(isImage){
+    el.crossOrigin = 'anonymous';
+    // Trigger a re-render once the image actually decodes so the viewer
+    // doesn't sit on the placeholder forever after import.
+    el.onload = () => { if(window.renderViewer) window.renderViewer(); };
+  } else {
+    el.preload = 'auto';
+    el.crossOrigin = 'anonymous';
+    el.playsInline = true;
+    el.muted = true; // mixing happens via .volume so autoplay works
+  }
   el.src = clip.sourceUrl;
-  el.preload = 'auto';
-  el.crossOrigin = 'anonymous';
-  el.playsInline = true;
-  el.muted = true; // we manage mixing via .volume so autoplay works
   el.style.cssText = 'position:absolute;left:-99999px;top:-99999px;width:1px;height:1px;visibility:hidden;pointer-events:none';
   document.body.appendChild(el);
   _mediaPool[clip.id] = el;
@@ -811,6 +821,7 @@ function syncMediaToPlayhead(){
   const tol = state.isPlaying ? SEEK_TOL_PLAYING : SEEK_TOL_PAUSED;
   for(const c of state.clips){
     if(!c.sourceUrl) continue;
+    if(c.type === 'image') continue; // images have no play/currentTime — nothing to sync
     const startS = clipStartS(c), endS = clipEndS(c);
     const el = getMediaElForClip(c);
     if(!el) continue;

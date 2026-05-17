@@ -946,9 +946,10 @@ function renderViewer(){
   ctx.fillStyle = '#000';
   ctx.fillRect(0,0,c.width,c.height);
 
-  // Find active video clip(s) at current playhead
+  // Find active video AND image clip(s) at current playhead — they share
+  // the same drawing path; only the underlying element differs.
   const tS = state.playhead/1000;
-  const activeVids = activeClipsAt(tS, 'video');
+  const activeVids = activeClipsAt(tS, 'video').concat(activeClipsAt(tS, 'image'));
 
   if(activeVids.length === 0){
     // Empty placeholder
@@ -1073,9 +1074,15 @@ function drawVideoClip(ctx, canvas, clip){
   ctx.rotate((rot*Math.PI)/180);
   ctx.scale(scale, scale);
 
-  // Draw the video frame (or a placeholder if no source)
-  if(el && el.readyState >= 2 && el.videoWidth>0){
-    const vw = el.videoWidth, vh = el.videoHeight;
+  // Draw the video frame OR static image (or a placeholder if not ready)
+  const isImg = clip.type === 'image';
+  const ready = el && (
+    isImg ? (el.complete && el.naturalWidth > 0)
+          : (el.readyState >= 2 && el.videoWidth > 0)
+  );
+  if(ready){
+    const vw = isImg ? el.naturalWidth  : el.videoWidth;
+    const vh = isImg ? el.naturalHeight : el.videoHeight;
     const cAR = canvas.width/canvas.height, vAR = vw/vh;
     let dw, dh;
     if(vAR > cAR){ dw = canvas.width; dh = canvas.width / vAR; }
@@ -1789,8 +1796,9 @@ function renderTrackHeaders(){
 // picker. Drag-drop a file onto it → imports + places on V1.
 function renderDropzone(){
   const dz = document.getElementById('viewer-dropzone'); if(!dz) return;
-  const hasVideo = state.clips.some(c => c.type === 'video');
-  dz.classList.toggle('hidden', hasVideo);
+  // Hide the drop-zone as soon as ANY visual clip exists (video or image).
+  const hasVisual = state.clips.some(c => c.type === 'video' || c.type === 'image');
+  dz.classList.toggle('hidden', hasVisual);
 }
 
 // ---------- Status bar (bottom of editor) ----------
