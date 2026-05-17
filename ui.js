@@ -96,7 +96,7 @@ function _invalidateWaveform(id){ delete _waveformCache[id]; }
 
 // ---------- Sidebar panels ----------
 function renderClips(){
-  ['v1','a1','t1'].forEach(tid=>{
+  ['v2','v1','a1','t1'].forEach(tid=>{
     const lane = document.getElementById('track-'+tid); if(!lane) return;
     lane.innerHTML = '';
     state.clips.filter(c=>c.track===tid).forEach(clip=>{
@@ -636,6 +636,13 @@ function renderInspector(){
         <i data-lucide="sunrise" width="13" height="13"></i><span>Fade In</span></button>
       <button class="anim-btn" data-anim="fadeOut" title="Fade out over 0.4s">
         <i data-lucide="sunset" width="13" height="13"></i><span>Fade Out</span></button>
+      <button class="anim-btn" data-anim="speedRamp" title="Slow → fast → slow speed ramp">
+        <i data-lucide="gauge" width="13" height="13"></i><span>Speed Ramp</span></button>
+      ${clip.type==='text' ? `
+      <button class="anim-btn" data-anim="typewriter" title="Reveal letter-by-letter">
+        <i data-lucide="text-cursor" width="13" height="13"></i><span>Typewriter</span></button>
+      <button class="anim-btn" data-anim="wordPop" title="Pop each word in sequence">
+        <i data-lucide="zap" width="13" height="13"></i><span>Word Pop</span></button>` : ''}
     </div>`;
   // Per-property keyframe rows
   const kfMap = clip.keyframes || {};
@@ -772,12 +779,15 @@ function renderInspector(){
     btn.addEventListener('click', ()=>{
       const kind = btn.dataset.anim;
       switch(kind){
-        case 'zoom':    applyZoomPunch(clip.id); break;
-        case 'shake':   applyBeatShake(clip.id); break;
-        case 'pan':     applyPan(clip.id, 100, 'right'); break;
-        case 'ken':     applyKenBurns(clip.id, 1.18); break;
-        case 'fadeIn':  applyFadeIn(clip.id, 0.4); break;
-        case 'fadeOut': applyFadeOut(clip.id, 0.4); break;
+        case 'zoom':      applyZoomPunch(clip.id); break;
+        case 'shake':     applyBeatShake(clip.id); break;
+        case 'pan':       applyPan(clip.id, 100, 'right'); break;
+        case 'ken':       applyKenBurns(clip.id, 1.18); break;
+        case 'fadeIn':    applyFadeIn(clip.id, 0.4); break;
+        case 'fadeOut':   applyFadeOut(clip.id, 0.4); break;
+        case 'speedRamp': applySpeedRamp(clip.id, 2.0); break;
+        case 'typewriter':updateClip(clip.id, {revealMode:'typewriter', revealDur: Math.min(2.0, (clip.w/TIMELINE_PX_PER_S)*0.6)}); break;
+        case 'wordPop':   updateClip(clip.id, {revealMode:'wordPop',    revealDur: Math.min(2.5, (clip.w/TIMELINE_PX_PER_S)*0.7)}); break;
       }
       pushHistory(); renderInspector(); renderViewer();
       flash(btn.textContent.trim() + ' added');
@@ -925,9 +935,17 @@ function renderViewer(){
     for(let x=0;x<c.width;x+=80){ ctx.fillRect(x,0,1,c.height); }
     for(let y=0;y<c.height;y+=80){ ctx.fillRect(0,y,c.width,1); }
   } else {
-    // Composite each active video clip
-    for(const clip of activeVids){
+    // Composite V1 first (base), then V2 on top with its blend mode.
+    // V2 is the OVERLAY track — light leaks, glitch passes, etc.
+    const v1 = activeVids.filter(cl => cl.track === 'v1');
+    const v2 = activeVids.filter(cl => cl.track === 'v2');
+    for(const clip of v1){ drawVideoClip(ctx, c, clip); }
+    for(const clip of v2){
+      const blend = (state.tracks.v2 && state.tracks.v2.blend) || 'screen';
+      ctx.save();
+      ctx.globalCompositeOperation = blend;
       drawVideoClip(ctx, c, clip);
+      ctx.restore();
     }
   }
 
@@ -1063,12 +1081,96 @@ function drawVideoClip(ctx, canvas, clip){
     }
   }
 
+  // Overlay effects: vignette / glitch / grain. These are real canvas
+  // operations, not CSS filters — they paint AFTER the video so they
+  // composite over the final pixels including LUT.
+  if(clip.effectId){
+    const fxDef = (window.EFFECTS||[]).find(e => e.id === clip.effectId);
+    if(fxDef && fxDef.overlay){
+      drawOverlayEffect(ctx, canvas, fxDef.overlay, clip.fxAmount ?? (fxDef.params?.amount?.def || 0));
+    }
+  }
+
   ctx.restore();
+}
+
+// Canvas overlay effects (vignette / glitch / grain). Drawn in the
+// SAME transformed coordinate space as the video so they move with it.
+function drawOverlayEffect(ctx, canvas, kind, amount){
+  const W = canvas.width, H = canvas.height;
+  const intensity = Math.max(0, Math.min(1, (amount || 0) / 100));
+  if(intensity <= 0) return;
+  if(kind === 'vignette'){
+    // Radial dark gradient from center to corners
+    const grad = ctx.createRadialGradient(0, 0, Math.min(W,H)*0.35, 0, 0, Math.max(W,H)*0.75);
+    grad.addColorStop(0, 'rgba(0,0,0,0)');
+    grad.addColorStop(1, `rgba(0,0,0,${intensity})`);
+    ctx.save();
+    ctx.fillStyle = grad;
+    ctx.fillRect(-W/2, -H/2, W, H);
+    ctx.restore();
+  } else if(kind === 'glitch'){
+    // RGB split — draw cyan + magenta shifted copies of the underlying
+    // pixels via composite color manipulation. Simulated cheaply: draw
+    // two thin colored translucent rects offset horizontally for a
+    // chromatic-aberration vibe.
+    const offset = Math.round(intensity * 22);
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    ctx.globalAlpha = 0.18 + intensity * 0.20;
+    ctx.fillStyle = '#FF003C';
+    ctx.fillRect(-W/2 - offset, -H/2, W, H);
+    ctx.fillStyle = '#00E1FF';
+    ctx.fillRect(-W/2 + offset, -H/2, W, H);
+    ctx.restore();
+    // Subtle scan line on top
+    ctx.save();
+    ctx.globalAlpha = 0.12 * intensity;
+    ctx.fillStyle = '#000';
+    for(let y = -H/2; y < H/2; y += 4){
+      ctx.fillRect(-W/2, y, W, 1);
+    }
+    ctx.restore();
+  } else if(kind === 'grain'){
+    // Per-frame noise via random offsets — cheap & good-enough
+    ctx.save();
+    ctx.globalAlpha = intensity * 0.5;
+    ctx.globalCompositeOperation = 'overlay';
+    const step = 3;
+    for(let y = -H/2; y < H/2; y += step){
+      for(let x = -W/2; x < W/2; x += step){
+        const v = Math.random() > 0.5 ? 255 : 0;
+        ctx.fillStyle = `rgba(${v},${v},${v},0.5)`;
+        ctx.fillRect(x, y, step, step);
+      }
+    }
+    ctx.restore();
+  }
 }
 
 // Draw a graphic call-out clip (Subscribe / Discord / IG handle / etc.) —
 // rounded background + Lucide-style icon + text + soft shadow.
 function drawGraphicClip(ctx, canvas, clip){
+  // Special-case: anamorphic letterbox — paints top + bottom bars
+  if(clip.graphicStyle === 'letterbox'){
+    const opacity = clipPropAt(clip, 'opacity', clip.opacity ?? 1);
+    const barH = canvas.height * 0.12;
+    ctx.save();
+    ctx.globalAlpha = opacity;
+    ctx.fillStyle = clip.graphicBg || '#000';
+    ctx.fillRect(0, 0, canvas.width, barH);
+    ctx.fillRect(0, canvas.height - barH, canvas.width, barH);
+    // Optional small text in the bottom bar (e.g. "Anamorphic 2.35:1")
+    if(clip.text){
+      ctx.fillStyle = clip.color || '#FFFFFF';
+      ctx.font = `${clip.fontWeight || 400} ${Math.round(barH*0.35)}px "${clip.font || 'Fraunces'}", serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(clip.text, canvas.width/2, canvas.height - barH/2);
+    }
+    ctx.restore();
+    return;
+  }
+
   ctx.save();
   let opacity = clipPropAt(clip, 'opacity', clip.opacity ?? 1);
   let posX    = clipPropAt(clip, 'posX',    clip.posX    ?? 0);
@@ -1217,7 +1319,22 @@ function drawTextClip(ctx, canvas, clip){
   ctx.shadowBlur = 18;
   ctx.shadowOffsetX = 2; ctx.shadowOffsetY = 4;
   ctx.fillStyle = clip.color || '#FFFFFF';
-  ctx.fillText(clip.text || clip.name, 0, 0);
+  // Reveal modes: typewriter (letter-by-letter) and wordPop (word-by-word)
+  let display = clip.text || clip.name || '';
+  if(clip.revealMode){
+    const tRel = clipTimeAtPlayhead(clip);
+    const dur  = clip.revealDur || 1.5;
+    const progress = Math.max(0, Math.min(1, tRel / dur));
+    if(clip.revealMode === 'typewriter'){
+      const n = Math.floor(progress * display.length);
+      display = display.substring(0, n);
+    } else if(clip.revealMode === 'wordPop'){
+      const words = (clip.text || clip.name || '').split(/\s+/);
+      const n = Math.floor(progress * words.length);
+      display = words.slice(0, n).join(' ');
+    }
+  }
+  ctx.fillText(display, 0, 0);
   ctx.restore();
 }
 
@@ -1573,7 +1690,7 @@ function renderTimecode(){
 
 // ---------- Track header state visualization ----------
 function renderTrackHeaders(){
-  ['v1','a1','t1'].forEach(tid=>{
+  ['v2','v1','a1','t1'].forEach(tid=>{
     const tr = state.tracks[tid]; if(!tr) return;
     const trackEl = document.querySelector(`.track[data-track="${tid}"]`);
     if(!trackEl) return;

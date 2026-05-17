@@ -493,7 +493,7 @@ window.attachMaskHandleResize = attachMaskHandleResize;
 
 // ---------- Library → Timeline drag-drop ----------
 function wireTrackDropTargets(){
-  ['v1','a1','t1'].forEach(tid=>{
+  ['v2','v1','a1','t1'].forEach(tid=>{
     const lane = document.getElementById('track-'+tid); if(!lane) return;
 
     lane.addEventListener('dragover', e=>{

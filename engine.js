@@ -42,7 +42,8 @@ const state = {
   masks: {},              // clipId -> [{...}]
   selectedMaskId: null,
   tracks: {
-    v1: {muted:false, locked:false, visible:true},
+    v2: {muted:false, locked:false, visible:true, blend:'screen'},
+    v1: {muted:false, locked:false, visible:true, blend:'normal'},
     a1: {muted:false, locked:false, visible:true},
     t1: {muted:false, locked:false, visible:true}
   },
@@ -401,6 +402,18 @@ function applyBeatShake(clipId, amount){
   });
 }
 
+// Speed Ramp — slow → fast → slow across the clip (TikTok-edit staple).
+function applySpeedRamp(clipId, peakMultiplier){
+  const c = getClip(clipId); if(!c) return;
+  const dur  = c.w / TIMELINE_PX_PER_S;
+  const base = clipPropAt(c, 'speed', c.speed ?? 1);
+  const peak = peakMultiplier || 2.0;
+  if(c.keyframes) delete c.keyframes.speed;
+  addKeyframeTo(clipId, 'speed', 0,           base * 0.4, 'easeIn');
+  addKeyframeTo(clipId, 'speed', dur * 0.45,  peak,       'easeOut');
+  addKeyframeTo(clipId, 'speed', dur,         base * 0.4, 'easeIn');
+}
+
 // Smooth Pan — gentle left→right (or right→left) over the full clip.
 function applyPan(clipId, distancePx, direction){
   const c = getClip(clipId); if(!c) return;
@@ -753,10 +766,13 @@ function syncMediaToPlayhead(){
     const trackVisible = state.tracks[c.track] && state.tracks[c.track].visible;
     const inRange = tS >= startS && tS <= endS && trackVisible !== false;
     if(inRange){
-      const srcT = (c.inS||0) + (tS - startS) * (c.speed || 1);
+      // Honor keyframes on speed for speed-ramping (slow→fast→slow effects)
+      const liveSpeed = (typeof clipPropAt === 'function')
+        ? clipPropAt(c, 'speed', c.speed || 1) : (c.speed || 1);
+      const srcT = (c.inS||0) + (tS - startS) * liveSpeed;
       el.muted = !!(c.muted || trackMuted);
       el.volume = Math.min(1, Math.max(0, c.volume ?? 1));
-      el.playbackRate = c.speed || 1;
+      el.playbackRate = Math.max(0.1, Math.min(16, liveSpeed));
       if(Math.abs(el.currentTime - srcT) > tol){
         try{ el.currentTime = srcT; }catch{}
       }
@@ -1094,6 +1110,7 @@ window.clearKeyframes=clearKeyframes; window.addKeyframeAtPlayhead=addKeyframeAt
 window.applyZoomPunch=applyZoomPunch; window.applyBeatShake=applyBeatShake;
 window.applyPan=applyPan; window.applyKenBurns=applyKenBurns;
 window.applyFadeIn=applyFadeIn; window.applyFadeOut=applyFadeOut;
+window.applySpeedRamp=applySpeedRamp;
 window.detectBeats=detectBeats; window.analyzeClipBeats=analyzeClipBeats;
 window.cutVideoOnBeats=cutVideoOnBeats;
 window.transcribeAudioClip=transcribeAudioClip;

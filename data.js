@@ -26,7 +26,11 @@ const EFFECTS = [
   {id:'bright',   name:'Brightness',icon:'sun',          cat:'color',    desc:'Lighten / darken',    params:{amount:{min:25,max:200,def:120,unit:'%'}}, cssFilter:c=>`brightness(${c.fxAmount??120}%)`},
   {id:'warm',     name:'Warm',     icon:'flame',         cat:'mood',     desc:'Warm color cast',     cssFilter:()=>'sepia(30%) saturate(140%)'},
   {id:'cool',     name:'Cool',     icon:'snowflake',     cat:'mood',     desc:'Cool color cast',     cssFilter:()=>'hue-rotate(-15deg) saturate(120%) brightness(95%)'},
-  {id:'dream',    name:'Dream',    icon:'moon',          cat:'mood',     desc:'Soft dreamy haze',    cssFilter:()=>'blur(0.6px) brightness(108%) saturate(115%)'}
+  {id:'dream',    name:'Dream',    icon:'moon',          cat:'mood',     desc:'Soft dreamy haze',    cssFilter:()=>'blur(0.6px) brightness(108%) saturate(115%)'},
+  // Real overlays — applied AFTER the video is drawn, not as CSS filters
+  {id:'vignette', name:'Vignette', icon:'circle-dashed', cat:'overlay',  desc:'Radial darken from corners', params:{amount:{min:0, max:100, def:55, unit:'%'}}, overlay:'vignette'},
+  {id:'glitch',   name:'Glitch / RGB Split', icon:'unplug', cat:'overlay', desc:'Chromatic aberration + scanline', params:{amount:{min:0, max:100, def:60, unit:'%'}}, overlay:'glitch'},
+  {id:'grainOv',  name:'Film Grain', icon:'tally-3',     cat:'overlay',  desc:'Subtle grain texture',     params:{amount:{min:0, max:100, def:35, unit:'%'}}, overlay:'grain'}
 ];
 
 // LUTs — each maps to a tint color + multiply blend mode for canvas-side overlay rendering.
@@ -156,7 +160,11 @@ const GRAPHICS = [
   {id:'g-tag',        name:'Hashtag Pill',       defaultText:'#trending',         icon:'hash',     accent:'#FFFFFF', bg:'#0084FF', fg:'#FFFFFF', style:'pill', font:'JetBrains Mono', weight:700, duration:3.0},
   {id:'g-ep',         name:'Episode Badge',      defaultText:'EP 01',             icon:'film',     accent:'#FFD60A', bg:'#0A0A0F', fg:'#FFD60A', style:'badge',font:'JetBrains Mono', weight:800, duration:3.0},
   {id:'g-watch-next', name:'Watch Next',         defaultText:'Watch next →',      icon:'play-circle', accent:'#FFFFFF', bg:'rgba(0,132,255,0.92)', fg:'#FFFFFF', style:'pill', font:'Fraunces', weight:700, duration:3.0},
-  {id:'g-heart',      name:'Drop a Heart',       defaultText:'Tap the heart',     icon:'heart',    accent:'#FF375F', bg:'#FFFFFF', fg:'#0A0A0F', style:'pill', font:'Fraunces', weight:700, duration:2.5}
+  {id:'g-heart',      name:'Drop a Heart',       defaultText:'Tap the heart',     icon:'heart',    accent:'#FF375F', bg:'#FFFFFF', fg:'#0A0A0F', style:'pill', font:'Fraunces', weight:700, duration:2.5},
+  // 'letterbox' style is special — drawn as anamorphic top + bottom bars
+  // covering ~12% of frame height each. Text label optional inside the
+  // bottom bar; centered.
+  {id:'g-letterbox',  name:'Anamorphic Letterbox', defaultText:'',                icon:'maximize', accent:'#FFFFFF', bg:'#000000', fg:'#FFFFFF', style:'letterbox', font:'Fraunces', weight:400, duration:5.0}
 ];
 
 // 24x24 SVG path data for icons we draw on the canvas via Path2D.

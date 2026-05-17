@@ -287,6 +287,15 @@
         <div id="timeline-wrapper">
           <div id="timeline-ruler"><canvas id="ruler-canvas"></canvas></div>
           <div id="timeline-tracks">
+            <div class="track" data-track="v2" data-type="video">
+              <div class="track-header">
+                <span class="track-icon"><i data-lucide="layers-2" width="12" height="12"></i></span>
+                <span class="track-name">V2</span>
+                <button class="track-ctrl" data-action="visibility" title="Visibility"><i data-lucide="eye" width="11" height="11"></i></button>
+                <button class="track-ctrl" data-action="lock" title="Lock"><i data-lucide="unlock" width="11" height="11"></i></button>
+              </div>
+              <div class="track-lane" id="track-v2"></div>
+            </div>
             <div class="track" data-track="v1" data-type="video">
               <div class="track-header">
                 <span class="track-icon"><i data-lucide="video" width="12" height="12"></i></span>
