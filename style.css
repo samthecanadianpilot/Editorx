@@ -1557,6 +1557,65 @@ html,body{
   100%{box-shadow:0 0 0 0 rgba(10,132,255,0); background-color:transparent}
 }
 
+/* ===========================================================================
+   REFINED DROPDOWN — kill the native chevron, use one matching the design
+   =========================================================================== */
+select{
+  -webkit-appearance:none !important;
+  -moz-appearance:none !important;
+  appearance:none !important;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23A8A39A' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>") !important;
+  background-repeat:no-repeat !important;
+  background-position:right 10px center !important;
+  padding-right:30px !important;
+  cursor:pointer}
+select:hover{
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23F2EFE8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>") !important}
+
+/* ===========================================================================
+   RANGE SLIDER value tooltip (shown on hover/drag)
+   Implemented via the value span we already render — restyle it as a pill
+   that lifts the value above the slider for higher legibility.
+   =========================================================================== */
+.insp-row .insp-value, .mp-row .mp-value{
+  transition:background 120ms ease, color 120ms ease, transform 120ms ease}
+.insp-row:hover .insp-value, .mp-row:hover .mp-value{
+  color:var(--accent);transform:translateY(-1px)}
+.insp-row input[type=range]:active ~ .insp-value,
+.mp-row input[type=range]:active ~ .mp-value{
+  color:#fff;background:var(--accent);padding:1px 6px;border-radius:4px}
+
+/* ===========================================================================
+   TRANSITION CARD hover — animate the static diagram on hover so users
+   can preview the actual motion without leaving the panel.
+   =========================================================================== */
+.list-card:hover .tr-preview .tp-b{animation:none}
+.list-card:hover .tr-fade .tp-b{animation:tr-h-fade 1.2s ease-in-out infinite alternate}
+.list-card:hover .tr-wipeL .tp-b{animation:tr-h-wipeL 1.2s ease-in-out infinite alternate}
+.list-card:hover .tr-wipeR .tp-b{animation:tr-h-wipeR 1.2s ease-in-out infinite alternate}
+.list-card:hover .tr-slideUp .tp-b{animation:tr-h-slideU 1.2s ease-in-out infinite alternate}
+.list-card:hover .tr-slideDown .tp-b{animation:tr-h-slideD 1.2s ease-in-out infinite alternate}
+.list-card:hover .tr-zoomIn .tp-b{animation:tr-h-zoomI 1.2s ease-in-out infinite alternate;transform-origin:center}
+.list-card:hover .tr-zoomOut .tp-a{animation:tr-h-zoomO 1.2s ease-in-out infinite alternate;transform-origin:center}
+.list-card:hover .tr-dipBlack .tp-a,
+.list-card:hover .tr-dipBlack .tp-b{animation:tr-h-dip 1.2s ease-in-out infinite}
+.list-card:hover .tr-dipWhite .tp-a,
+.list-card:hover .tr-dipWhite .tp-b{animation:tr-h-dip 1.2s ease-in-out infinite}
+@keyframes tr-h-fade  {0%{opacity:0}100%{opacity:1}}
+@keyframes tr-h-wipeL {0%{clip-path:inset(0 100% 0 0)}100%{clip-path:inset(0 0 0 0)}}
+@keyframes tr-h-wipeR {0%{clip-path:inset(0 0 0 100%)}100%{clip-path:inset(0 0 0 0)}}
+@keyframes tr-h-slideU{0%{top:100%}100%{top:0}}
+@keyframes tr-h-slideD{0%{top:-100%}100%{top:0}}
+@keyframes tr-h-zoomI {0%{transform:scale(0);opacity:0}100%{transform:scale(1);opacity:1}}
+@keyframes tr-h-zoomO {0%{transform:scale(1)}100%{transform:scale(2.5);opacity:0}}
+@keyframes tr-h-dip   {0%,100%{opacity:1}50%{opacity:0}}
+
+/* ===========================================================================
+   INLINE TEXT EDITING input (used by beginInlineTextEdit)
+   =========================================================================== */
+.text-inline-input::placeholder{color:rgba(255,255,255,.4)}
+.text-shape-overlay{transition:none} /* no jank during dblclick→edit */
+
 /* ---------- Responsive ---------- */
 @media (max-width: 1280px){
   #sidebar-left,#sidebar-right{width:220px;min-width:200px}

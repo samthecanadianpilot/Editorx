@@ -1439,6 +1439,52 @@ function clearSmartGuides(){
   const layer = document.getElementById('smart-guides'); if(layer) layer.innerHTML = '';
 }
 
+// Replace a text-overlay bounding box with an <input> at the same position,
+// auto-focus + select-all. Commits on Enter or blur, cancels on ESC.
+function beginInlineTextEdit(el, clip){
+  if(el.querySelector('.text-inline-input')) return; // already editing
+  const overlayRect = el.getBoundingClientRect();
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'text-inline-input';
+  input.value = clip.text || clip.name || '';
+  input.style.cssText = `
+    position:absolute;inset:0;
+    background:rgba(0,0,0,0.65);color:${clip.color || '#fff'};
+    border:2px solid var(--accent);border-radius:4px;
+    font-family:'${clip.font || 'Fraunces'}', serif;
+    font-weight:${clip.fontWeight || 600};
+    font-size:${Math.max(14, Math.min(28, overlayRect.height * 0.55))}px;
+    text-align:center;padding:0 10px;outline:none;
+    box-shadow:0 0 0 4px rgba(10,132,255,0.20)`;
+  el.style.pointerEvents = 'none';
+  el.appendChild(input);
+  // The wrapper had pointer-events:all but we just disabled it; re-enable
+  // only the input so dragging the box doesn't fight typing.
+  input.style.pointerEvents = 'all';
+  input.focus();
+  input.select();
+  const original = clip.text;
+  let cancelled = false;
+  const commit = ()=>{
+    if(cancelled) return;
+    const v = input.value;
+    if(v !== original){ updateClip(clip.id, {text: v}); pushHistory(); }
+    cleanup();
+  };
+  const cleanup = ()=>{
+    try{ input.remove(); }catch{}
+    el.style.pointerEvents = 'all';
+    render();
+  };
+  input.addEventListener('keydown', e=>{
+    if(e.key === 'Enter'){ e.preventDefault(); commit(); }
+    else if(e.key === 'Escape'){ cancelled = true; cleanup(); }
+    e.stopPropagation(); // don't let editor shortcuts fire while editing
+  });
+  input.addEventListener('blur', commit);
+}
+
 // Compute & apply position/size to an existing text-overlay box element.
 // Pulled out so renderTextOverlays can either build new boxes OR re-position
 // existing ones without rebuilding the DOM (anti-flicker during playback).
@@ -1516,6 +1562,11 @@ function renderTextOverlays(){
       state.selectedClipId = clip.id;
       state.selectedMaskId = null;
       render();
+    });
+    // Double-click to edit the text inline (no inspector roundtrip)
+    el.addEventListener('dblclick', e=>{
+      e.stopPropagation(); e.preventDefault();
+      beginInlineTextEdit(el, clip);
     });
 
     // Drag updates posX/posY with smart guides + snap to canvas alignment lines
