@@ -22,11 +22,16 @@
   --text-3:     #6B6B6B;     /* 3.1:1  vs #000 — large text only */
   --text-4:     #404040;     /* disabled / decorative */
 
-  /* ---------- Accent (purposeful) — kept electric blue, sharper hover/active ---------- */
-  --accent:     #0A84FF;
-  --accent-h:   #1B95FF;
-  --accent-a:   #0070E0;
-  --accent-soft:rgba(10,132,255,0.16);
+  /* ---------- Accent — pure monochrome system (cream-warm "lit") ----------
+     Apple-level direction: no chromatic accent. Cream-warm replaces blue
+     so the entire UI reads premium-monochrome (Linear / Arc / Nothing.tech).
+     Hierarchy comes from CONTRAST (cream-on-black for primary CTAs) and
+     LIGHT (subtle ambient gradients), not from a hot accent color. */
+  --accent:     #F5F4F0;     /* primary "lit" color; matches --text-1 */
+  --accent-h:   #FFFFFF;     /* hover (slightly cooler/brighter) */
+  --accent-a:   #E0DFD9;     /* active / pressed */
+  --accent-soft:rgba(245,244,240,0.08);    /* selection bg, badges */
+  --accent-ink: #0A0A0A;     /* text color on top of solid --accent button */
 
   --good:       #30D158;
   --warn:       #FFB340;
@@ -72,6 +77,22 @@
   --t-slow:   .22s cubic-bezier(0.4, 0, 0.2, 1);
   --t-press:  .08s ease-out;
   --t-spring: .35s cubic-bezier(0.34, 1.56, 0.64, 1);   /* Apple-style overshoot for cards */
+  --t-apple:  .6s cubic-bezier(0.16, 1, 0.3, 1);        /* Apple's signature deep-decel curve */
+
+  /* ---------- Elevation — soft, no harsh edges (Apple HIG) ---------- */
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.4), 0 0 0 1px rgba(245,244,240,0.04);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.45), 0 0 0 1px rgba(245,244,240,0.05);
+  --shadow-lg: 0 24px 64px rgba(0,0,0,0.6), 0 0 0 1px rgba(245,244,240,0.06);
+  --shadow-xl: 0 40px 96px rgba(0,0,0,0.7), 0 0 0 1px rgba(245,244,240,0.08);
+
+  /* ---------- Glass — translucent surfaces with backdrop-blur ---------- */
+  --glass-1: rgba(20,20,20,0.55);   /* topbar, dashboards */
+  --glass-2: rgba(20,20,20,0.72);   /* modals */
+  --glass-blur: blur(28px) saturate(180%);
+
+  /* ---------- Ambient gradients — subtle, never decorative-only ---------- */
+  --amb-radial: radial-gradient(1200px 800px at 30% 0%, rgba(245,244,240,0.04), transparent 60%),
+                radial-gradient(900px 600px at 80% 100%, rgba(245,244,240,0.025), transparent 70%);
 
   /* ---------- Custom cursors ---------- */
   --cursor-blade:
@@ -272,7 +293,7 @@ select:focus{border-color:var(--accent)}
 .list-card .lc-icon{
   width:32px;height:32px;display:grid;place-items:center;flex-shrink:0;border-radius:var(--r-2);
   background:var(--surface-1);color:var(--text-2)}
-.list-card.selected .lc-icon{background:var(--accent);color:#fff}
+.list-card.selected .lc-icon{background:var(--accent);color:var(--accent-ink)}
 .list-card .lc-icon i{width:14px;height:14px}
 .list-card .lc-body{flex:1;min-width:0}
 .list-card .lc-name{font-size:12px;font-weight:500;color:var(--text-1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -729,8 +750,8 @@ body.tool-blade #cut-indicator.visible{display:block}
   display:flex;align-items:center;gap:var(--s-3);width:100%;padding:8px 10px;border-radius:var(--r-1);
   font-size:12px;font-weight:500;color:var(--text-1);text-align:left;background:transparent}
 .ctx-item i{color:var(--text-3);transition:color var(--t-fast)}
-.ctx-item:hover{background:var(--accent);color:#fff}
-.ctx-item:hover i{color:#fff}
+.ctx-item:hover{background:var(--accent);color:var(--accent-ink)}
+.ctx-item:hover i{color:var(--accent-ink)}
 .ctx-item.danger{color:var(--danger)}
 .ctx-item.danger i{color:var(--danger)}
 .ctx-item.danger:hover{background:var(--danger);color:#fff}
@@ -1449,10 +1470,218 @@ button:active{transform:scale(.97) !important}
 }
 #starter, #dashboard, #app{animation:screen-fade-in .15s ease-out !important}
 
-/* Body — no radial meshes, just flat */
+/* Body — flat by default; starter/dashboard get ambient layer below */
 html,body{
   background:var(--bg-1) !important;
   background-image:none !important}
+
+/* ===========================================================================
+   APPLE-LEVEL POLISH v1
+   Refined translucent chrome, ambient marketing surfaces, monochrome accent.
+   Editor surface stays dense and functional — Apple's own pro tools (FCP,
+   Logic) are dense too. The Apple-level treatment lands on the marketing /
+   onboarding surfaces (starter, dashboard, modals) and the editor topbar.
+   =========================================================================== */
+
+/* ---- Ambient gradient on marketing surfaces (NOT on the editor itself) ---- */
+#starter, #dashboard{
+  background:
+    radial-gradient(1100px 700px at 22% -10%, rgba(245,244,240,0.045), transparent 55%),
+    radial-gradient(900px 700px at 92% 110%, rgba(245,244,240,0.022), transparent 65%),
+    #000 !important;
+  background-attachment:fixed}
+
+/* ---- Translucent topbar (macOS Big Sur signature) ---- */
+#topbar{
+  background:var(--glass-1) !important;
+  backdrop-filter:var(--glass-blur) !important;
+  -webkit-backdrop-filter:var(--glass-blur) !important;
+  border-bottom:1px solid var(--hairline) !important}
+#dash-topbar{
+  background:var(--glass-1) !important;
+  backdrop-filter:var(--glass-blur) !important;
+  -webkit-backdrop-filter:var(--glass-blur) !important;
+  border-bottom:1px solid var(--hairline) !important;
+  position:sticky;top:0;z-index:50}
+
+/* ---- Primary CTA (Play / Export / New Project / Continue as guest) ----
+   High-contrast cream-on-black inversion. Replaces the old solid-blue look.
+   Linear-style: confident, mono, immediately reads as "primary action." */
+.play-btn, .export-btn, .primary-btn, .dash-new, .btn-primary{
+  background:var(--accent) !important;
+  color:var(--accent-ink) !important;
+  font-weight:600 !important;
+  letter-spacing:-.01em !important;
+  border-radius:8px !important;
+  box-shadow:var(--shadow-sm) !important;
+  transition:background var(--t-base), transform var(--t-press), box-shadow var(--t-base) !important}
+.play-btn:hover, .export-btn:hover, .primary-btn:hover, .dash-new:hover, .btn-primary:hover{
+  background:var(--accent-h) !important;
+  box-shadow:var(--shadow-md), 0 0 24px rgba(245,244,240,0.10) !important}
+.play-btn:active, .export-btn:active, .primary-btn:active, .dash-new:active, .btn-primary:active{
+  background:var(--accent-a) !important;
+  transform:scale(.97) !important;
+  box-shadow:var(--shadow-sm) !important}
+
+/* ---- Secondary CTA (Continue with GitHub) — glass card ---- */
+.starter-github{
+  background:rgba(245,244,240,0.04) !important;
+  backdrop-filter:blur(20px) saturate(160%);
+  -webkit-backdrop-filter:blur(20px) saturate(160%);
+  border:1px solid rgba(245,244,240,0.10) !important;
+  border-radius:10px !important;
+  color:var(--text-1) !important;
+  box-shadow:var(--shadow-sm) !important;
+  transition:background var(--t-base), border-color var(--t-base), box-shadow var(--t-base), transform var(--t-press) !important}
+.starter-github:hover{
+  background:rgba(245,244,240,0.08) !important;
+  border-color:rgba(245,244,240,0.18) !important;
+  box-shadow:var(--shadow-md) !important;
+  transform:none !important}
+.starter-github:active{transform:scale(.98) !important}
+
+/* ---- Starter hero typography — cinematic, Apple-scale ---- */
+.starter-headline{
+  font-size:clamp(40px, 5.6vw, 76px) !important;
+  line-height:0.98 !important;
+  letter-spacing:-0.035em !important;
+  font-weight:500 !important;
+  margin-bottom:24px !important}
+.starter-headline em{
+  font-style:italic;
+  color:var(--text-1) !important;        /* mono — no chromatic accent */
+  font-weight:400 !important;
+  opacity:.85}
+.starter-sub{
+  font-size:clamp(15px, 1.15vw, 18px) !important;
+  line-height:1.55 !important;
+  color:var(--text-2) !important;
+  max-width:48ch;
+  margin-bottom:48px !important}
+.starter-features li i{color:var(--text-3) !important}
+.starter-card{padding:96px 64px !important}
+.starter-title{
+  font-size:clamp(36px, 3.6vw, 52px) !important;
+  font-weight:500 !important;
+  line-height:1.05 !important;
+  letter-spacing:-0.03em !important}
+.starter-eyebrow{
+  font-family:var(--mono);
+  font-size:11px;font-weight:600;
+  letter-spacing:.18em;text-transform:uppercase;
+  color:var(--text-3);margin-bottom:18px}
+.starter-lede{
+  font-size:15px !important;line-height:1.6 !important;
+  color:var(--text-2) !important;margin-bottom:36px !important}
+
+/* ---- Dashboard hero typography ---- */
+.dash-h1{
+  font-size:clamp(36px, 4vw, 56px) !important;
+  font-weight:500 !important;
+  line-height:1.0 !important;
+  letter-spacing:-0.03em !important}
+.dash-h1 em{
+  font-style:italic;
+  color:var(--text-1) !important;        /* mono */
+  opacity:.85;
+  font-weight:400}
+.dash-sub{
+  font-size:15px !important;
+  line-height:1.55 !important;
+  color:var(--text-2) !important;
+  max-width:62ch}
+
+/* ---- Dashboard project cards — refined Apple-style ---- */
+.dash-card{
+  background:rgba(245,244,240,0.025) !important;
+  border:1px solid rgba(245,244,240,0.06) !important;
+  border-radius:14px !important;
+  padding:0 !important;
+  overflow:hidden;
+  transition:background var(--t-base), border-color var(--t-base), box-shadow var(--t-base), transform var(--t-apple) !important}
+.dash-card:hover{
+  background:rgba(245,244,240,0.05) !important;
+  border-color:rgba(245,244,240,0.12) !important;
+  box-shadow:var(--shadow-md) !important;
+  transform:translateY(-2px) !important}
+.dash-thumb{border-radius:12px 12px 0 0 !important}
+
+/* ---- Modal frosted glass ---- */
+.modal-content{
+  background:var(--glass-2) !important;
+  backdrop-filter:var(--glass-blur) !important;
+  -webkit-backdrop-filter:var(--glass-blur) !important;
+  border:1px solid rgba(245,244,240,0.08) !important;
+  border-radius:18px !important;
+  box-shadow:var(--shadow-xl) !important}
+.modal-overlay{
+  background:rgba(0,0,0,0.6) !important;
+  backdrop-filter:blur(12px) saturate(130%) !important;
+  -webkit-backdrop-filter:blur(12px) saturate(130%) !important}
+.modal-header, .modal-footer{
+  background:transparent !important;
+  border-color:rgba(245,244,240,0.06) !important}
+
+/* ---- Cards (LUT / Transition / Effect / Title preset) — glass tier ---- */
+.list-card, .preset-card, .mask-type-card{
+  background:rgba(245,244,240,0.025) !important;
+  border:1px solid rgba(245,244,240,0.06) !important;
+  border-radius:10px !important;
+  transition:background var(--t-base), border-color var(--t-base), transform var(--t-press) !important}
+.list-card:hover, .preset-card:hover, .mask-type-card:hover{
+  background:rgba(245,244,240,0.05) !important;
+  border-color:rgba(245,244,240,0.14) !important}
+.list-card.selected, .preset-card.selected, .mask-type-card.selected{
+  background:rgba(245,244,240,0.08) !important;
+  border-color:var(--accent) !important}
+
+/* ---- Inspector / sidebar panel headers ---- */
+.panel-header, .inspector-header{
+  border-bottom:1px solid var(--hairline) !important;
+  letter-spacing:-.01em}
+
+/* ---- Smooth entry animation (Apple's deep-decel curve) ---- */
+@keyframes apple-fade-in{
+  from{opacity:0; transform:translateY(8px)}
+  to  {opacity:1; transform:translateY(0)}
+}
+#starter, #dashboard, #app{
+  animation:apple-fade-in var(--t-apple) both !important}
+@media (prefers-reduced-motion: reduce){
+  #starter, #dashboard, #app{animation:none !important}
+}
+
+/* ---- Inputs — refined focus state, no harsh ring ---- */
+input[type=text],input[type=email],input[type=password],input[type=number],textarea,select{
+  background:rgba(245,244,240,0.04) !important;
+  border:1px solid rgba(245,244,240,0.08) !important;
+  border-radius:8px !important;
+  transition:background var(--t-base), border-color var(--t-base), box-shadow var(--t-base) !important}
+input[type=text]:focus,input[type=email]:focus,input[type=password]:focus,input[type=number]:focus,textarea:focus,select:focus{
+  background:rgba(245,244,240,0.06) !important;
+  border-color:rgba(245,244,240,0.20) !important;
+  box-shadow:0 0 0 4px rgba(245,244,240,0.06) !important;
+  outline:none !important}
+
+/* ---- Drop-zone (viewer empty state) — mono ---- */
+#viewer-dropzone:hover, #viewer-dropzone.drop-active{
+  border-color:var(--accent) !important;
+  background:rgba(245,244,240,0.04) !important;
+  color:var(--text-1) !important}
+#viewer-dropzone:hover i, #viewer-dropzone.drop-active i{color:var(--accent) !important}
+
+/* ---- Workspace tab active stripe — mono ---- */
+.stab.active, .ws-tab.active{
+  background:rgba(245,244,240,0.04) !important;
+  box-shadow:inset 0 -2px 0 var(--accent) !important}
+.tool-btn.active{
+  background:rgba(245,244,240,0.06) !important;
+  color:var(--accent) !important}
+
+/* ---- Selected clip (timeline) — mono border ---- */
+.clip.selected{
+  border:1px solid var(--accent) !important;
+  box-shadow:inset 0 0 0 1px var(--accent) !important}
 
 /* ===========================================================================
    COMMAND PALETTE (⌘K) — fast keyboard-first action search
@@ -1489,8 +1718,8 @@ html,body{
 .cmdk-row kbd{
   font-family:var(--mono);font-size:10px;color:var(--text-3);
   padding:2px 6px;border:1px solid var(--hairline-2);border-radius:4px;background:var(--bg-1)}
-.cmdk-row.cmdk-active{background:var(--accent);color:#fff}
-.cmdk-row.cmdk-active i, .cmdk-row.cmdk-active kbd{color:#fff;border-color:rgba(255,255,255,.4)}
+.cmdk-row.cmdk-active{background:var(--accent);color:var(--accent-ink)}
+.cmdk-row.cmdk-active i, .cmdk-row.cmdk-active kbd{color:var(--accent-ink);border-color:rgba(10,10,10,.4)}
 .cmdk-row.is-disabled{opacity:.35;cursor:not-allowed}
 .cmdk-empty{padding:32px 16px;text-align:center;color:var(--text-3);font-style:italic}
 .cmdk-foot{
@@ -1550,8 +1779,8 @@ html,body{
 .btn-pulse{animation:btn-pulse .6s cubic-bezier(0.4,0,0.2,1)}
 @keyframes btn-pulse{
   0%  {box-shadow:0 0 0 0 var(--accent-soft); background-color:var(--accent-soft)}
-  60% {box-shadow:0 0 0 8px rgba(10,132,255,0); background-color:var(--accent-soft)}
-  100%{box-shadow:0 0 0 0 rgba(10,132,255,0); background-color:transparent}
+  60% {box-shadow:0 0 0 8px rgba(245,244,240,0); background-color:var(--accent-soft)}
+  100%{box-shadow:0 0 0 0 rgba(245,244,240,0); background-color:transparent}
 }
 
 /* ===========================================================================
@@ -1648,7 +1877,7 @@ select:hover{
   padding:6px 10px;cursor:pointer}
 .ot-skip:hover{color:var(--text-1)}
 .ot-next{
-  font-size:12px;font-weight:600;color:#fff;background:var(--accent);
+  font-size:12px;font-weight:600;color:var(--accent-ink);background:var(--accent);
   padding:8px 16px;border-radius:6px;border:none;cursor:pointer}
 .ot-next:hover{background:var(--accent-h)}
 .ot-dots{display:flex;justify-content:center;gap:6px}
@@ -1669,7 +1898,7 @@ select:hover{
   background:var(--hairline);transition:background 120ms ease}
 .panel-resizer:hover::before,
 .panel-resizer.dragging::before{background:var(--accent);width:2px}
-.panel-resizer:hover, .panel-resizer.dragging{background:rgba(10,132,255,0.08)}
+.panel-resizer:hover, .panel-resizer.dragging{background:rgba(245,244,240,0.08)}
 
 /* Status bar zoom controls */
 .sb-zoom-btn{
@@ -1731,4 +1960,4 @@ textarea:focus-visible,
 select:focus-visible{
   outline:none !important;
   border-color:var(--accent) !important;
-  box-shadow:0 0 0 3px rgba(10,132,255,0.28) !important}
+  box-shadow:0 0 0 4px rgba(245,244,240,0.10) !important}

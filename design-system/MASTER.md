@@ -6,9 +6,13 @@ Single source of truth for visual + interaction decisions. Page-specific overrid
 
 ## Direction
 
-**Style:** *Editorial cinema, flat.* Warm-charcoal dark surfaces, cream-warm type, Apple-blue accent. No gradients on chrome, no glow, no grain, no shine. Surfaces are flat; depth comes from spacing and a single elevation tier (1px hairline). Functional gradients (audio waveforms, timeline grid, transition previews) stay — they carry information.
+**Style:** *Apple-level monochrome — true black + cream-warm light.* Linear/Arc/Nothing aesthetic. No chromatic accent. Hierarchy comes from contrast (cream-on-black for primary CTAs) and light (subtle ambient gradients on marketing surfaces). Soft shadows, large radii, frosted glass on modals + topbar, refined typography.
 
-**Why this direction:** EditorX is a long-session pro tool. Users scrub, mask, and color for hours. Decoration competes with the timeline and viewer. Flat surfaces + warm-shifted neutrals reduce visual noise and eye fatigue while staying distinctive (warm > pure-cold grey).
+**Two surface tiers:**
+1. **Marketing tier** — starter screen, dashboard, modals. Gets the Apple-level treatment: ambient radial gradients in the background, glassmorphism, massive hero typography (`clamp(40px, 5.6vw, 76px)`), backdrop-blur, soft shadows.
+2. **Editor tier** — the actual editing surface. Stays dense and functional (Apple's own pro tools — Final Cut Pro, Logic Pro — are also dense, not airy). Translucent topbar is the one Apple-level touch; everything else is flat 32px toolbars and tight panels so users can scrub for 8 hours.
+
+**Why this direction:** Apple's marketing pages and Apple's pro tools live in different visual languages. EditorX adopts both — premium minimalism on the way in, focused density once you're working.
 
 ---
 
@@ -33,19 +37,42 @@ Single source of truth for visual + interaction decisions. Page-specific overrid
 
 Direction note: black + cream-warm (vs pure white) keeps the editorial signature of EditorX while gaining OLED-style depth. Pure white on pure black reads brutalist/cold-tech; the slight cream warmth keeps it human.
 
-### Accent + Semantic
+### Accent — monochrome (cream-warm "lit")
+The blue is gone. The accent is now the same warm-white as primary text — primary CTAs are cream-on-black (high-contrast inversion). Hierarchy comes from contrast and treatment, not color.
+
 | Token | Value | Use |
 |---|---|---|
-| `--accent` | `#0A84FF` | Primary buttons, selection, playhead, focus ring |
-| `--accent-h` | `#1B95FF` | Hover |
-| `--accent-a` | `#0070E0` | Pressed / active |
-| `--accent-soft` | `rgba(10,132,255,0.16)` | Selected row background, badge bg |
+| `--accent` | `#F5F4F0` | Primary CTA bg, selection ring, focus ring, playhead, italic hero accent |
+| `--accent-h` | `#FFFFFF` | Hover (slightly brighter/cooler) |
+| `--accent-a` | `#E0DFD9` | Pressed / active |
+| `--accent-soft` | `rgba(245,244,240,0.08)` | Selected row, badge bg, subtle highlight |
+| `--accent-ink` | `#0A0A0A` | Text color when placed on top of solid `--accent` button |
+
+### Semantic
+| Token | Value | Use |
+|---|---|---|
 | `--good` | `#30D158` | Success, "All changes saved", audio waveform |
 | `--warn` | `#FFB340` | Warning, callout titles |
 | `--danger` | `#FF453A` | Destructive action, error message |
 | `--danger-soft` | `rgba(255,69,58,0.16)` | Error field bg |
 
-**Killed:** `--accent-glow` — was declared but never used. Removed.
+### Glass + Elevation (Apple-level)
+| Token | Value | Use |
+|---|---|---|
+| `--glass-1` | `rgba(20,20,20,0.55)` | Topbar (sticky chrome over content) |
+| `--glass-2` | `rgba(20,20,20,0.72)` | Modal body |
+| `--glass-blur` | `blur(28px) saturate(180%)` | The `backdrop-filter` applied to glass surfaces |
+| `--shadow-sm` | `0 1px 2px rgba(0,0,0,.4) + hairline` | Buttons, small lifts |
+| `--shadow-md` | `0 4px 16px rgba(0,0,0,.45) + hairline` | Card hover |
+| `--shadow-lg` | `0 24px 64px rgba(0,0,0,.6) + hairline` | Dropdowns, command palette |
+| `--shadow-xl` | `0 40px 96px rgba(0,0,0,.7) + hairline` | Modals |
+| `--amb-radial` | Subtle 2-stop radial cream | Background atmosphere on starter/dashboard only |
+
+**Anti-patterns enforced:**
+- `--accent-glow` token was unused → deleted
+- `var(--select)` token was undeclared but referenced → fixed to `var(--accent)`
+- Film grain overlay → removed (HTML + CSS + override)
+- White text (`#fff`) on cream `var(--accent)` background → systematically swapped to `var(--accent-ink)` for legibility (cmdk active row, onboarding Next button, list-card selected icon, context-menu hover, primary CTAs)
 
 ### Lines
 | Token | Value | Use |
