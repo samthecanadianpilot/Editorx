@@ -21,9 +21,6 @@
 </head>
 <body>
 
-  <!-- Site-wide film-grain overlay (atmospheric, pointer-events:none) -->
-  <div id="grain" aria-hidden="true"></div>
-
   <!-- ===================== STARTER / AUTH SCREEN ===================== -->
   <div id="starter" class="hidden">
     <div class="starter-grid">
@@ -119,7 +116,7 @@
       <div class="modal-header">
         <span class="modal-icon"><i data-lucide="plus-square"></i></span>
         <span class="modal-title">New Project</span>
-        <button class="modal-close" id="btn-close-newproj"><i data-lucide="x"></i></button>
+        <button class="modal-close" id="btn-close-newproj" aria-label="Close dialog"><i data-lucide="x" aria-hidden="true"></i></button>
       </div>
       <div class="modal-body">
         <div class="form-row" style="margin-bottom:16px">
@@ -158,15 +155,15 @@
       </div>
       <div class="topbar-center">
         <div class="transport">
-          <button class="transport-btn" id="btn-home"    title="Jump to start (Home)"><i data-lucide="skip-back"></i></button>
-          <button class="transport-btn" id="btn-rewind"  title="Rewind (J)"><i data-lucide="rewind"></i></button>
-          <button class="transport-btn play-btn" id="btn-play" title="Play / pause (Space)"><i data-lucide="play"></i></button>
-          <button class="transport-btn" id="btn-stop"    title="Stop (K)"><i data-lucide="square"></i></button>
-          <button class="transport-btn" id="btn-forward" title="Forward (L)"><i data-lucide="fast-forward"></i></button>
-          <button class="transport-btn" id="btn-end"     title="Jump to end (End)"><i data-lucide="skip-forward"></i></button>
+          <button class="transport-btn" id="btn-home"    title="Jump to start (Home)" aria-label="Jump to start"><i data-lucide="skip-back" aria-hidden="true"></i></button>
+          <button class="transport-btn" id="btn-rewind"  title="Rewind (J)" aria-label="Rewind"><i data-lucide="rewind" aria-hidden="true"></i></button>
+          <button class="transport-btn play-btn" id="btn-play" title="Play / pause (Space)" aria-label="Play or pause"><i data-lucide="play" aria-hidden="true"></i></button>
+          <button class="transport-btn" id="btn-stop"    title="Stop (K)" aria-label="Stop"><i data-lucide="square" aria-hidden="true"></i></button>
+          <button class="transport-btn" id="btn-forward" title="Forward (L)" aria-label="Forward"><i data-lucide="fast-forward" aria-hidden="true"></i></button>
+          <button class="transport-btn" id="btn-end"     title="Jump to end (End)" aria-label="Jump to end"><i data-lucide="skip-forward" aria-hidden="true"></i></button>
           <span class="tool-sep"></span>
-          <button class="transport-btn" id="btn-undo" title="Undo (⌘Z)"><i data-lucide="undo-2"></i></button>
-          <button class="transport-btn" id="btn-redo" title="Redo (⌘⇧Z)"><i data-lucide="redo-2"></i></button>
+          <button class="transport-btn" id="btn-undo" title="Undo (⌘Z)" aria-label="Undo"><i data-lucide="undo-2" aria-hidden="true"></i></button>
+          <button class="transport-btn" id="btn-redo" title="Redo (⌘⇧Z)" aria-label="Redo"><i data-lucide="redo-2" aria-hidden="true"></i></button>
         </div>
         <div class="timecode" id="timecode">00:00:00:00</div>
       </div>
@@ -181,12 +178,12 @@
     <!-- TOOLBAR -->
     <div id="toolbar">
       <div class="tool-group">
-        <button class="tool-btn active" data-tool="select" title="Select (V)"><i data-lucide="mouse-pointer-2"></i></button>
-        <button class="tool-btn" data-tool="blade" title="Blade (B)"><i data-lucide="scissors"></i></button>
-        <button class="tool-btn" data-tool="text"  title="Text (T)"><i data-lucide="type"></i></button>
-        <button class="tool-btn" data-tool="hand"  title="Hand (H)"><i data-lucide="hand"></i></button>
+        <button class="tool-btn active" data-tool="select" title="Select (V)" aria-label="Select tool"><i data-lucide="mouse-pointer-2" aria-hidden="true"></i></button>
+        <button class="tool-btn" data-tool="blade" title="Blade (B)" aria-label="Blade tool"><i data-lucide="scissors" aria-hidden="true"></i></button>
+        <button class="tool-btn" data-tool="text"  title="Text (T)" aria-label="Text tool"><i data-lucide="type" aria-hidden="true"></i></button>
+        <button class="tool-btn" data-tool="hand"  title="Hand (H)" aria-label="Hand tool"><i data-lucide="hand" aria-hidden="true"></i></button>
         <span class="tool-sep"></span>
-        <button class="tool-btn toggle active" id="btn-snap" title="Snap to grid (N)"><i data-lucide="magnet"></i></button>
+        <button class="tool-btn toggle active" id="btn-snap" title="Snap to grid (N)" aria-label="Toggle snap to grid" aria-pressed="true"><i data-lucide="magnet" aria-hidden="true"></i></button>
       </div>
       <div class="toolbar-meta">
         <span class="meta-pill"><span class="dot dot-ok"></span><span>1920×1080 · 30fps · Rec.709</span></span>
@@ -417,7 +414,7 @@
       <div class="modal-header">
         <span class="modal-icon"><i data-lucide="keyboard"></i></span>
         <span class="modal-title">Keyboard Shortcuts</span>
-        <button class="modal-close" id="btn-close-shortcuts"><i data-lucide="x"></i></button>
+        <button class="modal-close" id="btn-close-shortcuts" aria-label="Close keyboard shortcuts"><i data-lucide="x" aria-hidden="true"></i></button>
       </div>
       <div class="modal-body shortcuts-grid">
         <div class="sc-group">
@@ -462,7 +459,7 @@
       <div class="modal-header">
         <span class="modal-icon"><i data-lucide="layers"></i></span>
         <span class="modal-title" id="mask-props-title">Mask Properties</span>
-        <button class="modal-close" id="btn-close-mask-props"><i data-lucide="x"></i></button>
+        <button class="modal-close" id="btn-close-mask-props" aria-label="Close mask properties"><i data-lucide="x" aria-hidden="true"></i></button>
       </div>
       <div id="mask-props-body" class="modal-body"></div>
       <div class="modal-footer">

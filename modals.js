@@ -1320,18 +1320,24 @@ function renderDashboard(){
     const preset = (PROJECT_PRESETS.find(pr=>pr.id===p.presetId)?.name) || 'Project';
     const thumb = p.thumbnail
       ? `<img src="${p.thumbnail}" alt="" loading="lazy">`
-      : `<div class="dash-thumb-fallback"><i data-lucide="film"></i></div>`;
+      : `<div class="dash-thumb-fallback"><i data-lucide="film" aria-hidden="true"></i></div>`;
     const duration = p.durationS ? formatDuration(p.durationS) : '0:00';
+    // Orientation badge — show the project's true aspect so users can tell
+    // 16:9 from 9:16 without the thumb being a different height.
+    const cw = p.canvasW || 16, ch = p.canvasH || 9;
+    const orient = cw > ch ? 'landscape' : (cw < ch ? 'portrait' : 'square');
+    const ratioLabel = cw >= ch ? `${cw}:${ch}` : `${cw}:${ch}`;
     return `<article class="dash-card" data-id="${p.id}">
-      <div class="dash-thumb" style="aspect-ratio:${p.canvasW||16}/${p.canvasH||9}">
+      <div class="dash-thumb dash-thumb-${orient}">
         ${thumb}
+        <span class="dash-ratio" aria-label="Aspect ratio ${ratioLabel}">${orient==='landscape'?'16:9':orient==='portrait'?'9:16':'1:1'}</span>
         <span class="dash-duration">${duration}</span>
       </div>
       <div class="dash-card-body">
         <div class="dash-card-name" title="${escapeAttr(p.name)}">${escapeHtml(p.name)}</div>
         <div class="dash-card-meta">${preset} · ${p.clipCount||0} clips · edited ${relativeTime(p.updatedAt)}</div>
       </div>
-      <button class="dash-card-menu" data-act="menu" title="More"><i data-lucide="more-horizontal" width="14" height="14"></i></button>
+      <button class="dash-card-menu" data-act="menu" aria-label="Project options"><i data-lucide="more-horizontal" width="14" height="14" aria-hidden="true"></i></button>
     </article>`;
   }).join('');
 
