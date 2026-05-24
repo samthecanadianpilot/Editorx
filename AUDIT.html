@@ -69,8 +69,8 @@
     <span><b>Live URL</b> · <a href="https://editorx-beta.vercel.app/">editorx-beta.vercel.app</a></span>
     <span><b>Repo</b> · <a href="https://github.com/samthecanadianpilot/Editorx">samthecanadianpilot/Editorx</a></span>
     <span><b>Branch</b> · <code>main</code></span>
-    <span><b>HEAD</b> · <code>9f50a15</code></span>
-    <span><b>Stylesheet</b> · 3,143 lines</span>
+    <span><b>HEAD</b> · <code>7669389</code></span>
+    <span><b>Stylesheet</b> · 3,198 lines</span>
   </div>
   <div class="meta-row" style="margin-top:18px">
     <span class="legend"><span class="dot green"></span> done</span>
@@ -261,6 +261,14 @@
     </li>
   </ul>
 
+  <h3>Editor interactions</h3>
+  <ul>
+    <li class="done">
+      <b>Skimmer line <span class="pill">v6</span></b>
+      <span class="why">FCP-style orange line follows the cursor over the timeline. Downward-pointing triangle at top, glass tooltip above showing live timecode (<code>HH:MM:SS:FF</code> at the viewer FPS). Hides during playback (playhead leads) and when Blade tool is active (cut-indicator takes over). 100ms ease-out-expo opacity transition; GPU-cheap (transform-only positioning, no layout reflow). Verified end-to-end via Playwright against the live production URL — 6 of 6 assertions pass (hover at 300px → "00:00:05:15", at 600px → "00:00:13:00", math correct against <code>TIMELINE_PX_PER_S=40 + OFFSET_X=80</code>).</span>
+    </li>
+  </ul>
+
   <h3>Empty states</h3>
   <ul>
     <li class="done">
@@ -311,10 +319,6 @@
 
   <h3>Editor features (need JS)</h3>
   <ul>
-    <li class="left">
-      <b>Skimmer line</b>
-      <span class="why">Orange line that follows the mouse over timeline tracks for instant frame preview, like FCP. CSS already in place (<code>#skimmer / .skimmer</code> styled, <code>--skimmer #ff9f0a</code>). Needs a mousemove handler on <code>#timeline-tracks</code> in <code>ui.js</code> that positions the line at <code>e.clientX</code> relative to the tracks. ~15 lines of JS.</span>
-    </li>
     <li class="left">
       <b>Viewer crosshair + safe-zone + grid overlays</b>
       <span class="why">Checkboxes ("Safe zones", "Crosshair", "Grid") already render under the viewer. Each currently does nothing on toggle. Need canvas-side draw logic: outer 5% / inner 15% safe rectangles, center crosshair, third-thirds rule grid. Hook into the same renderViewer cycle that already paints frames.</span>
@@ -424,6 +428,8 @@
   <table>
     <thead><tr><th>SHA</th><th>What</th></tr></thead>
     <tbody>
+      <tr><td>7669389</td><td><b>v6 — Skimmer line</b><br><span style="color:var(--ink-2)">orange FCP-style preview line with triangle handle + glass timecode tooltip; transform-only positioning; hides during playback + blade tool; 6/6 Playwright assertions pass on production URL</span></td></tr>
+      <tr><td>83204a1</td><td><b>AUDIT.html</b><br><span style="color:var(--ink-2)">complete session audit doc — what landed, what's left, what needs you</span></td></tr>
       <tr><td>9f50a15</td><td><b>v5 — Jet black + Apple glass</b><br><span style="color:var(--ink-2)">oklch(8% .005 240) palette; floating chrome gets blur+saturate frost; backgrounds stay flat</span></td></tr>
       <tr><td>2f90d0f</td><td><b>v4 — Impeccable polish</b><br><span style="color:var(--ink-2)">tinted neutrals replace pure #fff/#000; active pills quieted to 92% L; bounce killed; empty state teaches</span></td></tr>
       <tr><td>e0d0b24</td><td><b>v3 — Apple patterns</b><br><span style="color:var(--ink-2)">segmented-pill tabs; "+ circle" CTAs; filled-active icons; single blue EXPORT</span></td></tr>
