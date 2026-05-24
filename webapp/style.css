@@ -2942,3 +2942,202 @@ i.icon-ph, i.ph, i[class^="ph-"], i[class*=" ph-"]{
   background:rgba(255,255,255,0.04);
   border:1px solid rgba(255,255,255,0.08);
   border-radius:4px;padding:1px 5px;margin-right:4px}
+
+/* ===========================================================================
+   JET BLACK + APPLE GLASS v5
+   - Jet-black palette: oklch 8% L, chroma 0.005, hue 240. Reads as
+     pure black but maintains the cohesive cool tint required by
+     PRODUCT.md (which anti-references pure #000 without strategy).
+   - Apple-style glass ONLY on floating chrome (topbar, sidebars,
+     status bar, modals, menus, palette) — never on cards, never
+     on background surfaces. Per impeccable: "Glassmorphism rare
+     and purposeful, or nothing." Apple's actual pattern.
+   =========================================================================== */
+
+#app{
+  --bg-1:       #0A0B0D !important;  /* jet black (oklch 8% .005 240) */
+  --bg-2:       #111114 !important;  /* very-dark separation tier */
+  --surface-1:  #16171A !important;  /* panels base (before glass overlay) */
+  --surface-2:  #1E1F23 !important;  /* cards over panels */
+  --surface-3:  #2A2B30 !important;  /* hover */
+  --border:     #25262B !important;  /* tinted toward bg hue */
+  --hairline:   rgba(241,242,243,0.05) !important;
+  --hairline-2: rgba(241,242,243,0.09) !important;
+  --sep:        #25262B !important;
+
+  /* Glass tokens — each layer has its own opacity + blur amount.
+     Higher backdrop in floating surfaces (modal > topbar > sidebar)
+     so depth reads as visual hierarchy. */
+  --glass-topbar:  rgba(10,11,13,0.62) !important;
+  --glass-sidebar: rgba(15,16,19,0.74) !important;
+  --glass-status:  rgba(10,11,13,0.78) !important;
+  --glass-modal:   rgba(20,21,24,0.72) !important;
+  --glass-menu:    rgba(20,21,24,0.85) !important;
+  --glass-blur-strong: blur(40px) saturate(180%) !important;
+  --glass-blur-med:    blur(28px) saturate(170%) !important;
+  --glass-blur-soft:   blur(20px) saturate(150%) !important;
+
+  background:#0A0B0D !important}
+
+/* ----- TOPBAR: floating glass over the viewer ----- */
+#app #topbar{
+  background:var(--glass-topbar) !important;
+  backdrop-filter:var(--glass-blur-med) !important;
+  -webkit-backdrop-filter:var(--glass-blur-med) !important;
+  border-bottom:1px solid var(--hairline) !important;
+  box-shadow:inset 0 1px 0 rgba(241,242,243,0.04) !important;   /* macOS lit-from-above */
+  position:relative;z-index:50}
+
+/* ----- TOOLBAR (the tool row): subtle glass ----- */
+#app #toolbar{
+  background:var(--glass-topbar) !important;
+  backdrop-filter:var(--glass-blur-soft) !important;
+  -webkit-backdrop-filter:var(--glass-blur-soft) !important;
+  border-bottom:1px solid var(--hairline) !important}
+
+/* ----- SIDEBARS: floating glass panels ----- */
+#app #sidebar-left,
+#app #sidebar-right{
+  background:var(--glass-sidebar) !important;
+  backdrop-filter:var(--glass-blur-med) !important;
+  -webkit-backdrop-filter:var(--glass-blur-med) !important;
+  box-shadow:inset 0 1px 0 rgba(241,242,243,0.03) !important}
+#app #sidebar-left{border-right:1px solid var(--hairline) !important}
+#app #sidebar-right{border-left:1px solid var(--hairline) !important}
+
+/* Sidebar tabs row sits on top of the glass — keep its background
+   transparent so it inherits the panel glass. */
+#app .sidebar-tabs{
+  background:transparent !important;
+  border-bottom:1px solid var(--hairline) !important}
+
+/* Panel headers (LIBRARY, COLOR LUTS, etc.) — transparent over glass */
+#app .panel-header{
+  background:transparent !important;
+  border-bottom:1px solid var(--hairline) !important}
+
+/* ----- STATUS BAR: thin glass strip ----- */
+#app #statusbar{
+  background:var(--glass-status) !important;
+  backdrop-filter:var(--glass-blur-soft) !important;
+  -webkit-backdrop-filter:var(--glass-blur-soft) !important;
+  border-top:1px solid var(--hairline) !important;
+  box-shadow:inset 0 1px 0 rgba(241,242,243,0.03) !important}
+
+/* ----- VIEWER: pure jet black (the canvas IS the content) ----- */
+#app #center{background:#000 !important}
+#app #viewer-wrapper{
+  background:#000 !important;
+  background-image:none !important}
+#app #viewer-frame{
+  background:#000 !important;
+  box-shadow:0 0 0 1px var(--hairline) !important}
+
+/* ----- TIMELINE WRAPPER: jet-black floor for clips ----- */
+#app #timeline-wrapper{
+  background:var(--bg-1) !important;
+  border-top:1px solid var(--hairline) !important}
+#app #timeline-ruler{
+  background:rgba(10,11,13,0.6) !important;
+  backdrop-filter:blur(14px) saturate(140%) !important;
+  -webkit-backdrop-filter:blur(14px) saturate(140%) !important;
+  border-bottom:1px solid var(--hairline) !important}
+
+/* Track headers — solid (need to read clearly against timeline) */
+#app .track-header{
+  background:var(--surface-1) !important;
+  border-right:1px solid var(--hairline) !important}
+#app .track-lane{
+  background:transparent !important;
+  border-bottom:1px solid rgba(241,242,243,0.025) !important}
+
+/* ----- MODALS: heavy frosted glass with strong saturation ----- */
+#app .modal-content,
+.modal-content{
+  background:var(--glass-modal) !important;
+  backdrop-filter:var(--glass-blur-strong) !important;
+  -webkit-backdrop-filter:var(--glass-blur-strong) !important;
+  border:1px solid var(--hairline-2) !important;
+  border-radius:14px !important;
+  box-shadow:
+    inset 0 1px 0 rgba(241,242,243,0.06),
+    0 24px 64px rgba(0,0,0,0.6),
+    0 0 0 0.5px rgba(0,0,0,0.5) !important}
+#app .modal-overlay,
+.modal-overlay{
+  background:rgba(0,0,0,0.45) !important;
+  backdrop-filter:blur(10px) !important;
+  -webkit-backdrop-filter:blur(10px) !important}
+#app .modal-header,
+.modal-header{
+  background:transparent !important;
+  border-bottom:1px solid var(--hairline) !important}
+
+/* ----- COMMAND PALETTE: opaque-er glass for legibility ----- */
+.cmdk-content{
+  background:var(--glass-menu) !important;
+  backdrop-filter:var(--glass-blur-strong) !important;
+  -webkit-backdrop-filter:var(--glass-blur-strong) !important;
+  border:1px solid var(--hairline-2) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(241,242,243,0.06),
+    0 28px 64px rgba(0,0,0,0.65) !important}
+
+/* ----- CONTEXT MENUS + DROPDOWNS: floating menus get glass ----- */
+.ctx-menu{
+  background:var(--glass-menu) !important;
+  backdrop-filter:var(--glass-blur-med) !important;
+  -webkit-backdrop-filter:var(--glass-blur-med) !important;
+  border:1px solid var(--hairline-2) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(241,242,243,0.05),
+    0 16px 48px rgba(0,0,0,0.55) !important;
+  border-radius:10px !important}
+
+/* ----- ONBOARDING TOUR CARD: glass too (it's a floating popover) ----- */
+.ot-card{
+  background:var(--glass-menu) !important;
+  backdrop-filter:var(--glass-blur-med) !important;
+  -webkit-backdrop-filter:var(--glass-blur-med) !important;
+  border:1px solid var(--hairline-2) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(241,242,243,0.05),
+    0 24px 60px rgba(0,0,0,0.6) !important}
+
+/* ----- META PILLS (1920×1080 · 30fps · Rec.709) — glass chips ----- */
+#app .meta-pill, #app .vi-pill, #app .res-pill{
+  background:rgba(20,21,24,0.55) !important;
+  backdrop-filter:blur(14px) saturate(160%) !important;
+  -webkit-backdrop-filter:blur(14px) saturate(160%) !important;
+  border:1px solid var(--hairline) !important;
+  box-shadow:inset 0 1px 0 rgba(241,242,243,0.04) !important}
+
+/* ----- TIMECODE: subtle glass HUD ----- */
+#app .timecode{
+  background:rgba(20,21,24,0.4) !important;
+  backdrop-filter:blur(12px) saturate(140%) !important;
+  -webkit-backdrop-filter:blur(12px) saturate(140%) !important;
+  border:1px solid var(--hairline) !important;
+  border-radius:8px !important;
+  box-shadow:inset 0 1px 0 rgba(241,242,243,0.04) !important}
+
+/* ----- Workspace tab outer pill stays solid (not glass) — it's an
+   anchored control, glass would float it inappropriately. ----- */
+#app .workspace-tabs{
+  background:rgba(20,21,24,0.45) !important;
+  backdrop-filter:blur(20px) saturate(150%) !important;
+  -webkit-backdrop-filter:blur(20px) saturate(150%) !important;
+  border:1px solid var(--hairline-2) !important;
+  box-shadow:inset 0 1px 0 rgba(241,242,243,0.04) !important}
+
+/* ----- Tool-button pill containers — glass too ----- */
+#app .tool-group{
+  background:rgba(20,21,24,0.5) !important;
+  backdrop-filter:blur(20px) saturate(150%) !important;
+  -webkit-backdrop-filter:blur(20px) saturate(150%) !important;
+  border:1px solid var(--hairline-2) !important;
+  box-shadow:inset 0 1px 0 rgba(241,242,243,0.04) !important}
+
+/* ----- The flat-pass + earlier overrides set bg-1 with !important on
+   html,body. Bump the jet-black baseline through. ----- */
+html, body{background:#0A0B0D !important;background-image:none !important}
