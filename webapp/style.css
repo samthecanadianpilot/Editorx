@@ -2808,3 +2808,137 @@ i.icon-ph, i.ph, i[class^="ph-"], i[class*=" ph-"]{
 #app .list-card.selected i.icon-ph::before,
 #app .mask-type-card.selected i.icon-ph::before{
   font-family: 'Phosphor-Fill' !important}
+
+/* ===========================================================================
+   IMPECCABLE POLISH v4 — applies the project's own PRODUCT.md brief
+   Brand: precise, technical, stealthy, expert, tactile.
+   Design principle: "Focus on the canvas — UI should recede."
+   Anti-reference: "Default dark mode using pure #000 / #fff without a
+   cohesive color strategy" — earlier passes hit exactly this anti-pattern.
+
+   This layer:
+   1. Replaces pure #FFFFFF / #000000 with cool-tinted neutrals (OKLCH
+      hue 240, chroma 0.005-0.008) so every neutral leans the same hue.
+   2. Quiets active-state pills (100% -> 92% lightness) so chrome recedes
+      and the viewer reads as the focal point.
+   3. Drops the bouncy --t-spring (banned: "no bounce, no elastic") and
+      pushes all motion to exponential ease-out curves.
+   =========================================================================== */
+
+#app{
+  /* Cool-tinted neutral system. Hue 240 (cool blue) at chroma 0.005-0.008.
+     OKLCH values shown in comments; hex approximations used for browser
+     compat (Safari ships oklch() but older WebViews don't always honor it). */
+  --ink-0:   #F1F2F3 !important;  /* oklch(96% 0.005 240) — off-white */
+  --ink-1:   #E5E6E8 !important;  /* oklch(92% 0.005 240) — quiet active */
+  --ink-2:   #C7C8CB !important;  /* oklch(81% 0.005 240) */
+  --ink-9:   #1B1D1F !important;  /* oklch(14% 0.005 240) — off-black ink */
+
+  /* Override accent system to use tinted whites instead of #FFFFFF.
+     Active states stay readable (92% lightness, AAA on bg-1) but no
+     longer scream against the dark canvas. */
+  --accent:     #E5E6E8 !important;       /* quiet off-white pill */
+  --accent-h:   #F1F2F3 !important;       /* hover -> brighter off-white */
+  --accent-a:   #C7C8CB !important;       /* pressed -> softer */
+  --accent-soft:rgba(241,242,243,0.12) !important;
+  --accent-ink: #1B1D1F !important;       /* tinted off-black text on pill */
+
+  /* Motion — exponential ease-out (skill law: no bounce, no elastic) */
+  --t-fast:   .15s cubic-bezier(0.25, 1, 0.5, 1) !important;       /* ease-out-quart */
+  --t-base:   .2s  cubic-bezier(0.22, 1, 0.36, 1) !important;      /* ease-out-quint */
+  --t-slow:   .35s cubic-bezier(0.16, 1, 0.3, 1) !important;       /* ease-out-expo */
+  --t-press:  .1s  cubic-bezier(0.16, 1, 0.3, 1) !important;
+  --t-spring: .35s cubic-bezier(0.16, 1, 0.3, 1) !important;       /* killed bounce */
+  --t-apple:  .55s cubic-bezier(0.16, 1, 0.3, 1) !important;}
+
+/* ----- Active segmented pills: quieter, more "stealth" ----- */
+#app .ws-tab.active,
+#app .stab.active{
+  background:var(--accent) !important;
+  color:var(--accent-ink) !important;
+  box-shadow:0 1px 0 rgba(0,0,0,0.25), 0 0 0 0.5px rgba(0,0,0,0.15) !important}
+#app .ws-tab.active i.icon-ph,
+#app .stab.active i.icon-ph,
+#app .stab.active span{color:var(--accent-ink) !important}
+
+/* Selected preset/list/mask card — same quieter treatment */
+#app .preset-card.selected, #app .list-card.selected,
+#app .mask-type-card.selected, #app .lut-card.selected,
+#app .fx-card.selected{
+  background:var(--accent) !important;
+  color:var(--accent-ink) !important;
+  border-color:var(--accent) !important}
+
+/* Primary "+ pill" CTAs — the circle plus stays cool-tinted off-white */
+#app .primary-btn i.icon-ph,
+#app .dash-new i.icon-ph,
+#app .btn-primary i.icon-ph{
+  background:var(--accent) !important;
+  color:var(--accent-ink) !important}
+
+/* Tool-button active (the select / blade / text / hand / snap toggles) */
+#app .tool-btn.active{
+  background:var(--accent) !important;
+  color:var(--accent-ink) !important}
+#app .tool-btn.active i.icon-ph{color:var(--accent-ink) !important}
+
+/* Play button — quieter off-white, no longer screaming pure white */
+#app .play-btn{
+  background:var(--accent) !important;
+  color:var(--accent-ink) !important}
+#app .play-btn i.icon-ph{color:var(--accent-ink) !important}
+#app .play-btn:hover{background:var(--accent-h) !important}
+
+/* Selected clip border — tinted off-white, not pure white */
+#app .clip.selected{
+  border:1.5px solid var(--accent) !important;
+  box-shadow:0 0 0 0.5px rgba(0,0,0,0.4) !important}
+
+/* Playhead — keep crisp but tinted */
+#app #playhead, #app .playhead{
+  background:var(--accent) !important}
+
+/* EXPORT button — the ONE chromatic moment retains Apple-CTA blue.
+   Per brief: "Accent color used for primary actions, current selection,
+   and state indicators only, not decoration." EXPORT IS the primary
+   action of a video editor — its identity as the destination CTA earns
+   the saturated treatment. */
+#app .export-btn{
+  /* keep #0071e3 from Apple Patterns v3 — it's the singular chromatic
+     anchor that says "this is the goal." Quiet everywhere else means
+     the eye finds this exact pixel. */
+}
+
+/* ----- Text token refinement: cool-tinted instead of pure ----- */
+#app, #app *{
+  /* Inherit cool tint via cascade — already set above. */
+}
+#app .clip-name, #app .ot-title, #app .panel-title{
+  color:var(--ink-0) !important}
+
+/* ----- Empty state: "teach the interface" not "nothing here" ----- */
+#app .empty-state{padding:24px 18px !important;text-align:center}
+#app .empty-state .empty-icon{
+  color:var(--text-3) !important;
+  font-size:48px !important;
+  margin-bottom:14px;opacity:.7}
+#app .empty-state .empty-title{
+  font-family:-apple-system, "SF Pro Display", "SF Pro Text", system-ui, sans-serif !important;
+  font-size:15px !important;font-weight:600 !important;letter-spacing:-0.01em !important;
+  color:var(--text-1) !important;margin-bottom:6px}
+#app .empty-state .empty-sub{
+  font-size:12.5px !important;line-height:1.45 !important;
+  color:var(--text-2) !important;
+  max-width:34ch;margin:0 auto;
+  letter-spacing:-0.005em !important}
+#app .empty-hint{
+  margin-top:20px;
+  font-size:11px;color:var(--text-3);
+  font-family:-apple-system, "SF Pro Text", system-ui, sans-serif;
+  line-height:1.55}
+#app .empty-hint kbd{
+  font-family:"SF Mono", "Menlo", monospace;
+  font-size:10px;color:var(--text-2);
+  background:rgba(255,255,255,0.04);
+  border:1px solid rgba(255,255,255,0.08);
+  border-radius:4px;padding:1px 5px;margin-right:4px}
