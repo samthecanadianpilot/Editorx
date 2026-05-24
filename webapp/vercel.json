@@ -2,13 +2,6 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "cleanUrls": true,
   "trailingSlash": false,
-  "rewrites": [
-    { "source": "/api/(.*)", "destination": "/webapp/api/$1" },
-    { "source": "/(.*)", "destination": "/webapp/$1" }
-  ],
-  "functions": {
-    "webapp/api/**/*.js": { "memory": 256, "maxDuration": 10 }
-  },
   "headers": [
     {
       "source": "/(.*)",
