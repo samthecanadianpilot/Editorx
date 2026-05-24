@@ -1115,7 +1115,7 @@ body{line-height:1.5}
 /* App shell — give it the warm-canvas feel */
 html,body{
   background:
-    radial-gradient(1200px 700px at 80% -10%, rgba(10,132,255,0.06), transparent 60%),
+    radial-gradient(1200px 700px at 80% -10%, rgba(255,255,255,0.06), transparent 60%),
     radial-gradient(900px 700px at -10% 110%, rgba(191,90,240,0.04), transparent 70%),
   var(--bg-1)}
 
@@ -1162,12 +1162,12 @@ button:active{transform:scale(.95)}
 /* Export button — accent gradient + glow */
 .export-btn{
   background:linear-gradient(180deg, var(--accent), var(--accent-a));
-  box-shadow:0 1px 0 rgba(255,255,255,0.18) inset, 0 6px 18px rgba(10,132,255,0.30);
+  box-shadow:0 1px 0 rgba(255,255,255,0.18) inset, 0 6px 18px rgba(255,255,255,0.30);
   letter-spacing:.04em}
 .export-btn:hover{
   background:linear-gradient(180deg, var(--accent-h), var(--accent));
   transform:translateY(-1px);
-  box-shadow:0 1px 0 rgba(255,255,255,0.22) inset, 0 10px 22px rgba(10,132,255,0.40)}
+  box-shadow:0 1px 0 rgba(255,255,255,0.22) inset, 0 10px 22px rgba(255,255,255,0.40)}
 
 /* Sidebars — gradient depth + hairline */
 #sidebar-left{
@@ -1189,27 +1189,27 @@ button:active{transform:scale(.95)}
 .preset-name{font-family:var(--font);font-size:11px;letter-spacing:-.1px}
 
 /* List cards — accent-faint hover */
-.list-card:hover{background:var(--accent-soft);border-color:rgba(10,132,255,0.25)}
+.list-card:hover{background:var(--accent-soft);border-color:rgba(255,255,255,0.18)}
 .list-card.selected{background:var(--accent-soft);border-color:var(--accent);
-  box-shadow:inset 0 0 0 1px rgba(10,132,255,0.25)}
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,0.18)}
 
 /* Viewer wrapper — soft inner vignette + warm undertone */
 #viewer-wrapper{
   background:
     radial-gradient(ellipse at center, transparent 45%, rgba(0,0,0,0.55) 100%),
-    radial-gradient(800px 500px at 50% 35%, rgba(10,132,255,0.05), transparent 70%),
+    radial-gradient(800px 500px at 50% 35%, rgba(255,255,255,0.05), transparent 70%),
     #050507}
 #viewer-frame{
   box-shadow:
     0 0 0 1px var(--hairline-2),
     0 30px 70px rgba(0,0,0,0.55),
-    0 0 1px rgba(10,132,255,0.18)}
+    0 0 1px rgba(255,255,255,0.14)}
 
 /* Timeline — subtle accent line under the ruler */
 #timeline-wrapper{
   background:linear-gradient(180deg, var(--bg-2), var(--bg-1));
   border-top:1px solid var(--hairline-2);
-  box-shadow:0 -1px 0 rgba(10,132,255,0.10)}
+  box-shadow:0 -1px 0 rgba(255,255,255,0.10)}
 
 /* Clip — refined gradient + hover lift */
 .clip{
@@ -1218,7 +1218,7 @@ button:active{transform:scale(.95)}
 .clip:hover{transform:translateY(-1px);
   box-shadow:inset 0 1px 0 rgba(255,255,255,0.05), 0 6px 18px rgba(0,0,0,0.35)}
 .clip.selected{
-  box-shadow:inset 0 0 0 1.5px var(--accent), 0 8px 22px rgba(10,132,255,0.25)}
+  box-shadow:inset 0 0 0 1.5px var(--accent), 0 8px 22px rgba(255,255,255,0.18)}
 
 /* Modals — proper glass treatment */
 .modal-overlay{
@@ -1246,9 +1246,9 @@ button:active{transform:scale(.95)}
 .dash-new{
   padding:14px 22px;font-size:13px;font-weight:600;
   background:linear-gradient(180deg, var(--accent), var(--accent-a));
-  box-shadow:0 1px 0 rgba(255,255,255,0.2) inset, 0 8px 22px rgba(10,132,255,0.35)}
+  box-shadow:0 1px 0 rgba(255,255,255,0.2) inset, 0 8px 22px rgba(255,255,255,0.35)}
 .dash-new:hover{transform:translateY(-1px);
-  box-shadow:0 1px 0 rgba(255,255,255,0.25) inset, 0 12px 28px rgba(10,132,255,0.45)}
+  box-shadow:0 1px 0 rgba(255,255,255,0.25) inset, 0 12px 28px rgba(255,255,255,0.45)}
 .dash-grid{
   display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));
   gap:var(--s-5);margin-top:var(--s-5)}
@@ -1259,7 +1259,7 @@ button:active{transform:scale(.95)}
   transform:translateY(-4px) scale(1.005);
   border-color:var(--accent);
   background:var(--surface-1);
-  box-shadow:0 16px 40px rgba(0,0,0,0.4), 0 0 0 1px rgba(10,132,255,0.20)}
+  box-shadow:0 16px 40px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.20)}
 .dash-card-name{font-family:var(--font-d);font-size:15px;font-weight:500;letter-spacing:-.2px}
 .dash-empty .empty-title{
   font-family:var(--font-d);font-size:24px;font-weight:500;letter-spacing:-.5px}
@@ -1267,7 +1267,7 @@ button:active{transform:scale(.95)}
 /* ============ STARTER revamp — even bigger editorial headline ============ */
 .starter-hero{
   background:
-    radial-gradient(800px 600px at 30% 20%, rgba(10,132,255,0.10), transparent 60%),
+    radial-gradient(800px 600px at 30% 20%, rgba(255,255,255,0.10), transparent 60%),
     linear-gradient(135deg, var(--bg-1) 0%, var(--bg-2) 100%);
   padding:80px 64px}
 .starter-headline{
@@ -1277,7 +1277,7 @@ button:active{transform:scale(.95)}
 .starter-sub{font-size:17px;line-height:1.5;color:var(--text-2)}
 .starter-mark{
   background:linear-gradient(140deg, var(--accent), var(--accent-a));color:#fff;
-  box-shadow:0 0 0 1px rgba(10,132,255,0.4), 0 8px 24px rgba(10,132,255,0.30)}
+  box-shadow:0 0 0 1px rgba(255,255,255,0.4), 0 8px 24px rgba(255,255,255,0.30)}
 .starter-card{padding:80px 64px}
 .starter-title{font-size:42px;line-height:1.05;letter-spacing:-1px}
 .starter-github{
@@ -1334,7 +1334,7 @@ button:active{transform:scale(.95)}
 input[type=text]:focus,input[type=email]:focus,input[type=password]:focus,input[type=number]:focus,
 select:focus{
   border-color:var(--accent);
-  box-shadow:0 0 0 3px rgba(10,132,255,0.18);outline:none}
+  box-shadow:0 0 0 3px rgba(255,255,255,0.14);outline:none}
 
 /* ===========================================================================
    REVAMP v3 — DaVinci-flat
@@ -1805,7 +1805,7 @@ input[type=text]:focus,input[type=email]:focus,input[type=password]:focus,input[
   transition:border-color var(--t-base), background var(--t-base), color var(--t-base)}
 #viewer-dropzone.hidden{display:none}
 #viewer-dropzone:hover, #viewer-dropzone.drop-active{
-  border-color:var(--accent);background:rgba(10,132,255,0.06);color:var(--text-1)}
+  border-color:var(--accent);background:rgba(255,255,255,0.06);color:var(--text-1)}
 #viewer-dropzone i{color:var(--text-3);transition:color var(--t-base)}
 #viewer-dropzone:hover i, #viewer-dropzone.drop-active i{color:var(--accent)}
 .vdz-title{font-family:var(--font-d);font-size:22px;font-weight:500;letter-spacing:-.4px;color:var(--text-1)}
@@ -2338,11 +2338,11 @@ i.icon-ph, i.ph, i[class^="ph-"], i[class*=" ph-"]{
   --text-2:     #98989e !important;
   --text-3:     #6b6b70 !important;
   --text-4:     #48484a !important;
-  --accent:     #0a84ff !important;      /* Apple blue — FCP's actual accent */
-  --accent-h:   #2196ff !important;
-  --accent-a:   #0072e0 !important;
-  --accent-soft:rgba(10,132,255,0.18) !important;
-  --accent-ink: #ffffff !important;
+  --accent:     #ffffff !important;       /* mono — blue removed at user request */
+  --accent-h:   #ffffff !important;
+  --accent-a:   #d4d4d6 !important;
+  --accent-soft:rgba(255,255,255,0.14) !important;
+  --accent-ink: #0a0a0a !important;       /* black text on white CTA bg */
   --good:       #30d158 !important;
   --warn:       #ff9f0a !important;
   --danger:     #ff453a !important;
@@ -2399,7 +2399,7 @@ i.icon-ph, i.ph, i[class^="ph-"], i[class*=" ph-"]{
   background:#3a3a3c !important;
   color:#e5e5e7 !important}
 #app .tool-btn.active{
-  background:#0a84ff !important;
+  background:var(--accent) !important;
   color:#ffffff !important;
   box-shadow:none !important}
 #app .tool-btn i.icon-ph, #app .transport-btn i.icon-ph{font-size:14px !important}
@@ -2407,7 +2407,7 @@ i.icon-ph, i.ph, i[class^="ph-"], i[class*=" ph-"]{
 /* ----- Transport play button: FCP-style accent-blue rounded ----- */
 #app .play-btn{
   width:34px !important;height:24px !important;
-  background:#0a84ff !important;color:#ffffff !important;
+  background:var(--accent) !important;color:var(--accent-ink) !important;
   border-radius:4px !important;box-shadow:none !important}
 #app .play-btn:hover{background:#2196ff !important}
 
@@ -2446,8 +2446,8 @@ i.icon-ph, i.ph, i[class^="ph-"], i[class*=" ph-"]{
 #app .stab:hover{background:#3a3a3c !important;color:#e5e5e7 !important}
 #app .stab.active{
   background:transparent !important;
-  color:#0a84ff !important;
-  box-shadow:inset 0 -2px 0 #0a84ff !important}    /* underline indicator */
+  color:var(--accent) !important;
+  box-shadow:inset 0 -2px 0 var(--accent) !important}    /* underline indicator */
 #app .stab i.icon-ph{font-size:14px !important}
 #app .stab span{font-size:10px !important;color:inherit !important}
 
@@ -2468,7 +2468,7 @@ i.icon-ph, i.ph, i[class^="ph-"], i[class*=" ph-"]{
   box-shadow:none !important}
 #app .ws-tab:hover{background:#3a3a3c !important;color:#e5e5e7 !important}
 #app .ws-tab.active{
-  background:#0a84ff !important;color:#ffffff !important;
+  background:var(--accent) !important;color:var(--accent-ink) !important;
   box-shadow:none !important}
 #app .ws-tab i.icon-ph{font-size:13px !important}
 
@@ -2518,8 +2518,8 @@ i.icon-ph, i.ph, i[class^="ph-"], i[class*=" ph-"]{
   background:#1c1c1e !important;
   height:38px !important;padding:3px 0 !important}
 #app .track-lane.drop-target{
-  background:rgba(10,132,255,0.12) !important;
-  box-shadow:inset 0 0 0 1px #0a84ff !important}
+  background:rgba(255,255,255,0.12) !important;
+  box-shadow:inset 0 0 0 1px var(--accent) !important}
 
 /* ----- Clips (FCP-spec EXACT gradients) ----- */
 #app .clip{
@@ -2534,7 +2534,7 @@ i.icon-ph, i.ph, i[class^="ph-"], i[class*=" ph-"]{
   box-shadow:none !important;
   transform:none !important}
 #app .clip.selected{
-  border:2px solid #0a84ff !important;
+  border:2px solid var(--accent) !important;
   box-shadow:none !important}
 
 #app .clip.video{
@@ -2602,10 +2602,10 @@ i.icon-ph, i.ph, i[class^="ph-"], i[class*=" ph-"]{
   font-family:-apple-system, "SF Pro Text", sans-serif !important;
   font-size:12px !important}
 #app input[type=text]:focus, #app input[type=number]:focus{
-  border-color:#0a84ff !important;
-  box-shadow:0 0 0 3px rgba(10,132,255,0.25) !important;
+  border-color:var(--accent) !important;
+  box-shadow:0 0 0 3px rgba(255,255,255,0.18) !important;
   outline:none !important}
-#app input[type=range]{accent-color:#0a84ff}
+#app input[type=range]{accent-color:var(--accent)}
 
 /* ----- Buttons (top-bar New/Open/Save + EXPORT) ----- */
 #app .ghost-btn{
@@ -2616,7 +2616,7 @@ i.icon-ph, i.ph, i[class^="ph-"], i[class*=" ph-"]{
   font-size:12px !important;font-weight:500 !important}
 #app .ghost-btn:hover{background:#3a3a3c !important}
 #app .export-btn{
-  background:#0a84ff !important;color:#ffffff !important;
+  background:var(--accent) !important;color:var(--accent-ink) !important;
   border:none !important;border-radius:5px !important;
   padding:7px 14px !important;font-size:12px !important;font-weight:600 !important;
   box-shadow:none !important}
@@ -2628,4 +2628,4 @@ i.icon-ph, i.ph, i[class^="ph-"], i[class*=" ph-"]{
 #app .stab:focus-visible,
 #app .tool-btn:focus-visible,
 #app .transport-btn:focus-visible{
-  outline:2px solid #0a84ff !important;outline-offset:2px !important}
+  outline:2px solid var(--accent) !important;outline-offset:2px !important}
