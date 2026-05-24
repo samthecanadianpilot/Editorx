@@ -13,11 +13,13 @@
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ECEAE5' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polygon points='21 16 21 8 12 3 3 8 3 16 12 21 21 16'/></svg>">
 
   <link rel="stylesheet" href="style.css">
-  <!-- Phosphor Icons (regular weight) — closest free, legal approximation of
-       Apple SF Symbols. icons.js below is a Lucide-compatible shim so every
-       existing <i data-lucide="X"> in the codebase keeps working but renders
-       as Phosphor. Zero call-site changes needed. -->
+  <!-- Phosphor Icons — closest free, legal approximation of Apple SF Symbols.
+       Loading BOTH weights so we can mirror Apple's iOS pattern:
+         regular = default outline, fill = active/selected state.
+       icons.js is a Lucide-compatible shim — existing <i data-lucide="X">
+       still work, render as Phosphor SVGs at runtime. -->
   <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
   <script defer src="icons.js"></script>
 </head>
 <body>

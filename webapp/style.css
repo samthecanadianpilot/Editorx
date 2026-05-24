@@ -138,7 +138,7 @@ input[type=text],input[type=email],input[type=password],input[type=number]{
 input[type=text]:hover,input[type=email]:hover,input[type=password]:hover,input[type=number]:hover{
   border-color:var(--text-4)}
 input[type=text]:focus,input[type=email]:focus,input[type=password]:focus,input[type=number]:focus{
-  border-color:var(--accent);box-shadow:inset 0 0 0 2px rgba(0,132,255,0.2);background:var(--surface-1)}
+  border-color:var(--accent);box-shadow:inset 0 0 0 2px rgba(255,255,255,0.2);background:var(--surface-1)}
 
 input[type=range]{
   -webkit-appearance:none;appearance:none;background:transparent;height:16px;width:100%;outline:none}
@@ -147,7 +147,7 @@ input[type=range]::-webkit-slider-thumb{
   -webkit-appearance:none;appearance:none;width:12px;height:12px;border-radius:50%;
   background:var(--accent);border:none;margin-top:-4px;cursor:pointer;
   transition:width var(--t-fast),height var(--t-fast),box-shadow var(--t-fast)}
-input[type=range]:hover::-webkit-slider-thumb{width:14px;height:14px;margin-top:-5px;box-shadow:0 0 12px rgba(0,132,255,0.4)}
+input[type=range]:hover::-webkit-slider-thumb{width:14px;height:14px;margin-top:-5px;box-shadow:0 0 12px rgba(255,255,255,0.4)}
 
 input[type=checkbox]{
   appearance:none;-webkit-appearance:none;width:16px;height:16px;border-radius:var(--r-1);
@@ -374,7 +374,7 @@ select:focus{border-color:var(--accent)}
 #viewer-safe-zones::before, #viewer-safe-zones::after{
   content:'';position:absolute;border:1px dashed rgba(255,255,255,0.18);border-radius:4px}
 #viewer-safe-zones::before{inset:5%}
-#viewer-safe-zones::after{inset:10%;border-color:rgba(0,132,255,0.40)}
+#viewer-safe-zones::after{inset:10%;border-color:rgba(255,255,255,0.40)}
 #viewer-crosshair::before, #viewer-crosshair::after{
   content:'';position:absolute;background:rgba(255,255,255,0.18)}
 #viewer-crosshair::before{left:0;right:0;top:50%;height:1px}
@@ -411,7 +411,7 @@ select:focus{border-color:var(--accent)}
   position:absolute;border:1px dashed rgba(255,255,255,0.22);background:transparent;
   pointer-events:all;cursor:move;border-radius:var(--r-1);transition:border-color var(--t-fast)}
 .text-shape-overlay:hover{border-color:rgba(255,255,255,0.45)}
-.text-shape-overlay.selected{border:1.5px solid var(--accent);background:rgba(0,132,255,0.05)}
+.text-shape-overlay.selected{border:1.5px solid var(--accent);background:rgba(255,255,255,0.05)}
 
 /* ---------- Timeline ---------- */
 #timeline-wrapper{
@@ -443,8 +443,8 @@ select:focus{border-color:var(--accent)}
 .track-lane{flex:1;height:64px;position:relative;padding:6px 0;
   transition:background var(--t-fast)}
 .track-lane.drop-target{
-  background:rgba(0,132,255,0.06);
-  box-shadow:inset 0 0 0 1px rgba(0,132,255,0.3)}
+  background:rgba(255,255,255,0.06);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,0.3)}
 
 /* Clip — Apple flat with thin border */
 .clip{
@@ -453,7 +453,7 @@ select:focus{border-color:var(--accent)}
   cursor:grab;user-select:none;
   transition:border-color var(--t-fast), transform var(--t-press), box-shadow var(--t-fast)}
 .clip:hover{border-color:var(--accent);transform:translateY(-1px)}
-.clip.selected{border-color:var(--accent);box-shadow:inset 0 0 0 2px rgba(0,132,255,0.25)}
+.clip.selected{border-color:var(--accent);box-shadow:inset 0 0 0 2px rgba(255,255,255,0.25)}
 .clip:active{cursor:grabbing}
 .clip-header-stripe{
   position:absolute;top:0;left:0;right:0;height:2px;background:var(--text-3)}
@@ -605,7 +605,7 @@ body.tool-blade #cut-indicator.visible{display:block}
 .kf-chip{
   display:inline-flex;align-items:center;gap:5px;
   padding:4px 7px;border-radius:var(--r-1);
-  background:var(--accent-soft);border:0.5px solid rgba(0,132,255,0.3);
+  background:var(--accent-soft);border:0.5px solid rgba(255,255,255,0.3);
   font-size:10px;color:var(--text-1);font-family:var(--mono)}
 .kf-chip-time{color:var(--accent);font-weight:600}
 .kf-chip-val{color:var(--text-2);font-size:9px}
@@ -2629,3 +2629,182 @@ i.icon-ph, i.ph, i[class^="ph-"], i[class*=" ph-"]{
 #app .tool-btn:focus-visible,
 #app .transport-btn:focus-visible{
   outline:2px solid var(--accent) !important;outline-offset:2px !important}
+
+/* ===========================================================================
+   APPLE PATTERNS v3 — segmented controls + "+ pill" CTAs + icon cards
+   Inspired directly by apple.com/iphone-17-pro (segmented 200mm pill,
+   "Compare iPhone cameras +" pattern, Center Stage / Dual Capture cards).
+   Editor surface only (#app scope).
+
+   Blue policy:
+   - Most surfaces stay mono (white/cream on dark)
+   - SINGLE moment of blue: .export-btn (#0071e3 Apple-CTA-blue) — same
+     role as the "Buy" button in iPhone 17 Pro top nav.
+   =========================================================================== */
+
+/* ----- SEGMENTED PILL: workspace tabs (Edit / Color / Effects / Export) -----
+   Active = solid white pill, black text. Inactive = transparent, muted. */
+#app .workspace-tabs{
+  display:inline-flex !important;align-items:center;
+  background:#1c1c1e !important;
+  border:1px solid #3a3a3c !important;
+  border-radius:999px !important;
+  padding:3px !important;gap:1px !important;
+  height:36px}
+#app .ws-tab{
+  background:transparent !important;
+  color:#98989e !important;
+  border-radius:999px !important;
+  padding:0 16px !important;height:28px !important;
+  font-size:13px !important;font-weight:500 !important;
+  letter-spacing:-0.01em !important;
+  box-shadow:none !important;
+  transition:background 120ms ease, color 120ms ease !important}
+#app .ws-tab:hover{
+  background:rgba(255,255,255,0.06) !important;
+  color:#e5e5e7 !important}
+#app .ws-tab.active{
+  background:#ffffff !important;
+  color:#000000 !important;
+  box-shadow:0 1px 2px rgba(0,0,0,0.4) !important}
+#app .ws-tab.active i.icon-ph{color:#000000 !important}
+#app .ws-tab i.icon-ph{font-size:14px !important}
+
+/* ----- SEGMENTED PILL: sidebar tabs (Library / Trans / Color / FX / etc.) -----
+   Same pattern as workspace tabs but stacked vertical-icon-above-label.
+   Active = white pill, black icon + label. */
+#app .sidebar-tabs{
+  background:#1c1c1e !important;
+  border-bottom:1px solid #3a3a3c !important;
+  padding:6px !important;
+  gap:2px !important;
+  display:flex !important;
+  overflow-x:auto;
+  scrollbar-width:none}
+#app .sidebar-tabs::-webkit-scrollbar{display:none}
+#app .stab{
+  background:transparent !important;
+  color:#98989e !important;
+  border-radius:8px !important;
+  padding:6px 4px !important;
+  flex:1;min-width:48px;
+  box-shadow:none !important;
+  transition:background 120ms ease, color 120ms ease !important}
+#app .stab:hover{
+  background:rgba(255,255,255,0.05) !important;
+  color:#e5e5e7 !important}
+#app .stab.active{
+  background:#ffffff !important;
+  color:#000000 !important;
+  box-shadow:0 1px 2px rgba(0,0,0,0.4) !important}
+#app .stab.active i.icon-ph, #app .stab.active span{color:#000000 !important}
+#app .stab i.icon-ph{font-size:15px !important;margin-bottom:2px}
+#app .stab span{font-size:10px !important;font-weight:500 !important;color:inherit !important}
+
+/* ----- APPLE "+ PILL" CTA — used on dashboard New Project, panel Add,
+   Library Import media. Form: dark rounded pill, label, circular icon on right.
+   ----- */
+#app .primary-btn, #app .dash-new, #app .btn-primary{
+  display:inline-flex !important;align-items:center !important;
+  gap:10px !important;
+  background:#1c1c1e !important;
+  color:#e5e5e7 !important;
+  border:1px solid #3a3a3c !important;
+  border-radius:999px !important;
+  padding:0 6px 0 18px !important;
+  height:40px !important;
+  font-size:13px !important;font-weight:500 !important;
+  letter-spacing:-0.005em !important;
+  box-shadow:none !important;
+  transition:background 120ms ease, border-color 120ms ease !important}
+#app .primary-btn:hover, #app .dash-new:hover, #app .btn-primary:hover{
+  background:#232325 !important;
+  border-color:#48484a !important}
+#app .primary-btn:active, #app .dash-new:active, #app .btn-primary:active{transform:scale(.985) !important}
+/* The "circle + icon" inside the pill: small filled white circle with black plus */
+#app .primary-btn i.icon-ph, #app .dash-new i.icon-ph, #app .btn-primary i.icon-ph{
+  background:#ffffff !important;
+  color:#000000 !important;
+  width:28px !important;height:28px !important;
+  border-radius:999px !important;
+  display:inline-flex !important;align-items:center;justify-content:center;
+  font-size:15px !important;
+  order:2 !important;
+  margin:0 !important}
+#app .primary-btn span, #app .dash-new span, #app .btn-primary span{
+  order:1;color:inherit !important}
+
+/* ----- APPLE ICON-CARD: FX / Transitions / LUTs / Titles preset grid -----
+   Inspired by Center Stage / Dual Capture row on iphone-17-pro.
+   Active/selected = solid white card with black contents. */
+#app .preset-card, #app .list-card, #app .mask-type-card,
+#app .lut-card, #app .fx-card{
+  background:#232325 !important;
+  border:1px solid #3a3a3c !important;
+  border-radius:12px !important;
+  padding:12px !important;
+  box-shadow:none !important;
+  transition:background 120ms ease, border-color 120ms ease, transform 120ms ease !important;
+  color:#e5e5e7 !important}
+#app .preset-card:hover, #app .list-card:hover, #app .mask-type-card:hover{
+  background:#2a2a2c !important;
+  border-color:#48484a !important}
+#app .preset-card.selected, #app .list-card.selected, #app .mask-type-card.selected,
+#app .lut-card.selected, #app .fx-card.selected{
+  background:#ffffff !important;
+  color:#000000 !important;
+  border-color:#ffffff !important}
+#app .preset-card.selected *, #app .list-card.selected *, #app .mask-type-card.selected *{
+  color:#000000 !important}
+#app .preset-card.selected i.icon-ph, #app .list-card.selected i.icon-ph,
+#app .mask-type-card.selected i.icon-ph{color:#000000 !important}
+
+/* ----- TOP BAR: refined apple.com-style nav ----- */
+#app #topbar .ghost-btn{
+  background:transparent !important;
+  border:1px solid #3a3a3c !important;
+  color:#e5e5e7 !important;
+  border-radius:999px !important;
+  padding:0 16px !important;
+  height:32px !important;
+  font-size:12px !important;font-weight:500 !important;
+  letter-spacing:-0.005em !important;
+  display:inline-flex;align-items:center;gap:6px}
+#app #topbar .ghost-btn:hover{
+  background:rgba(255,255,255,0.06) !important;
+  border-color:#48484a !important}
+#app #topbar .ghost-btn i.icon-ph{font-size:13px !important;color:inherit}
+
+/* ----- THE ONE BLUE: EXPORT button (Apple "Buy" pattern) -----
+   This is the only chromatic element in the editor. Same role as the
+   blue Buy button in apple.com/iphone-17-pro top nav: the most important
+   single action gets the brand-blue treatment. */
+#app .export-btn{
+  background:#0071e3 !important;
+  color:#ffffff !important;
+  border:none !important;
+  border-radius:999px !important;
+  padding:0 18px !important;
+  height:32px !important;
+  font-size:12px !important;font-weight:600 !important;
+  letter-spacing:.01em !important;
+  text-transform:none !important;
+  box-shadow:none !important;
+  display:inline-flex;align-items:center;gap:6px;
+  transition:background 120ms ease !important}
+#app .export-btn:hover{background:#0077ed !important}
+#app .export-btn:active{background:#006edb !important;transform:scale(.985) !important}
+#app .export-btn i.icon-ph{font-size:13px !important;color:#ffffff !important}
+
+/* ----- Apple "outline default, filled active" pattern -----
+   Phosphor regular weight (outline) for default state, fill weight for
+   active/selected. Mirrors iOS tab bar behavior — when you tap a tab,
+   the icon goes from outline to filled. */
+#app .ws-tab.active i.icon-ph::before,
+#app .stab.active i.icon-ph::before,
+#app .tool-btn.active i.icon-ph::before,
+#app .play-btn i.icon-ph::before,
+#app .preset-card.selected i.icon-ph::before,
+#app .list-card.selected i.icon-ph::before,
+#app .mask-type-card.selected i.icon-ph::before{
+  font-family: 'Phosphor-Fill' !important}
