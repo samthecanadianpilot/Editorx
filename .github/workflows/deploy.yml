@@ -1,0 +1,60 @@
+name: Deploy to Vercel (Production)
+
+# Runs on every push to main, plus a manual "Run workflow" button in the
+# GitHub Actions tab. This is the bulletproof alternative to Vercel's
+# GitHub webhook integration — it works even if the webhook is dropped.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Cancel any in-progress deploy when a new commit lands.
+concurrency:
+  group: vercel-prod
+  cancel-in-progress: true
+
+env:
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+jobs:
+  deploy:
+    name: Build + deploy to Vercel
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+
+      - name: Pull Vercel production env
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build for Vercel
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy prebuilt artifact to production
+        id: deploy
+        run: |
+          url=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
+          echo "Deployed: $url"
+          echo "deploy_url=$url" >> "$GITHUB_OUTPUT"
+
+      - name: Summarize in the run page
+        run: |
+          {
+            echo "### Deploy succeeded"
+            echo ""
+            echo "**URL:** ${{ steps.deploy.outputs.deploy_url }}"
+            echo "**Commit:** \`${{ github.sha }}\`"
+            echo "**Branch:** \`${{ github.ref_name }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -19,9 +19,27 @@ Browser-based professional video editor — masks, LUTs, effects, ~250 Google Fo
 
 ## Deploy on Vercel
 
-**Recommended: set Vercel project Root Directory = `webapp`.** Then Vercel reads `webapp/vercel.json` and serves the app from the subdirectory. `/api/*` routes work via Vercel's auto-detection.
+Two paths — pick one.
+
+### Path A: Vercel's built-in GitHub integration
+
+**Recommended layout:** set Vercel project Root Directory = `webapp`. Then Vercel reads `webapp/vercel.json` and serves the app from the subdirectory. `/api/*` routes work via Vercel's auto-detection.
 
 If Root Directory stays `.` (default), the root `vercel.json` rewrites `/(.*)` → `/webapp/$1` and explicitly registers `webapp/api/**/*.js` as functions. Same result, slightly slower routing.
+
+### Path B: GitHub Actions (bulletproof — bypasses Vercel webhook)
+
+The workflow at [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) runs `vercel deploy --prod` from CI on every push to `main`. Use this if Vercel's GitHub webhook stops firing after force-pushes or other history rewrites.
+
+**One-time setup — add three repo secrets at** `https://github.com/samthecanadianpilot/Editorx/settings/secrets/actions`:
+
+| Secret | Where to get it |
+|---|---|
+| `VERCEL_TOKEN` | Vercel dashboard → Account Settings → Tokens → Create Token (full scope) |
+| `VERCEL_ORG_ID` | Vercel dashboard → your team/personal account → Settings → "Your ID" (or visible in any project URL) |
+| `VERCEL_PROJECT_ID` | Vercel dashboard → editorx-beta project → Settings → General → "Project ID" near the bottom |
+
+After the secrets are set, push any commit (or click "Run workflow" on the deploy.yml run page) to trigger a deploy. The CI run prints the live URL in its summary.
 
 ## Local dev
 
