@@ -336,6 +336,11 @@
           <div id="playhead"></div>
           <!-- Blade cut indicator: a thin vertical line that tracks the mouse when the Blade tool is active -->
           <div id="cut-indicator"></div>
+          <!-- Skimmer: FCP-style instant-preview line that follows the mouse over
+               the timeline. Orange to distinguish from the white playhead. -->
+          <div id="skimmer" aria-hidden="true">
+            <div id="skimmer-tip"><span id="skimmer-tc">00:00:00:00</span></div>
+          </div>
         </div>
       </main>
 

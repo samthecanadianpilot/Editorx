@@ -878,6 +878,72 @@ function wireCutIndicator(){
 }
 window.wireCutIndicator = wireCutIndicator;
 
+// ---------- Skimmer (FCP-style instant-preview line) ----------
+// A thin orange vertical line that follows the mouse over the timeline so
+// the user can hover-preview a time position without committing to a seek.
+// Independent of the white playhead, which marks current playback time.
+//
+// Hide rules:
+//   - Blade tool active → cut-indicator owns it (we'd double up otherwise)
+//   - state.isPlaying    → playhead is the source of truth during playback
+//   - Mouse left wrapper
+function wireSkimmer(){
+  const wrap = document.getElementById('timeline-wrapper');
+  const skim = document.getElementById('skimmer');
+  const tc   = document.getElementById('skimmer-tc');
+  if(!wrap || !skim) return;
+
+  const VIEWER_FPS = (window.VIEWER_FPS || 30);
+  const pad = (n, w=2) => String(n).padStart(w, '0');
+
+  // ms → "HH:MM:SS:FF" — matches the playhead timecode format
+  function fmtTC(ms){
+    const ts = Math.max(0, ms);
+    const tot = Math.floor(ts / 1000);
+    const h = Math.floor(tot / 3600);
+    const m = Math.floor((tot % 3600) / 60);
+    const s = tot % 60;
+    const f = Math.floor((ts % 1000) / 1000 * VIEWER_FPS);
+    return pad(h) + ':' + pad(m) + ':' + pad(s) + ':' + pad(f);
+  }
+
+  let lastX = 0;
+  wrap.addEventListener('mousemove', e => {
+    if(state.activeTool === 'blade' || state.isPlaying){
+      skim.classList.remove('visible');
+      return;
+    }
+    const rect = wrap.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    if(x === lastX) return;          // dedupe identical frames
+    lastX = x;
+
+    skim.style.transform = 'translate3d(' + x + 'px,0,0)';
+    skim.classList.add('visible');
+
+    // Convert pixel position → time. Mirrors renderPlayhead math:
+    //   x = TIMELINE_OFFSET_X + (ms/PLAYHEAD_MS_PER_PX) * zoom
+    if(tc){
+      const offset = window.TIMELINE_OFFSET_X || 80;
+      const msPerPx = window.PLAYHEAD_MS_PER_PX || 25;
+      const zoom = state.timelineZoom || 1;
+      const ms = Math.max(0, (x - offset) / zoom * msPerPx);
+      tc.textContent = fmtTC(ms);
+    }
+  });
+
+  wrap.addEventListener('mouseleave', () => skim.classList.remove('visible'));
+
+  // Hide when playback starts; if it stops while hovering, the next
+  // mousemove will reveal it again.
+  if(window.addEventListener){
+    document.addEventListener('editorx:play-state', () => {
+      if(state.isPlaying) skim.classList.remove('visible');
+    });
+  }
+}
+window.wireSkimmer = wireSkimmer;
+
 // ---------- Track header controls ----------
 function wireTrackHeaders(){
   document.querySelectorAll('.track').forEach(trackEl=>{
@@ -1081,6 +1147,9 @@ document.addEventListener('DOMContentLoaded', ()=>{
   }
   // Blade tool — vertical cut-line indicator that follows the cursor over the timeline
   wireCutIndicator();
+  // FCP-style skimmer: orange vertical line + timecode tooltip that follows
+  // the cursor over the timeline (when not playing and not in Blade mode).
+  wireSkimmer();
 
   // Zoom buttons in status bar
   document.getElementById('sb-zoom-in')?.addEventListener('click',  ()=> setTimelineZoom((state.timelineZoom||1) * 1.25));
