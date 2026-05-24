@@ -48,12 +48,17 @@
   --hairline:   rgba(245,244,240,0.06);
   --hairline-2: rgba(245,244,240,0.10);
 
-  /* ---------- Typography — Fraunces (editorial variable serif) across the whole site ---------- */
-  --font:       "Fraunces", Georgia, "Times New Roman", serif;
-  --font-d:     "Fraunces", Georgia, "Times New Roman", serif;
+  /* ---------- Typography — Apple-native sans-serif (SF Pro / Inter) ----------
+     Apple's marketing pages (including apple.com/final-cut-pro) use SF Pro
+     Display via -apple-system. On non-Apple devices we fall back to Inter
+     (Google Font, very close metric match) then system-ui. Fraunces is
+     retained only as an opt-in via .ff-serif utility class for editorial
+     accents (not the default). */
+  --font:       -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Inter", "Helvetica Neue", Arial, sans-serif;
+  --font-d:     -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", "Helvetica Neue", Arial, sans-serif;
+  --font-serif: "Fraunces", Georgia, "Times New Roman", serif;
   --mono:       "JetBrains Mono", "SF Mono", ui-monospace, Menlo, Monaco, monospace;
-  /* Slight optical-size tuning so small UI text stays readable in serif */
-  font-feature-settings: "ss01" 1, "ss02" 1;
+  font-feature-settings: "ss01" 1, "cv11" 1;
   font-optical-sizing: auto;
 
   /* ---------- Spacing scale (4px grid) ---------- */
@@ -1540,56 +1545,89 @@ html,body{
   transform:none !important}
 .starter-github:active{transform:scale(.98) !important}
 
-/* ---- Starter hero typography — cinematic, Apple-scale ---- */
+/* ---- Apple-pure typography (SF Pro sans, heavy display weights) ----
+   Matches apple.com/final-cut-pro: sans-serif throughout, weight 600-700
+   on hero, tracking -0.04em for that "engineered" feel. */
+.starter-headline, .dash-h1, .starter-title{
+  font-family:var(--font-d) !important;
+  font-feature-settings:"ss01" 1, "cv11" 1, "calt" 1}
+
 .starter-headline{
-  font-size:clamp(40px, 5.6vw, 76px) !important;
-  line-height:0.98 !important;
-  letter-spacing:-0.035em !important;
-  font-weight:500 !important;
-  margin-bottom:24px !important}
+  font-size:clamp(44px, 6vw, 88px) !important;
+  line-height:0.96 !important;
+  letter-spacing:-0.045em !important;
+  font-weight:700 !important;
+  margin-bottom:28px !important}
 .starter-headline em{
-  font-style:italic;
-  color:var(--text-1) !important;        /* mono — no chromatic accent */
-  font-weight:400 !important;
-  opacity:.85}
+  font-style:normal !important;      /* Apple sans hero — no italic */
+  background:linear-gradient(135deg, #FFB070 0%, #FF6F91 45%, #B65CFF 100%) !important;
+  -webkit-background-clip:text !important;
+  background-clip:text !important;
+  -webkit-text-fill-color:transparent !important;
+  color:transparent !important;
+  font-weight:700 !important;
+  opacity:1}
+
 .starter-sub{
-  font-size:clamp(15px, 1.15vw, 18px) !important;
-  line-height:1.55 !important;
+  font-size:clamp(16px, 1.2vw, 19px) !important;
+  line-height:1.5 !important;
   color:var(--text-2) !important;
-  max-width:48ch;
-  margin-bottom:48px !important}
+  max-width:52ch;
+  font-weight:400 !important;
+  letter-spacing:-0.01em !important;
+  margin-bottom:64px !important}
+.starter-features{margin-bottom:64px !important}
+.starter-features li{font-size:14px !important;line-height:1.55 !important;font-weight:400 !important}
 .starter-features li i{color:var(--text-3) !important}
-.starter-card{padding:96px 64px !important}
+.starter-fineprint{font-size:11px !important;letter-spacing:0 !important;line-height:1.55 !important}
+.starter-card{padding:96px 56px !important}
 .starter-title{
-  font-size:clamp(36px, 3.6vw, 52px) !important;
-  font-weight:500 !important;
-  line-height:1.05 !important;
-  letter-spacing:-0.03em !important}
+  font-size:clamp(40px, 4vw, 56px) !important;
+  font-weight:700 !important;
+  line-height:1.02 !important;
+  letter-spacing:-0.04em !important}
 .starter-eyebrow{
   font-family:var(--mono);
   font-size:11px;font-weight:600;
-  letter-spacing:.18em;text-transform:uppercase;
-  color:var(--text-3);margin-bottom:18px}
+  letter-spacing:.20em;text-transform:uppercase;
+  color:var(--text-3);margin-bottom:20px}
 .starter-lede{
-  font-size:15px !important;line-height:1.6 !important;
-  color:var(--text-2) !important;margin-bottom:36px !important}
-
-/* ---- Dashboard hero typography ---- */
-.dash-h1{
-  font-size:clamp(36px, 4vw, 56px) !important;
-  font-weight:500 !important;
-  line-height:1.0 !important;
-  letter-spacing:-0.03em !important}
-.dash-h1 em{
-  font-style:italic;
-  color:var(--text-1) !important;        /* mono */
-  opacity:.85;
-  font-weight:400}
-.dash-sub{
-  font-size:15px !important;
-  line-height:1.55 !important;
+  font-size:16px !important;line-height:1.55 !important;
   color:var(--text-2) !important;
+  font-weight:400 !important;
+  letter-spacing:-0.01em !important;
+  margin-bottom:40px !important}
+
+/* ---- Dashboard hero (sans, heavy) ---- */
+.dash-h1{
+  font-size:clamp(40px, 4.4vw, 64px) !important;
+  font-weight:700 !important;
+  line-height:0.98 !important;
+  letter-spacing:-0.04em !important}
+.dash-h1 em{
+  font-style:normal !important;
+  background:linear-gradient(135deg, #FFB070 0%, #FF6F91 50%, #B65CFF 100%) !important;
+  -webkit-background-clip:text !important;
+  background-clip:text !important;
+  -webkit-text-fill-color:transparent !important;
+  color:transparent !important;
+  font-weight:700 !important;
+  opacity:1}
+.dash-sub{
+  font-size:17px !important;
+  line-height:1.5 !important;
+  color:var(--text-2) !important;
+  font-weight:400 !important;
+  letter-spacing:-0.01em !important;
   max-width:62ch}
+
+/* ---- Body baseline tracking (SF Pro reads better with slight negative tracking) ---- */
+body{
+  letter-spacing:-0.005em;
+  font-feature-settings:"ss01" 1, "cv11" 1}
+
+/* ---- Editorial accent class (opt-in only) ---- */
+.ff-serif{font-family:var(--font-serif) !important;font-feature-settings:"ss01" 1, "ss02" 1}
 
 /* ---- Dashboard project cards — refined Apple-style ---- */
 .dash-card{

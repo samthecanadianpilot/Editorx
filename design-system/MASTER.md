@@ -81,12 +81,19 @@ The blue is gone. The accent is now the same warm-white as primary text — prim
 | `--border` | `#2E2A36` | Form controls, clip border |
 | `--hairline` | `rgba(242,239,232,0.06)` | Subtle internal divider |
 
-### Typography
-- **`--font` / `--font-d`** : Fraunces (variable serif, axes 9..144, 300..900). Editorial signature — headings, marketing copy, clip names, modal titles.
-- **`--mono`** : JetBrains Mono. Timecode, shortcut chips, numeric scales (must be tabular).
-- **UI body**: Fraunces at 13px, 1.55 line-height, `-.005em` tracking. Optical sizing on.
-- **Heading sizes**: 32 / 24 / 18 / 16 / 13 (page hero / section / panel-title / button / body).
-- **Numbers in tables/timecode**: enable `font-variant-numeric: tabular-nums` to prevent column jitter.
+### Typography — Apple-native sans
+Apple's marketing pages (apple.com, apple.com/final-cut-pro) and pro tools (FCP, Logic) all use **SF Pro Display** via `-apple-system`. They never use a serif in the UI. EditorX matches.
+
+- **`--font` / `--font-d`** : `-apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", "Helvetica Neue", Arial, sans-serif`. SF Pro on Apple devices, Inter (Google Font) on everything else — near-identical metrics.
+- **`--font-serif`** : Fraunces (variable serif). Reserved for opt-in editorial moments via the `.ff-serif` utility class. Not the default.
+- **`--mono`** : JetBrains Mono. Timecode, shortcut chips, numeric scales — must use `font-variant-numeric: tabular-nums`.
+- **UI body**: 13px / 1.55 / -.005em tracking. Sans is denser than serif at the same size, so 13px reads comfortably.
+- **Hero scale** (matches FCP page):
+  - Starter headline: `clamp(44px, 6vw, 88px)` · weight 700 · tracking -0.045em · line 0.96
+  - Dashboard hero: `clamp(40px, 4.4vw, 64px)` · weight 700 · tracking -0.04em · line 0.98
+  - Starter title (sign-in card): `clamp(40px, 4vw, 56px)` · weight 700 · tracking -0.04em
+- **Emphasis word treatment (the FCP "Intelligence" move):** instead of italic, the `<em>` word in hero gets a gradient text-fill `linear-gradient(135deg, #FFB070 0%, #FF6F91 50%, #B65CFF 100%)` — Apple's signature warm-orange→pink→purple. This is the *only* place chromatic color appears in the marketing surfaces.
+- **Numbers in tables/timecode**: `font-variant-numeric: tabular-nums`.
 
 ### Spacing — 4px grid
 `--s-1 4 · --s-2 8 · --s-3 12 · --s-4 16 · --s-5 24 · --s-6 32`. Section spacing tiers: 16 / 24 / 32.
