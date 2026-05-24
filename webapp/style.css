@@ -2279,3 +2279,36 @@ i[data-lucide] svg,
 /* ---- All Lucide icons in the editor get the refined SF look ---- */
 #app i[data-lucide] svg{
   stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
+
+/* ===========================================================================
+   PHOSPHOR ICON SHIM — bridge from old Lucide-style sizing to Phosphor font
+   =========================================================================== */
+i.icon-ph, i.ph, i[class^="ph-"], i[class*=" ph-"]{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  color:inherit;
+  line-height:1;
+  vertical-align:middle;
+  font-style:normal !important;          /* Phosphor uses <i> as semantic icon */
+}
+/* Old Lucide CSS targeted svg.lucide; the Phosphor icons render as font
+   glyphs, not SVG. Keep existing color/sizing rules working by making
+   .icon-ph inherit currentColor. */
+.tool-btn i.icon-ph, .transport-btn i.icon-ph,
+.stab i.icon-ph, .ws-tab i.icon-ph,
+.ghost-btn i.icon-ph, .export-btn i.icon-ph,
+.primary-btn i.icon-ph{
+  font-size:16px}
+.tool-btn.toggle.active i.icon-ph,
+.tool-btn.active i.icon-ph{color:var(--accent)}
+/* Small inline icons in feature lists / metadata */
+.starter-features li i.icon-ph{font-size:14px;color:var(--text-3)}
+.modal-icon i.icon-ph{font-size:20px}
+/* Badge icons on clips */
+.badge i.icon-ph{font-size:10px;stroke-width:2}
+/* Clip indicator icons */
+.clip-indicators i.icon-ph{font-size:9px}
+/* Track header lock/mute/visibility icons */
+.track-header .tk-icons i.icon-ph{font-size:13px;color:var(--text-3)}
+.track-header .tk-icons i.icon-ph:hover{color:var(--text-1)}
