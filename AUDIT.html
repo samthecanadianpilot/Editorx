@@ -1,0 +1,499 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EditorX — Design Audit</title>
+<style>
+  :root{
+    --bg-1:#0A0B0D; --bg-2:#111114; --surface-1:#16171A; --surface-2:#1E1F23;
+    --ink-0:#F1F2F3; --ink-1:#E5E6E8; --ink-2:#A4A6AA; --ink-3:#6B6E72;
+    --hairline:rgba(241,242,243,0.08);
+    --accent-blue:#0071e3;
+    --good:#30D158; --warn:#FFB340; --danger:#FF453A;
+    --font:-apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Helvetica Neue", Arial, sans-serif;
+    --mono:"SF Mono", "Menlo", "JetBrains Mono", ui-monospace, monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--bg-1);color:var(--ink-0);font-family:var(--font);letter-spacing:-0.005em;line-height:1.55;-webkit-font-smoothing:antialiased}
+  body{padding:80px 32px 120px;max-width:1080px;margin:0 auto}
+  header{margin-bottom:64px}
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:var(--ink-3);margin-bottom:18px}
+  h1{font-size:56px;font-weight:700;letter-spacing:-0.045em;line-height:0.95;margin-bottom:18px}
+  h1 .grad{background:linear-gradient(135deg,#FFB070 0%,#FF6F91 50%,#B65CFF 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
+  .lede{font-size:18px;color:var(--ink-2);max-width:60ch;font-weight:400}
+  .meta-row{display:flex;gap:24px;margin-top:28px;font-family:var(--mono);font-size:12px;color:var(--ink-3);flex-wrap:wrap}
+  .meta-row b{color:var(--ink-1);font-weight:500}
+  .meta-row a{color:var(--ink-1);text-decoration:none;border-bottom:1px solid var(--hairline)}
+  section{margin-bottom:80px}
+  h2{font-size:32px;font-weight:600;letter-spacing:-0.03em;line-height:1.05;margin-bottom:24px}
+  h3{font-size:18px;font-weight:600;margin-top:32px;margin-bottom:14px;color:var(--ink-0);letter-spacing:-0.015em}
+  p{margin-bottom:14px;color:var(--ink-1)}
+  ul,ol{padding-left:0;list-style:none}
+  li{padding:14px 0 14px 36px;border-bottom:1px solid var(--hairline);position:relative}
+  li:last-child{border-bottom:none}
+  li.done::before{content:"";position:absolute;left:6px;top:18px;width:14px;height:14px;border-radius:50%;background:var(--good)}
+  li.left::before{content:"";position:absolute;left:6px;top:18px;width:14px;height:14px;border-radius:50%;background:var(--warn)}
+  li.bug::before{content:"";position:absolute;left:6px;top:18px;width:14px;height:14px;border-radius:50%;background:var(--danger)}
+  li.note::before{content:"";position:absolute;left:6px;top:20px;width:10px;height:10px;border-radius:50%;background:var(--ink-3);left:8px;top:22px}
+  li b{color:var(--ink-0);font-weight:600;display:block;margin-bottom:4px;font-size:15px;letter-spacing:-0.005em}
+  li code, code{font-family:var(--mono);font-size:12.5px;background:rgba(241,242,243,0.05);padding:1.5px 6px;border-radius:4px;color:var(--ink-0)}
+  li .why{font-size:14px;color:var(--ink-2);line-height:1.55}
+  table{width:100%;border-collapse:collapse;margin:20px 0;font-size:14px}
+  th{text-align:left;font-weight:600;color:var(--ink-3);font-size:11px;text-transform:uppercase;letter-spacing:0.06em;padding:10px 14px 10px 0;border-bottom:1px solid var(--hairline);font-family:var(--mono)}
+  td{padding:12px 14px 12px 0;border-bottom:1px solid var(--hairline);color:var(--ink-1);vertical-align:top}
+  td:first-child{font-family:var(--mono);font-size:12.5px;color:var(--ink-2);white-space:nowrap;padding-right:24px}
+  .legend{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;color:var(--ink-3);margin-right:18px}
+  .legend .dot{width:9px;height:9px;border-radius:50%}
+  .dot.green{background:var(--good)}.dot.amber{background:var(--warn)}.dot.red{background:var(--danger)}.dot.gray{background:var(--ink-3)}
+  .commit{font-family:var(--mono);font-size:12px;color:var(--ink-3)}
+  .commit b{color:var(--ink-1)}
+  blockquote{margin:20px 0;padding:18px 22px;background:var(--surface-1);border-left:none;border-radius:8px;color:var(--ink-2);font-size:14.5px}
+  blockquote b{color:var(--ink-0);font-weight:600;display:block;margin-bottom:4px}
+  a{color:var(--accent-blue);text-decoration:none;border-bottom:1px solid rgba(0,113,227,0.4)}
+  a:hover{border-bottom-color:var(--accent-blue)}
+  .pill{display:inline-block;font-family:var(--mono);font-size:10.5px;padding:2px 8px;background:rgba(241,242,243,0.06);border:1px solid var(--hairline);border-radius:999px;color:var(--ink-2);margin-right:6px}
+  .pill.blue{background:rgba(0,113,227,0.12);color:#7FB9FF;border-color:rgba(0,113,227,0.3)}
+  .pill.amber{background:rgba(255,179,64,0.10);color:var(--warn);border-color:rgba(255,179,64,0.25)}
+  .pill.red{background:rgba(255,69,58,0.10);color:#FF7770;border-color:rgba(255,69,58,0.25)}
+  hr{border:none;height:1px;background:var(--hairline);margin:48px 0}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="eyebrow">Audit · 2026-05-24</div>
+  <h1>EditorX <span class="grad">design audit</span>.</h1>
+  <p class="lede">Where we are after fourteen design passes. Live, deployed, and shipped. What landed, what's deferred, and what needs your call.</p>
+  <div class="meta-row">
+    <span><b>Live URL</b> · <a href="https://editorx-beta.vercel.app/">editorx-beta.vercel.app</a></span>
+    <span><b>Repo</b> · <a href="https://github.com/samthecanadianpilot/Editorx">samthecanadianpilot/Editorx</a></span>
+    <span><b>Branch</b> · <code>main</code></span>
+    <span><b>HEAD</b> · <code>9f50a15</code></span>
+    <span><b>Stylesheet</b> · 3,143 lines</span>
+  </div>
+  <div class="meta-row" style="margin-top:18px">
+    <span class="legend"><span class="dot green"></span> done</span>
+    <span class="legend"><span class="dot amber"></span> left / deferred</span>
+    <span class="legend"><span class="dot red"></span> needs you</span>
+    <span class="legend"><span class="dot gray"></span> note</span>
+  </div>
+</header>
+
+<!-- ====================== WHAT'S DONE ====================== -->
+<section>
+  <h2>What landed.</h2>
+
+  <h3>Palette &amp; theme</h3>
+  <ul>
+    <li class="done">
+      <b>Jet black with cohesive cool tint <span class="pill">v5</span></b>
+      <span class="why"><code>--bg-1: #0A0B0D</code> (OKLCH 8% L · 0.005 C · 240 H). Reads pure black to the eye but every neutral leans the same hue — satisfies <code>PRODUCT.md</code> anti-reference against "pure #000/#fff without cohesive strategy."</span>
+    </li>
+    <li class="done">
+      <b>Surface tiers</b>
+      <span class="why"><code>--bg-2 #111114</code> · <code>--surface-1 #16171A</code> · <code>--surface-2 #1E1F23</code> · <code>--surface-3 #2A2B30</code>. Every step roughly 4% lightness. Predictable elevation scale, no random shadows.</span>
+    </li>
+    <li class="done">
+      <b>Tinted neutrals replace pure #FFFFFF / #000000 <span class="pill">v4</span></b>
+      <span class="why">Active pills, primary CTAs, focus rings now use <code>#F1F2F3</code> off-white and <code>#1B1D1F</code> off-black ink — same cool-tint hue as the surfaces.</span>
+    </li>
+    <li class="done">
+      <b>Quiet active states — UI recedes <span class="pill">v4</span></b>
+      <span class="why">Active workspace tabs, sidebar tabs, tool buttons, play button, selected cards dropped from 100% lightness to 92%. Still high contrast (~14:1 AAA) but no longer the brightest pixel on screen. Per <code>PRODUCT.md</code> design principle #1: "Focus on the canvas — UI should recede."</span>
+    </li>
+  </ul>
+
+  <h3>Apple glass on floating chrome <span class="pill">v5</span></h3>
+  <ul>
+    <li class="done">
+      <b>Topbar &amp; toolbar</b>
+      <span class="why"><code>rgba(10,11,13,0.62)</code> + <code>blur(28px) saturate(170%)</code> + <code>inset 0 1px 0 rgba(241,242,243,0.04)</code> (macOS lit-from-above edge highlight).</span>
+    </li>
+    <li class="done">
+      <b>Sidebars (left Browser, right Inspector)</b>
+      <span class="why">Floating glass panels: <code>rgba(15,16,19,0.74)</code> + <code>blur(28px) saturate(170%)</code>.</span>
+    </li>
+    <li class="done">
+      <b>Modals</b>
+      <span class="why">Heavy frost: <code>rgba(20,21,24,0.72)</code> + <code>blur(40px) saturate(180%)</code> + 14px radius. The macOS Big Sur "frosted material" look.</span>
+    </li>
+    <li class="done">
+      <b>Command palette · context menus · onboarding tour · meta pills · timecode</b>
+      <span class="why">All floating popovers get glass with 14-40px blur. Tool-group pills and workspace-tab outer pill use 20px blur + 150% saturation.</span>
+    </li>
+    <li class="note">
+      <b>Discipline: glass only on floating chrome</b>
+      <span class="why">Viewer canvas, timeline tracks, clip backgrounds, dashboard cards stay flat. Per impeccable: "rare and purposeful, or nothing." Glass on background surfaces would compete with the canvas content.</span>
+    </li>
+  </ul>
+
+  <h3>Typography</h3>
+  <ul>
+    <li class="done">
+      <b>Apple-native sans stack <span class="pill">v2</span></b>
+      <span class="why"><code>-apple-system, BlinkMacSystemFont, "SF Pro Text/Display", "Inter", "Helvetica Neue"</code>. SF Pro on Apple devices, Inter (Google Font) on everything else.</span>
+    </li>
+    <li class="done">
+      <b>Marketing-hero scale per apple.com/final-cut-pro</b>
+      <span class="why">Starter headline <code>clamp(44px, 6vw, 88px)</code> · weight 700 · tracking -0.045em. Dashboard <code>clamp(40px, 4.4vw, 64px)</code>. Starter title (sign-in) <code>clamp(40px, 4vw, 56px)</code>.</span>
+    </li>
+    <li class="done">
+      <b>"Intelligence" gradient text-fill on hero emphasis</b>
+      <span class="why">Marketing surfaces only. The em word in "Cut, mask, and color <em>in the browser</em>" + "Your <em>projects</em>." renders in <code>linear-gradient(135deg, #FFB070 0%, #FF6F91 50%, #B65CFF 100%)</code> — Apple's signature warm-orange→pink→purple from the FCP "Intelligence" section.</span>
+    </li>
+    <li class="done">
+      <b>Timecode + monospace UI uses SF Mono</b>
+      <span class="why"><code>"SF Mono", "Menlo", "JetBrains Mono"</code>. Tabular nums on every numeric column (timecode, durations, axis ticks) to prevent column jitter.</span>
+    </li>
+    <li class="done">
+      <b>Editorial serif retained as opt-in only</b>
+      <span class="why">Fraunces preserved as <code>--font-serif</code> via <code>.ff-serif</code> utility class. Not the default.</span>
+    </li>
+  </ul>
+
+  <h3>Apple component patterns <span class="pill">v3</span></h3>
+  <p>Direct ports from the iPhone 17 Pro screenshots you shared.</p>
+  <ul>
+    <li class="done">
+      <b>Segmented pill: workspace tabs (Edit / Color / Effects / Export)</b>
+      <span class="why">The "200mm / 100mm / 48mm" pattern. Dark outer pill, active segment becomes a tinted off-white pill with black text. Phosphor icons swap to filled weight when active.</span>
+    </li>
+    <li class="done">
+      <b>Segmented pill: sidebar tabs (Library / Trans / Color / FX / Titles / Graphics / Masks)</b>
+      <span class="why">Same pattern, stacked icon-above-label. The "Center Stage / Dual Capture" reference. Active = white pill, filled black icon + label.</span>
+    </li>
+    <li class="done">
+      <b>"+ pill" CTA pattern</b>
+      <span class="why">The "Compare iPhone cameras +" form. Dark rounded pill, label left, filled circular plus icon on the right end. Applied to <code>+ Add</code> in Library, <code>Import media</code> button, dashboard <code>+ New Project</code>.</span>
+    </li>
+    <li class="done">
+      <b>Icon-card grid (FX / Transitions / LUTs / Titles / Masks)</b>
+      <span class="why">Active card = solid off-white with black contents. Hover = subtle surface lift.</span>
+    </li>
+    <li class="done">
+      <b>Outline default → filled active icon weight</b>
+      <span class="why">Phosphor regular + fill weights both loaded. CSS targets <code>i.icon-ph::before</code> and swaps <code>font-family: 'Phosphor-Fill'</code> on <code>.active</code> / <code>.selected</code> parents. iOS tab-bar behavior — outline by default, filled when active.</span>
+    </li>
+    <li class="done">
+      <b>Top-bar outline pills (New / Open / Save)</b>
+      <span class="why">apple.com nav "Explore" pattern. 32px height, 999px radius, 1px hairline border.</span>
+    </li>
+  </ul>
+
+  <h3>The one blue moment</h3>
+  <ul>
+    <li class="done">
+      <b><code>.export-btn</code> is the sole chromatic anchor <span class="pill blue">#0071e3</span></b>
+      <span class="why">Same role as the blue "Buy" button in apple.com/iphone-17-pro top nav: the most important single action gets the brand-blue treatment. Every other surface in the editor is monochrome — the eye locates the destination CTA instantly.</span>
+    </li>
+    <li class="note">
+      <b>Three rounds of blue removal sweep</b>
+      <span class="why">All <code>#0a84ff</code>, <code>rgba(10,132,255, *)</code>, <code>rgba(0,132,255, *)</code> references swept to monochrome or <code>var(--accent)</code>. Only the EXPORT button retains blue.</span>
+    </li>
+  </ul>
+
+  <h3>Icons</h3>
+  <ul>
+    <li class="done">
+      <b>Phosphor Icons (regular + fill weights)</b>
+      <span class="why">Replaced Lucide app-wide via a drop-in shim (<code>webapp/icons.js</code>). Every existing <code>&lt;i data-lucide="X"&gt;</code> keeps working untouched; the shim maps the Lucide name to the Phosphor equivalent and renders <code>&lt;i class="ph ph-NAME"&gt;</code> at runtime. ~70 icons mapped.</span>
+    </li>
+    <li class="note">
+      <b>SF Symbols not legally available on the web</b>
+      <span class="why">Apple's license forbids SF Symbols use outside Apple platforms. Phosphor is the closest free, legal SF-Symbols-like set (rounded glyphs, same vocabulary, multiple weights).</span>
+    </li>
+  </ul>
+
+  <h3>Motion</h3>
+  <ul>
+    <li class="done">
+      <b>Exponential ease-out everywhere <span class="pill">v4</span></b>
+      <span class="why"><code>--t-fast</code> ease-out-quart · <code>--t-base</code> ease-out-quint · <code>--t-slow</code>, <code>--t-apple</code> ease-out-expo. All <code>cubic-bezier(0.16, 1, 0.3, 1)</code> family.</span>
+    </li>
+    <li class="done">
+      <b>Bounce / overshoot killed</b>
+      <span class="why">Previous <code>--t-spring: cubic-bezier(0.34, 1.56, 0.64, 1)</code> overshoot was banned by the impeccable skill (shared design law: "No bounce, no elastic"). Replaced with exponential ease-out.</span>
+    </li>
+    <li class="done">
+      <b>Reduced-motion respected</b>
+      <span class="why"><code>@media (prefers-reduced-motion: reduce)</code> disables all transitions globally.</span>
+    </li>
+  </ul>
+
+  <h3>Accessibility</h3>
+  <ul>
+    <li class="done">
+      <b>WCAG 2.4.7 focus indicators</b>
+      <span class="why">22 <code>:focus-visible</code> selectors added across every interactive surface. 2px outline + 2px offset on keyboard focus only — pointer focus stays clean. Previously zero focus-visible rules existed.</span>
+    </li>
+    <li class="done">
+      <b>aria-labels on icon-only buttons</b>
+      <span class="why">Count went 2 → 17. Transport buttons (Play/Stop/Skip/Rewind/Forward/Home/End/Undo/Redo), tool buttons (Select/Blade/Text/Hand/Snap), modal close X's all now have accessible names. <code>aria-hidden="true"</code> on decorative icons.</span>
+    </li>
+    <li class="done">
+      <b>Tabular numerics</b>
+      <span class="why"><code>font-variant-numeric: tabular-nums</code> on timecode, durations, axis ticks. No column jitter as digits change.</span>
+    </li>
+  </ul>
+
+  <h3>Bugs fixed</h3>
+  <ul>
+    <li class="done">
+      <b><code>var(--select)</code> undefined → invisible clip selection border</b>
+      <span class="why">Selected clip border was falling back to browser default. Now uses <code>var(--accent)</code>.</span>
+    </li>
+    <li class="done">
+      <b>Dashboard card aspect-ratio glitch</b>
+      <span class="why">Inline <code>style="aspect-ratio:${canvasW}/${canvasH}"</code> made 9:16 portrait projects have ~600px-tall thumbnails while 16:9 cards were ~180px. Locked thumbs to 16:9, letterbox portrait content, added aspect-ratio badge ("1:1" / "16:9" / "9:16") in top-left.</span>
+    </li>
+    <li class="done">
+      <b>White-text-on-cream-accent invisible buttons</b>
+      <span class="why">When accent shifted from blue to cream, six places had hardcoded <code>color:#fff</code> on <code>background:var(--accent)</code> — rendering white-on-white. Swept to <code>var(--accent-ink)</code>: cmdk active row, onboarding Next button, list-card selected icon, context-menu hover, btn-pulse keyframe, panel-resizer hover, focus ring glow.</span>
+    </li>
+    <li class="done">
+      <b>Dead <code>--accent-glow</code> token removed</b>
+      <span class="why">Declared but never used. Pure dead code.</span>
+    </li>
+    <li class="done">
+      <b>Film-grain overlay removed</b>
+      <span class="why">HTML element + CSS block + override all stripped. Contradicted the "no shiny things" brief.</span>
+    </li>
+  </ul>
+
+  <h3>Empty states</h3>
+  <ul>
+    <li class="done">
+      <b>Library: teach the interface</b>
+      <span class="why">"No media yet · Import video, audio, or images" → <b>"Start with media"</b> + "Drop video, audio, or images here, or pick from your computer. Clips appear in this list and drag onto the timeline below." + <code>⌘O</code> shortcut hint + supported formats list. Per impeccable product reference: "Empty states that teach the interface, not 'nothing here.'"</span>
+    </li>
+  </ul>
+
+  <h3>Repo &amp; deploy</h3>
+  <ul>
+    <li class="done">
+      <b>Repo restructured into <code>/webapp/</code> subdirectory</b>
+      <span class="why">Original layout had everything at root. Vercel project Root Directory was set to <code>webapp</code> (matching a README from a force-pushed commit). Reorganized to match. Dual <code>vercel.json</code> at both root and <code>/webapp/</code> for resilience.</span>
+    </li>
+    <li class="done">
+      <b>Vercel project rootDirectory set to <code>webapp</code> via API</b>
+      <span class="why">Direct API patch to <code>v9/projects/prj_HRR7WzTS7jonrKukFCbDvDAvRbBu</code>. Vercel now treats <code>/webapp/</code> as the project root.</span>
+    </li>
+    <li class="done">
+      <b>GitHub Actions deploy workflow</b>
+      <span class="why"><code>.github/workflows/deploy.yml</code> — runs <code>vercel deploy --prod</code> from CI on every push to main. Bulletproof alternative to Vercel's GitHub webhook (which broke after force-push history rewrites). <span style="color:var(--warn)">Requires three repo secrets: <code>VERCEL_TOKEN</code>, <code>VERCEL_ORG_ID</code>, <code>VERCEL_PROJECT_ID</code>.</span></span>
+    </li>
+    <li class="done">
+      <b>Vercel build pipeline working</b>
+      <span class="why">Static site, no build step. <code>vercel.json</code> at <code>webapp/</code> handles headers + cleanUrls. Previous cache-header alternation regex was rejected by Vercel's path-to-regexp; dropped.</span>
+    </li>
+    <li class="done">
+      <b>Live deploy verified end-to-end</b>
+      <span class="why">HTTP 200 · style.css 3,143 lines · 0 console errors · 0 page errors · 0 failed requests (except the expected <code>/api/me</code> 404 in unauthenticated state).</span>
+    </li>
+  </ul>
+
+  <h3>Design system documentation</h3>
+  <ul>
+    <li class="done">
+      <b><code>webapp/design-system/MASTER.md</code></b>
+      <span class="why">Single source of truth: tokens, anti-patterns, accent system, glass tier, type scale, motion curves, component rules. Mentions PRODUCT.md as the parent brief.</span>
+    </li>
+  </ul>
+</section>
+
+<hr>
+
+<!-- ====================== WHAT'S LEFT ====================== -->
+<section>
+  <h2>What's left.</h2>
+  <p>Most of these need either new JS, HTML restructure, or your decision — not just CSS.</p>
+
+  <h3>Editor features (need JS)</h3>
+  <ul>
+    <li class="left">
+      <b>Skimmer line</b>
+      <span class="why">Orange line that follows the mouse over timeline tracks for instant frame preview, like FCP. CSS already in place (<code>#skimmer / .skimmer</code> styled, <code>--skimmer #ff9f0a</code>). Needs a mousemove handler on <code>#timeline-tracks</code> in <code>ui.js</code> that positions the line at <code>e.clientX</code> relative to the tracks. ~15 lines of JS.</span>
+    </li>
+    <li class="left">
+      <b>Viewer crosshair + safe-zone + grid overlays</b>
+      <span class="why">Checkboxes ("Safe zones", "Crosshair", "Grid") already render under the viewer. Each currently does nothing on toggle. Need canvas-side draw logic: outer 5% / inner 15% safe rectangles, center crosshair, third-thirds rule grid. Hook into the same renderViewer cycle that already paints frames.</span>
+    </li>
+    <li class="left">
+      <b>In/out point markers on clip edges</b>
+      <span class="why">Per the FCP spec. Render small triangle markers at <code>clip.in</code> and <code>clip.out</code> positions inside each clip block. ~30 lines in <code>renderClips</code>.</span>
+    </li>
+    <li class="left">
+      <b>Magnetic timeline behavior on drag</b>
+      <span class="why">Currently clips snap to a fixed grid. FCP-style magnetic timeline = clips collide with each other and push neighbors. Significant — needs <code>engine.js</code> changes to model the timeline as a graph and recompute positions on drop.</span>
+    </li>
+  </ul>
+
+  <h3>Inspector (needs HTML restructure)</h3>
+  <ul>
+    <li class="left">
+      <b>Collapsible Inspector sections</b>
+      <span class="why">Per your FCP spec: <code>Video</code>, <code>Transform (X/Y · scale · rotation)</code>, <code>Crop</code>, <code>Distort</code>, <code>Stabilization</code>, <code>Color</code>, <code>Audio</code>, <code>Clip Info</code> — each as a collapsible section with animated chevron. Current inspector is a flat property list. Needs HTML markup added per section + a small accordion handler.</span>
+    </li>
+    <li class="left">
+      <b>Color wheels (Lift / Gamma / Gain)</b>
+      <span class="why">Three circular gradient color pickers per the brief. Doable in canvas/SVG (you said Swift was optional — I rejected it for the web deploy). ~1-2 hours of focused work.</span>
+    </li>
+  </ul>
+
+  <h3>Marketing surface refinement</h3>
+  <ul>
+    <li class="left">
+      <b>Starter screen + dashboard not yet jet-blackified</b>
+      <span class="why">Phases v4 (impeccable) and v5 (jet-black + glass) are scoped to <code>#app</code> only. The starter screen and dashboard still run on the earlier <em>warm-cream Apple-marketing</em> tokens (which look great in isolation but now diverge from the editor). Decision needed: should marketing surfaces also adopt jet-black-glass, or stay warm as a deliberate contrast moment?</span>
+    </li>
+    <li class="left">
+      <b>Dashboard project cards — glass treatment?</b>
+      <span class="why">Currently flat with subtle hover. Could pick up the floating-glass treatment if marketing surfaces move to jet-black.</span>
+    </li>
+  </ul>
+
+  <h3>Component state coverage</h3>
+  <ul>
+    <li class="left">
+      <b>Comprehensive state audit not yet run</b>
+      <span class="why">Impeccable product reference: <em>"every interactive component has: default, hover, focus, active, disabled, loading, error. Don't ship with half of these."</em> Buttons + tabs + inputs have default/hover/focus/active. <strong>Disabled</strong>, <strong>loading</strong>, and <strong>error</strong> states are inconsistent. Likely 1-2 hours to systematize.</span>
+    </li>
+    <li class="left">
+      <b>Skeleton loading states</b>
+      <span class="why">Long-running operations (Whisper transcription, beat detection, render queue) currently show spinners. Should be skeleton screens per the brief.</span>
+    </li>
+  </ul>
+
+  <h3>Real-content verification</h3>
+  <ul>
+    <li class="left">
+      <b>End-to-end media import flow untested with a real file</b>
+      <span class="why">Headless Playwright tests verify the file-picker fires and accepts the right mime types, but don't actually drop a video in. Clip rendering, color coding, timeline drag, transitions, masks haven't been visually verified with real media on the new jet-black palette.</span>
+    </li>
+  </ul>
+
+  <h3>Documentation</h3>
+  <ul>
+    <li class="left">
+      <b><code>DESIGN.md</code> not yet generated</b>
+      <span class="why">Impeccable skill recommended running <code>/impeccable document</code> to scan the current code and emit a canonical DESIGN.md (separate from MASTER.md). Would document tokens, components, and patterns from what's already shipped.</span>
+    </li>
+    <li class="left">
+      <b><code>~/editorx-web</code> Next.js scaffold orphaned on disk</b>
+      <span class="why">Created early in the session when you initially said "fresh fully" — then pivoted back to the existing webapp. The scaffold (<code>package.json</code> for Next 15 + Drizzle + Auth.js) is still at <code>/Users/nabibalouch/editorx-web/</code>. Not committed anywhere. Safe to delete, or keep if you want a future native-React EditorX rewrite path.</span>
+    </li>
+  </ul>
+</section>
+
+<hr>
+
+<!-- ====================== NEEDS YOU ====================== -->
+<section>
+  <h2>Needs your call.</h2>
+
+  <ul>
+    <li class="bug">
+      <b>Rotate the Vercel token</b>
+      <span class="why">The <code>vcp_8WRCa…</code> token you pasted earlier is still active and visible in this session's conversation history. Anyone with access to this transcript can deploy to your <code>asharpsward-6326s-projects</code> Vercel account. Rotate at <a href="https://vercel.com/account/tokens">vercel.com/account/tokens</a> — delete that token, create a fresh one if you need CLI access again. <strong>Do this regardless of next steps.</strong></span>
+    </li>
+    <li class="bug">
+      <b>GitHub secrets for the CI workflow</b>
+      <span class="why">The <code>.github/workflows/deploy.yml</code> workflow is in the repo but won't run until three secrets exist at <a href="https://github.com/samthecanadianpilot/Editorx/settings/secrets/actions">repo Settings → Secrets → Actions</a>: <code>VERCEL_TOKEN</code> (a fresh one after rotating), <code>VERCEL_ORG_ID</code> (<code>team_8RCUKUFQFYu0kyvpPAgN2gwA</code>), <code>VERCEL_PROJECT_ID</code> (<code>prj_HRR7WzTS7jonrKukFCbDvDAvRbBu</code>). Once added, every push to main auto-deploys.</span>
+    </li>
+    <li class="left">
+      <b>Disk space</b>
+      <span class="why">Your machine has been hovering at 100% capacity (was 295MB free at one point). Vercel CLI install OOM'd once. Free space before any heavy local installs.</span>
+    </li>
+    <li class="left">
+      <b>Marketing vs editor visual cohesion</b>
+      <span class="why">As above: starter + dashboard still use warm-cream-Apple-marketing tokens; the editor moved to jet-black-glass. Either is defensible. Tell me which way to unify.</span>
+    </li>
+    <li class="left">
+      <b>Decide on Inspector scope for the next pass</b>
+      <span class="why">The collapsible sections + color wheels are the biggest visible upgrade left. ~3-4 hours of focused work. Worth doing now, or keep iterating on chrome?</span>
+    </li>
+  </ul>
+</section>
+
+<hr>
+
+<!-- ====================== COMMIT HISTORY ====================== -->
+<section>
+  <h2>Commit history (this session).</h2>
+  <table>
+    <thead><tr><th>SHA</th><th>What</th></tr></thead>
+    <tbody>
+      <tr><td>9f50a15</td><td><b>v5 — Jet black + Apple glass</b><br><span style="color:var(--ink-2)">oklch(8% .005 240) palette; floating chrome gets blur+saturate frost; backgrounds stay flat</span></td></tr>
+      <tr><td>2f90d0f</td><td><b>v4 — Impeccable polish</b><br><span style="color:var(--ink-2)">tinted neutrals replace pure #fff/#000; active pills quieted to 92% L; bounce killed; empty state teaches</span></td></tr>
+      <tr><td>e0d0b24</td><td><b>v3 — Apple patterns</b><br><span style="color:var(--ink-2)">segmented-pill tabs; "+ circle" CTAs; filled-active icons; single blue EXPORT</span></td></tr>
+      <tr><td>45d90e0</td><td><b>Remove blue (round 2)</b><br><span style="color:var(--ink-2)">39 hardcoded blue refs swept; white-on-cream bugs fixed</span></td></tr>
+      <tr><td>03846e3</td><td><b>v2 — FCP-native spec</b><br><span style="color:var(--ink-2)">macOS palette + tool-group pills + exact FCP clip gradients (later quieted)</span></td></tr>
+      <tr><td>8c37f2a</td><td><b>v1 — FCP editor polish</b><br><span style="color:var(--ink-2)">Apple icons; dense chrome; colored timeline clips; translucent topbar</span></td></tr>
+      <tr><td>e1a4a75</td><td><b>Phosphor icons</b><br><span style="color:var(--ink-2)">Lucide→Phosphor drop-in shim; ~70 icons mapped; closest-to-SF-Symbols look</span></td></tr>
+      <tr><td>2f42a0e</td><td><b>Apple-pure typography</b><br><span style="color:var(--ink-2)">SF Pro sans replaces Fraunces hero; Intelligence-gradient text-fill on em words</span></td></tr>
+      <tr><td>f88715f</td><td><b>True-black palette + a11y</b><br><span style="color:var(--ink-2)">mono accent system; glass + ambient tokens; soft shadow scale</span></td></tr>
+      <tr><td>97ccd44</td><td><b>Foundation — refresh + a11y + bug fixes</b><br><span style="color:var(--ink-2)">dashboard aspect-ratio bug; focus rings; aria-labels; film-grain removed; design-system/MASTER.md</span></td></tr>
+    </tbody>
+  </table>
+</section>
+
+<hr>
+
+<!-- ====================== TECHNICAL FACTS ====================== -->
+<section>
+  <h2>Technical facts.</h2>
+  <table>
+    <tbody>
+      <tr><td>Stack</td><td>Vanilla HTML + CSS + JS, no build step. Phosphor icons via CDN. Google Fonts (Inter + Fraunces + JetBrains Mono) via CDN.</td></tr>
+      <tr><td>Repo root</td><td><code>~/.gemini/antigravity/scratch/EditorX/webapp/</code></td></tr>
+      <tr><td>App root</td><td><code>~/.gemini/antigravity/scratch/EditorX/webapp/webapp/</code> (the /webapp/ subdirectory)</td></tr>
+      <tr><td>Stylesheet</td><td><code>webapp/style.css</code> · 3,143 lines · 7 design system passes layered with later overrides winning the cascade</td></tr>
+      <tr><td>Smoke test</td><td><code>~/tmp/editorx-test/test.mjs</code> · drives headless Chrome 148 via Playwright with <code>channel: 'chrome'</code> (no Chromium download needed)</td></tr>
+      <tr><td>Live URL</td><td><a href="https://editorx-beta.vercel.app/">editorx-beta.vercel.app</a></td></tr>
+      <tr><td>Vercel project</td><td><code>prj_HRR7WzTS7jonrKukFCbDvDAvRbBu</code> · Root Directory = <code>webapp</code></td></tr>
+      <tr><td>Vercel team</td><td><code>team_8RCUKUFQFYu0kyvpPAgN2gwA</code> (asharpsward-6326s-projects)</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<hr>
+
+<!-- ====================== ANTI-REFERENCES HIT ====================== -->
+<section>
+  <h2>Anti-references explicitly avoided.</h2>
+  <p>From <code>PRODUCT.md</code> + the impeccable shared design laws.</p>
+  <ul>
+    <li class="note">
+      <b>Pure #000 / pure #fff dark mode</b>
+      <span class="why">Replaced with cool-tinted OKLCH neutrals (hue 240, chroma 0.005). Every neutral cohesive.</span>
+    </li>
+    <li class="note">
+      <b>Side-stripe borders</b>
+      <span class="why">Never used. Full borders, hairline separators, or nothing.</span>
+    </li>
+    <li class="note">
+      <b>Bounce / elastic motion</b>
+      <span class="why">Eliminated. All transitions exponential ease-out.</span>
+    </li>
+    <li class="note">
+      <b>Decorative glassmorphism</b>
+      <span class="why">Glass is on floating chrome only (topbar, sidebars, modals, popovers). Never on background surfaces, never on cards. Apple's actual pattern.</span>
+    </li>
+    <li class="note">
+      <b>Generic SaaS card grids</b>
+      <span class="why">Preset cards differentiate by content (LUT swatches, transition motion previews, FX category icons). Not identical rectangles.</span>
+    </li>
+    <li class="note">
+      <b>"Nothing here" empty states</b>
+      <span class="why">Replaced with teaching copy + shortcut hints + supported formats.</span>
+    </li>
+    <li class="note">
+      <b>Hero-metric SaaS template</b>
+      <span class="why">Not applicable to the editor surface. Marketing surfaces use cinematic typography, not big-number-small-label.</span>
+    </li>
+  </ul>
+</section>
+
+</body>
+</html>
