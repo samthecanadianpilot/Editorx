@@ -1999,3 +1999,283 @@ select:focus-visible{
   outline:none !important;
   border-color:var(--accent) !important;
   box-shadow:0 0 0 4px rgba(245,244,240,0.10) !important}
+
+/* ===========================================================================
+   FCP EDITOR-SURFACE POLISH v1
+   The MARKETING surfaces (starter, dashboard) stay pure-mono Apple-marketing.
+   The EDITOR surface adopts Final Cut Pro's pro-tool density + functional
+   clip color coding (blue video / green audio / purple titles — these are
+   informational, not decorative).
+   Sits at the bottom of the cascade so it wins.
+   =========================================================================== */
+
+/* ---- Icons: Apple SF-Symbols-like stroke weight ----
+   Lucide defaults to 2px stroke. Apple SF Symbols read thinner — 1.7px with
+   round line caps gets close. Applied to every inline lucide SVG. */
+svg.lucide,
+i[data-lucide] svg,
+.lucide{
+  stroke-width:1.75 !important;
+  stroke-linecap:round !important;
+  stroke-linejoin:round !important;
+  vector-effect:non-scaling-stroke}
+
+/* ---- Editor chrome: slight warm-graphite shift (FCP isn't pure #000) ---- */
+#app{
+  background:#0D0E10 !important;       /* warm graphite, not pure black */
+}
+#topbar, #toolbar, #statusbar{
+  background:rgba(20,20,22,0.65) !important;
+  backdrop-filter:blur(28px) saturate(180%) !important;
+  -webkit-backdrop-filter:blur(28px) saturate(180%) !important;
+  border-color:rgba(245,244,240,0.06) !important}
+#sidebar-left, #sidebar-right{
+  background:#0F1012 !important;
+  border-color:rgba(245,244,240,0.05) !important}
+#timeline-wrapper{
+  background:#0A0B0D !important;
+  border-top:1px solid rgba(245,244,240,0.06) !important}
+
+/* ---- Toolbar: FCP-style dense icon row ---- */
+#toolbar{padding:6px 12px !important;gap:4px !important}
+.tool-btn{
+  width:30px !important;height:30px !important;
+  border-radius:6px !important;
+  color:var(--text-2) !important;
+  transition:background 120ms ease, color 120ms ease !important}
+.tool-btn:hover{background:rgba(245,244,240,0.06) !important;color:var(--text-1) !important}
+.tool-btn.active{
+  background:rgba(245,244,240,0.10) !important;
+  color:var(--text-1) !important;
+  box-shadow:inset 0 0 0 1px rgba(245,244,240,0.16) !important}
+.tool-btn i{width:16px !important;height:16px !important}
+.tool-sep{height:18px !important;width:1px;background:rgba(245,244,240,0.10) !important;margin:0 6px !important}
+
+/* ---- Transport: prominent play, refined siblings ---- */
+.transport{gap:2px !important}
+.transport-btn{
+  width:30px !important;height:30px !important;border-radius:6px !important;
+  color:var(--text-2) !important}
+.transport-btn:hover{background:rgba(245,244,240,0.06) !important;color:var(--text-1) !important}
+.transport-btn i{width:15px !important;height:15px !important}
+.play-btn{
+  width:42px !important;height:30px !important;
+  background:var(--accent) !important;color:var(--accent-ink) !important;
+  border-radius:6px !important;
+  box-shadow:0 1px 2px rgba(0,0,0,0.4), 0 0 0 1px rgba(245,244,240,0.10) inset !important}
+.play-btn i{width:17px !important;height:17px !important;stroke-width:2.5 !important}
+.play-btn:hover{background:var(--accent-h) !important}
+
+/* ---- Timecode: bigger, monospace tabular, FCP centerpiece ---- */
+.timecode{
+  font-family:var(--mono) !important;
+  font-size:15px !important;
+  font-weight:500 !important;
+  letter-spacing:.04em !important;
+  font-variant-numeric:tabular-nums !important;
+  color:var(--text-1) !important;
+  background:rgba(245,244,240,0.04) !important;
+  border:1px solid rgba(245,244,240,0.08) !important;
+  border-radius:6px !important;
+  padding:6px 14px !important}
+
+/* ---- Top tabs (Edit/Color/Effects/Export) — FCP workspace pill row ---- */
+.workspace-tabs{gap:2px !important}
+.ws-tab{
+  padding:6px 14px !important;
+  border-radius:7px !important;
+  font-size:12px !important;font-weight:500 !important;letter-spacing:-0.005em !important;
+  color:var(--text-2) !important;
+  transition:background 120ms ease, color 120ms ease !important}
+.ws-tab:hover{background:rgba(245,244,240,0.05) !important;color:var(--text-1) !important}
+.ws-tab.active{
+  background:rgba(245,244,240,0.08) !important;color:var(--text-1) !important;
+  box-shadow:inset 0 0 0 1px rgba(245,244,240,0.12) !important}
+.ws-tab i{width:14px !important;height:14px !important}
+
+/* ---- Sidebar tab strip (Library / Trans / Color / FX / Titles / Graphics / Masks) ---- */
+.sidebar-tabs{padding:8px 6px !important;gap:2px !important;border-bottom:1px solid rgba(245,244,240,0.05) !important}
+.stab{
+  border-radius:6px !important;
+  color:var(--text-3) !important;
+  transition:background 120ms ease, color 120ms ease !important}
+.stab:hover{color:var(--text-1) !important;background:rgba(245,244,240,0.05) !important}
+.stab.active{
+  background:rgba(245,244,240,0.08) !important;
+  color:var(--text-1) !important;
+  box-shadow:none !important}
+.stab span{font-size:10px !important;font-weight:500 !important;letter-spacing:.02em !important;text-transform:none !important;opacity:.95 !important}
+.stab i{width:16px !important;height:16px !important;stroke-width:1.75 !important}
+
+/* ---- Track headers: FCP V1/V2/A1 with vertical mute/solo/lock strip ---- */
+.track-header{
+  background:#13141A !important;
+  border-right:1px solid rgba(245,244,240,0.08) !important;
+  padding:0 10px !important;
+  font-family:var(--font) !important}
+.track-header .tk-name{
+  font-size:11px !important;
+  font-weight:600 !important;
+  letter-spacing:.02em !important;
+  color:var(--text-1) !important;
+  text-transform:none !important}
+.track-header .tk-icons i{
+  width:13px !important;height:13px !important;
+  color:var(--text-3) !important;
+  stroke-width:1.75 !important}
+.track-header .tk-icons i:hover{color:var(--text-1) !important}
+
+/* ---- Timeline ruler: thinner ticks, frame-precise feel ---- */
+#timeline-ruler{
+  font-family:var(--mono) !important;
+  font-size:10px !important;
+  color:var(--text-3) !important;
+  background:#0A0B0D !important;
+  border-bottom:1px solid rgba(245,244,240,0.06) !important;
+  letter-spacing:.02em}
+
+/* ---- Track lanes: subtle horizontal stripes ---- */
+.track-lane{
+  background:transparent !important;
+  border-bottom:1px solid rgba(245,244,240,0.04) !important}
+.track-lane.drop-target{
+  background:rgba(245,244,240,0.04) !important;
+  box-shadow:inset 0 0 0 1px rgba(245,244,240,0.20) !important}
+
+/* ---- Clips: FCP-style colored blocks with name strip ----
+   Background gets a saturated functional color (video=blue, audio=green,
+   text=purple, graphic=amber). A 14px name strip sits at the top of every
+   clip with the clip name in white. Selected clip gets a 2px outer ring. */
+.clip{
+  background:var(--surface-2) !important;
+  border:1px solid rgba(245,244,240,0.10) !important;
+  border-radius:5px !important;
+  box-shadow:none !important;
+  overflow:hidden;
+  font-family:var(--font) !important}
+.clip:hover{
+  transform:none !important;
+  border-color:rgba(245,244,240,0.22) !important;
+  box-shadow:0 4px 12px rgba(0,0,0,0.4) !important}
+.clip.selected{
+  border:none !important;
+  box-shadow:0 0 0 2px var(--accent), 0 4px 14px rgba(0,0,0,0.5) !important}
+
+/* FCP-authentic clip color coding (informational) */
+.clip.video{
+  background:linear-gradient(180deg, #1F3A5C 0%, #18324F 100%) !important;
+  border-color:rgba(120,170,230,0.22) !important}
+.clip.video:hover{background:linear-gradient(180deg, #244468 0%, #1C3A5C 100%) !important}
+.clip.audio{
+  background:linear-gradient(180deg, #1F4A2D 0%, #18402A 100%) !important;
+  border-color:rgba(120,200,140,0.22) !important}
+.clip.audio:hover{background:linear-gradient(180deg, #245634 0%, #1C4A2E 100%) !important}
+.clip.text{
+  background:linear-gradient(180deg, #3D2B5C 0%, #322449 100%) !important;
+  border-color:rgba(170,140,220,0.22) !important}
+.clip.text:hover{background:linear-gradient(180deg, #45316A 0%, #392952 100%) !important}
+.clip.graphic{
+  background:linear-gradient(180deg, #4A3920 0%, #3D2E18 100%) !important;
+  border-color:rgba(220,180,120,0.22) !important}
+
+/* Clip name strip at top (FCP signature) */
+.clip-header-stripe{
+  position:absolute !important;top:0 !important;left:0 !important;right:0 !important;
+  height:16px !important;
+  background:rgba(0,0,0,0.30) !important;
+  border-bottom:1px solid rgba(255,255,255,0.08) !important;
+  display:block !important}
+.clip.video  .clip-header-stripe{background:rgba(120,170,230,0.18) !important}
+.clip.audio  .clip-header-stripe{background:rgba(120,200,140,0.18) !important}
+.clip.text   .clip-header-stripe{background:rgba(170,140,220,0.18) !important}
+.clip.graphic .clip-header-stripe{background:rgba(220,180,120,0.18) !important}
+
+.clip-name{
+  position:absolute !important;top:0 !important;left:6px !important;right:6px !important;
+  height:16px !important;line-height:16px !important;
+  font-size:10.5px !important;font-weight:600 !important;
+  color:rgba(255,255,255,0.95) !important;
+  letter-spacing:.01em !important;
+  text-shadow:none !important;
+  padding:0 !important;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+.clip-duration{
+  font-family:var(--mono) !important;
+  font-size:9px !important;
+  font-variant-numeric:tabular-nums !important;
+  background:rgba(0,0,0,0.55) !important;
+  border-radius:3px !important;
+  padding:2px 5px !important;
+  bottom:4px !important;right:5px !important}
+
+/* Clip thumbnails - flat color block (no gradient cliché) */
+.clip-thumbnails{top:18px !important;opacity:.55 !important}
+.thumb{background:rgba(255,255,255,0.04) !important;border-right:1px solid rgba(0,0,0,0.30) !important}
+
+/* Audio waveform — flat color bar, no gradient */
+.clip-waveform{top:18px !important}
+.wave-bar{background:rgba(160,220,180,0.7) !important;border-radius:1px}
+
+/* Trim handles — refined */
+.trim-handle{width:6px !important;background:transparent !important}
+.clip:hover .trim-handle, .clip.selected .trim-handle{
+  background:rgba(255,255,255,0.10) !important}
+.trim-handle:hover{background:var(--accent) !important}
+
+/* Clip badges (mask/transition/lut/fx indicators) — Apple-tasteful */
+.badge{
+  height:14px !important;
+  font-size:8.5px !important;font-weight:600 !important;
+  letter-spacing:.04em !important;
+  padding:0 5px !important;border-radius:3px !important;
+  background:rgba(0,0,0,0.55) !important;
+  border:1px solid rgba(255,255,255,0.10) !important;
+  backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.badge i{width:9px !important;height:9px !important;stroke-width:2 !important}
+
+/* ---- Inspector: FCP-style dense parameter rows ---- */
+#sidebar-right{
+  background:#0F1012 !important;
+  border-left:1px solid rgba(245,244,240,0.05) !important}
+.inspector-header{
+  background:transparent !important;
+  border-bottom:1px solid rgba(245,244,240,0.06) !important;
+  padding:14px 16px !important}
+.inspector-header h2, .inspector-header .insp-title{
+  font-size:14px !important;font-weight:600 !important;letter-spacing:-0.01em !important;
+  color:var(--text-1) !important}
+
+/* ---- Status bar: thin, monospace metadata strip ---- */
+#statusbar{
+  height:30px !important;
+  padding:0 14px !important;
+  font-size:11px !important;
+  font-family:var(--font) !important;
+  border-top:1px solid rgba(245,244,240,0.06) !important}
+.sb-status{font-family:var(--mono) !important;letter-spacing:.02em}
+
+/* ---- Playhead — bright Apple-white, 1px crisp ---- */
+#playhead, .playhead{
+  background:var(--accent) !important;
+  width:1px !important;
+  box-shadow:0 0 0 0.5px rgba(0,0,0,0.4) !important}
+
+/* ---- Selection brackets / context menu — refined ---- */
+.ctx-menu{
+  background:var(--glass-2) !important;
+  backdrop-filter:blur(28px) saturate(180%) !important;
+  -webkit-backdrop-filter:blur(28px) saturate(180%) !important;
+  border:1px solid rgba(245,244,240,0.08) !important;
+  border-radius:10px !important;
+  box-shadow:var(--shadow-lg) !important;
+  padding:5px !important}
+.ctx-item{
+  font-size:12.5px !important;
+  border-radius:5px !important;
+  padding:6px 10px !important}
+.ctx-item kbd{font-family:var(--mono);font-size:10px;color:var(--text-3)}
+
+/* ---- All Lucide icons in the editor get the refined SF look ---- */
+#app i[data-lucide] svg{
+  stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
