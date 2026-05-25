@@ -1148,19 +1148,23 @@ function buildTrackDOM(tid, type){
   if(typeof wireTrackHeaders === 'function') wireTrackHeaders();
 }
 
-// Restack tracks vertically: video (descending: V4, V3, V2, V1) on top,
-// audio next, text last. Matches FCP's spatial convention.
+// Restack tracks vertically per user request: TITLES on top, then VIDEO
+// (descending V_higher above V_lower), then AUDIO at the bottom.
+//   T_higher … T1 · V_higher … V1 · A1 … A_higher
+// Title clips composite on top of video, so the visual stack now matches
+// the rendering stack.
 function reorderTrackDOM(){
   const wrap = document.getElementById('timeline-tracks');
   if(!wrap) return;
   const trackNodes = Array.from(wrap.querySelectorAll('.track'));
   const order = (n) => {
     const id = n.dataset.track || '';
-    const t = id[0];                       // 'v' | 'a' | 't'
+    const t = id[0];                       // 't' | 'v' | 'a'
     const i = parseInt(id.slice(1), 10) || 0;
-    // Video tracks top: V<higher> above V<lower>. Sort key: type weight + (-idx for video so higher comes first).
-    const groupWeight = { v:0, a:1, t:2 }[t] ?? 9;
-    const idxKey = t === 'v' ? -i : i;
+    const groupWeight = { t:0, v:1, a:2 }[t] ?? 9;
+    // For T and V, higher index sits above lower (T2 above T1; V3 above V1).
+    // For A, lower index sits above higher (A1 above A2) — closer to viewer.
+    const idxKey = (t === 't' || t === 'v') ? -i : i;
     return groupWeight * 100 + idxKey;
   };
   trackNodes.sort((a, b) => order(a) - order(b));
@@ -1174,17 +1178,39 @@ function wireAddTrack(){
   const menu = document.getElementById('track-add-menu');
   if(!btn || !menu || btn.dataset.wired === '1') return;
   btn.dataset.wired = '1';
+
   function close(){ menu.classList.add('hidden'); btn.setAttribute('aria-expanded','false'); }
+  function position(){
+    // Anchor the menu above the button. position:fixed means viewport-relative.
+    const r = btn.getBoundingClientRect();
+    menu.style.left   = Math.round(r.left) + 'px';
+    menu.style.bottom = Math.round(window.innerHeight - r.top + 6) + 'px';
+  }
+  function open(){
+    position();
+    menu.classList.remove('hidden');
+    btn.setAttribute('aria-expanded', 'true');
+  }
+
   btn.addEventListener('click', e => {
     e.stopPropagation();
-    const open = menu.classList.toggle('hidden') === false;
-    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if(menu.classList.contains('hidden')) open();
+    else close();
   });
+
+  // Click anywhere outside closes
   document.addEventListener('click', e => {
     if(!menu.classList.contains('hidden') && !menu.contains(e.target) && e.target !== btn){
       close();
     }
   });
+
+  // If the user scrolls the timeline / resizes the window with the menu
+  // open, close it (anchored coords would drift otherwise).
+  const tracksEl = document.getElementById('timeline-tracks');
+  tracksEl?.addEventListener('scroll', () => { if(!menu.classList.contains('hidden')) close(); }, { passive:true });
+  window.addEventListener('resize', () => { if(!menu.classList.contains('hidden')) close(); });
+
   menu.querySelectorAll('button[data-add-type]').forEach(opt => {
     opt.addEventListener('click', e => {
       e.stopPropagation();
@@ -1405,6 +1431,23 @@ document.addEventListener('DOMContentLoaded', ()=>{
   // FCP-style skimmer: orange vertical line + timecode tooltip that follows
   // the cursor over the timeline (when not playing and not in Blade mode).
   wireSkimmer();
+
+  // ---- Click empty timeline area → deselect ----
+  // Clicking on a .track-lane (or the tracks container itself) but NOT on a
+  // clip clears the selection. The clip's own click handler runs first and
+  // sets state.selectedClipId; this handler only fires when the click target
+  // is the lane background.
+  document.getElementById('timeline-tracks')?.addEventListener('click', (e) => {
+    if(e.target.closest('.clip')) return;                  // clicked a clip — handled elsewhere
+    if(e.target.closest('.track-header')) return;          // clicked a header control
+    if(e.target.closest('.track-add')) return;             // clicked the + Add Track row
+    // Empty lane / tracks-bg → deselect
+    if(state.selectedClipId || state.selectedMaskId){
+      state.selectedClipId = null;
+      state.selectedMaskId = null;
+      render();
+    }
+  });
 
   // ---- Add Track button + popover ----
   wireAddTrack();

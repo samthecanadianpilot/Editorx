@@ -3506,7 +3506,10 @@ body.is-playing #app #skimmer{opacity:0 !important}
   background:rgba(241,242,243,0.04)}
 #app .track-add-btn i.icon-ph{font-size:12px}
 #app .track-add-menu{
-  position:absolute;left:12px;bottom:32px;
+  /* position:fixed so the popover escapes #timeline-tracks (which clips
+     overflow + shares a stacking context with the playhead at z=10). JS sets
+     left/bottom from the button's bounding rect on open. */
+  position:fixed;
   display:flex;flex-direction:column;gap:1px;
   background:var(--glass-menu, rgba(20,21,24,0.85));
   backdrop-filter:blur(28px) saturate(180%);
@@ -3514,7 +3517,7 @@ body.is-playing #app #skimmer{opacity:0 !important}
   border:1px solid rgba(241,242,243,0.10);
   border-radius:8px;padding:4px;
   box-shadow:0 16px 48px rgba(0,0,0,0.55), inset 0 1px 0 rgba(241,242,243,0.05);
-  z-index:50}
+  z-index:1000}
 #app .track-add-menu.hidden{display:none}
 #app .track-add-menu button{
   display:flex;align-items:center;gap:8px;
@@ -3526,3 +3529,40 @@ body.is-playing #app #skimmer{opacity:0 !important}
   min-width:140px}
 #app .track-add-menu button:hover{background:rgba(241,242,243,0.06)}
 #app .track-add-menu button i.icon-ph{font-size:13px;color:var(--text-3)}
+
+/* ===========================================================================
+   CLIP TRANSITION OVERLAY — DaVinci-style draggable handle at the start of
+   any clip that has a transition. Width represents transition duration.
+   Drag the right edge (.ct-handle) to change clip.transitionDuration.
+   =========================================================================== */
+#app .clip-transition{
+  position:absolute;
+  left:0;top:0;bottom:0;
+  background:linear-gradient(90deg, rgba(255,159,10,0.32) 0%, rgba(255,159,10,0.10) 100%);
+  border-right:1px solid rgba(255,159,10,0.55);
+  pointer-events:auto;
+  overflow:hidden;
+  display:flex;align-items:flex-end;
+  padding:0 4px 2px 4px;
+  z-index:2;
+  cursor:default;
+  user-select:none}
+#app .clip-transition .ct-label{
+  font-family:"SF Mono","Menlo",monospace;
+  font-size:9px;font-weight:600;letter-spacing:.02em;
+  color:#fff;
+  text-shadow:0 1px 1px rgba(0,0,0,0.6);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  pointer-events:none}
+#app .clip-transition .ct-handle{
+  position:absolute;
+  top:0;bottom:0;right:-3px;
+  width:7px;
+  cursor:ew-resize;
+  background:transparent;
+  z-index:3}
+#app .clip-transition .ct-handle:hover,
+#app .clip-transition .ct-handle:active{
+  background:linear-gradient(90deg, transparent, rgba(255,159,10,0.95))}
+#app .clip:hover .clip-transition{
+  background:linear-gradient(90deg, rgba(255,159,10,0.40) 0%, rgba(255,159,10,0.14) 100%)}

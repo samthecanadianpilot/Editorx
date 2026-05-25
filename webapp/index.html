@@ -297,6 +297,17 @@
         <div id="timeline-wrapper">
           <div id="timeline-ruler"><canvas id="ruler-canvas"></canvas></div>
           <div id="timeline-tracks">
+            <!-- Order: text on top, then video, then audio. Title clips
+                 composite on top, so putting T-tracks visually highest
+                 matches the stacking semantics. -->
+            <div class="track" data-track="t1" data-type="text">
+              <div class="track-header">
+                <span class="track-icon"><i data-lucide="type" width="12" height="12"></i></span>
+                <span class="track-name">T1</span>
+                <button class="track-ctrl" data-action="visibility" title="Visibility"><i data-lucide="eye" width="11" height="11"></i></button>
+              </div>
+              <div class="track-lane" id="track-t1"></div>
+            </div>
             <div class="track" data-track="v2" data-type="video">
               <div class="track-header">
                 <span class="track-icon"><i data-lucide="layers-2" width="12" height="12"></i></span>
@@ -323,14 +334,6 @@
                 <button class="track-ctrl" data-action="lock" title="Lock"><i data-lucide="unlock" width="11" height="11"></i></button>
               </div>
               <div class="track-lane" id="track-a1"></div>
-            </div>
-            <div class="track" data-track="t1" data-type="text">
-              <div class="track-header">
-                <span class="track-icon"><i data-lucide="type" width="12" height="12"></i></span>
-                <span class="track-name">T1</span>
-                <button class="track-ctrl" data-action="visibility" title="Visibility"><i data-lucide="eye" width="11" height="11"></i></button>
-              </div>
-              <div class="track-lane" id="track-t1"></div>
             </div>
             <!-- Add Track affordance: small + button at the end of the track
                  stack opens a popover with Video / Audio / Title options. -->

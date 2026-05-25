@@ -185,7 +185,53 @@ function renderClips(){
       // FCP-style in/out point markers — small triangles at the bottom-inside
       // corners of every clip. Aria-hidden since they're decorative.
       inner += '<span class="in-marker" aria-hidden="true"></span><span class="out-marker" aria-hidden="true"></span>';
+
+      // DaVinci-style transition overlay — a translucent ramp at the clip's
+      // start whose width represents the transition duration. The user can
+      // drag the right edge to change clip.transitionDuration; the catalog's
+      // `duration` is the default but each clip can override.
+      if(clip.transition){
+        const tr = (window.TRANSITIONS || []).find(t => t.id === clip.transition);
+        if(tr){
+          const dur = clip.transitionDuration ?? tr.duration ?? 0.5;
+          const wPx = Math.max(8, Math.round(dur * TIMELINE_PX_PER_S * zoom));
+          inner += `<div class="clip-transition" data-trans="${tr.id}" style="width:${wPx}px" title="${tr.name} · ${dur.toFixed(2)}s — drag the right edge to resize">
+            <span class="ct-label">${escapeHtml(tr.name)} · ${dur.toFixed(2)}s</span>
+            <div class="ct-handle" aria-label="Drag to resize transition"></div>
+          </div>`;
+        }
+      }
       el.innerHTML = inner;
+
+      // Drag the transition overlay's right edge → resize clip.transitionDuration.
+      // Bounded by [0.1s, half the clip length] so users can't blow past the clip.
+      const ctHandle = el.querySelector('.ct-handle');
+      if(ctHandle){
+        ctHandle.addEventListener('mousedown', (e)=>{
+          e.stopPropagation();
+          e.preventDefault();
+          const tr = (window.TRANSITIONS || []).find(t => t.id === clip.transition);
+          if(!tr) return;
+          const startX = e.clientX;
+          const startDur = clip.transitionDuration ?? tr.duration ?? 0.5;
+          const clipDurS = clip.w / TIMELINE_PX_PER_S;
+          const onMove = (ev)=>{
+            const z = state.timelineZoom || 1;
+            const dxS = (ev.clientX - startX) / (TIMELINE_PX_PER_S * z);
+            const newDur = Math.max(0.1, Math.min(clipDurS * 0.5, startDur + dxS));
+            clip.transitionDuration = Math.round(newDur * 100) / 100;   // snap to 0.01s
+            renderClips();
+            renderViewer();
+          };
+          const onUp = ()=>{
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+            pushHistory();
+          };
+          document.addEventListener('mousemove', onMove);
+          document.addEventListener('mouseup', onUp);
+        });
+      }
 
       el.addEventListener('click', (e)=>{
         if(el.dataset.dragMoved==='1'){ el.dataset.dragMoved='0'; return; }
@@ -1645,7 +1691,9 @@ function transitionEntry(clip){
   const tr = (window.TRANSITIONS || []).find(t => t.id === clip.transition);
   if(!tr) return null;
   const tRel = clipTimeAtPlayhead(clip);
-  const dur = tr.duration || 0.5;
+  // Honour the per-clip override (set by dragging the transition overlay's
+  // right edge); fall back to the catalog default.
+  const dur = clip.transitionDuration ?? tr.duration ?? 0.5;
   if(tRel >= dur) return null;
   const p = Math.max(0, Math.min(1, tRel / dur));     // 0 → 1
   const ease = 1 - (1-p)*(1-p);                       // easeOut
