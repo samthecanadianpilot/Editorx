@@ -985,10 +985,18 @@ function renderInspector(){
   content.querySelector('[data-action="speak"]')   ?.addEventListener('click', ()=>{
     speakText(clip.text || clip.name || '');
   });
-  // Animation preset buttons
-  content.querySelectorAll('.anim-btn').forEach(btn=>{
+  // Animation preset buttons. After applying, auto-preview the animation:
+  // scrub the playhead across the keyframes' time range so the user
+  // immediately SEES it. Without this, the viewer sits at the base
+  // keyframe value (no visible change) until they press Space — and the
+  // animations look broken.
+  content.querySelectorAll('.anim-btn[data-anim]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       const kind = btn.dataset.anim;
+      const animatedProps = {
+        zoom:'scale', shake:'posX', pan:'posX', ken:'scale',
+        fadeIn:'opacity', fadeOut:'opacity', speedRamp:'speed'
+      };
       switch(kind){
         case 'zoom':      applyZoomPunch(clip.id); break;
         case 'shake':     applyBeatShake(clip.id); break;
@@ -1001,9 +1009,20 @@ function renderInspector(){
         case 'wordPop':   updateClip(clip.id, {revealMode:'wordPop',    revealDur: Math.min(2.5, (clip.w/TIMELINE_PX_PER_S)*0.7)}); break;
       }
       pushHistory(); renderInspector(); renderViewer();
-      flash(btn.textContent.trim() + ' added');
       btn.classList.add('btn-pulse');
       setTimeout(()=>btn.classList.remove('btn-pulse'), 600);
+
+      // Auto-preview: scrub the playhead through the new keyframes so the
+      // user sees the animation live. Skips text-only reveals (typewriter /
+      // wordPop) — those handle their own preview via the existing reveal
+      // pipeline.
+      const propForPreview = animatedProps[kind];
+      if(propForPreview && typeof previewClipAnimation === 'function'){
+        previewClipAnimation(clip, propForPreview);
+        flash(btn.textContent.trim() + ' added · previewing');
+      } else {
+        flash(btn.textContent.trim() + ' added — press Space to preview');
+      }
     });
   });
   // Diamond keyframe buttons — snapshot current value at playhead
@@ -1569,6 +1588,58 @@ function drawTextClip(ctx, canvas, clip){
 // {opacity, dx, dy, dscale, blur, dipColor} object the drawXxx callers
 // fold into their transform. `dipColor` is a non-null value when this
 // transition should paint a full-frame flash over the canvas.
+// Briefly scrub the playhead through a newly-applied animation so the user
+// sees it WITHOUT pressing Space. The scrub uses RAF and renderViewer/Playhead
+// only (no audio, no full playback engine). After the keyframe span elapses,
+// restore the original playhead position.
+//
+// Why this exists: animations like Zoom Punch are 0.22s pulses. Clicking the
+// preset writes keyframes at the current playhead — but the static viewer
+// shows the BASE keyframe value, so users get no visual feedback. They think
+// the button "doesn't work." This makes the effect immediately visible.
+let _previewRAF = null;
+function previewClipAnimation(clip, prop){
+  if(!clip || !clip.keyframes || !clip.keyframes[prop] || !clip.keyframes[prop].length) return;
+  if(state.isPlaying) return;     // don't fight a real playback
+  if(_previewRAF){ cancelAnimationFrame(_previewRAF); _previewRAF = null; }
+
+  // Convert keyframe relative times back to absolute timeline ms.
+  const clipStartMs = (clip.x - TIMELINE_OFFSET_X) * (1000 / TIMELINE_PX_PER_S);
+  const kfs = clip.keyframes[prop];
+  const firstMs = clipStartMs + kfs[0].t * 1000;
+  const lastMs  = clipStartMs + kfs[kfs.length - 1].t * 1000;
+  // Pad a beat before/after so the user sees the entire arc settle.
+  const startMs = Math.max(0, firstMs - 200);
+  const endMs   = lastMs + 250;
+  const spanMs  = endMs - startMs;
+  if(spanMs <= 0) return;
+
+  const origPlayhead = state.playhead;
+  const t0 = performance.now();
+  function tick(now){
+    const elapsed = now - t0;
+    if(elapsed >= spanMs){
+      state.playhead = origPlayhead;
+      if(window.renderPlayhead) renderPlayhead();
+      if(window.renderTimecode) renderTimecode();
+      if(window.renderViewer)   renderViewer();
+      _previewRAF = null;
+      return;
+    }
+    state.playhead = startMs + elapsed;
+    if(window.renderPlayhead) renderPlayhead();
+    if(window.renderTimecode) renderTimecode();
+    if(window.renderViewer)   renderViewer();
+    _previewRAF = requestAnimationFrame(tick);
+  }
+  _previewRAF = requestAnimationFrame(tick);
+}
+function cancelClipAnimationPreview(){
+  if(_previewRAF){ cancelAnimationFrame(_previewRAF); _previewRAF = null; }
+}
+window.previewClipAnimation = previewClipAnimation;
+window.cancelClipAnimationPreview = cancelClipAnimationPreview;
+
 function transitionEntry(clip){
   if(!clip.transition) return null;
   const tr = (window.TRANSITIONS || []).find(t => t.id === clip.transition);
