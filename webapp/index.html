@@ -332,6 +332,19 @@
               </div>
               <div class="track-lane" id="track-t1"></div>
             </div>
+            <!-- Add Track affordance: small + button at the end of the track
+                 stack opens a popover with Video / Audio / Title options. -->
+            <div class="track-add">
+              <button id="btn-add-track" class="track-add-btn" aria-haspopup="true" aria-expanded="false" title="Add a track">
+                <i data-lucide="plus" width="13" height="13" aria-hidden="true"></i>
+                <span>Add Track</span>
+              </button>
+              <div id="track-add-menu" class="track-add-menu hidden" role="menu">
+                <button role="menuitem" data-add-type="video"><i data-lucide="video" width="13" height="13" aria-hidden="true"></i><span>Video track</span></button>
+                <button role="menuitem" data-add-type="audio"><i data-lucide="volume-2" width="13" height="13" aria-hidden="true"></i><span>Audio track</span></button>
+                <button role="menuitem" data-add-type="text"><i data-lucide="type" width="13" height="13" aria-hidden="true"></i><span>Title track</span></button>
+              </div>
+            </div>
           </div>
           <div id="playhead"></div>
           <!-- Blade cut indicator: a thin vertical line that tracks the mouse when the Blade tool is active -->

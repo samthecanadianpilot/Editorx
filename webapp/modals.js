@@ -1004,7 +1004,9 @@ function wireCutIndicator(){
       return;
     }
     const rect = wrap.getBoundingClientRect();
-    indicator.style.transform = 'translate3d(' + (e.clientX - rect.left) + 'px,0,0)';
+    // Write to a CSS var instead of style.transform so the scroll-sync
+    // can compose it with the timeline-tracks scrollLeft.
+    indicator.style.setProperty('--ci-x', (e.clientX - rect.left) + 'px');
     indicator.classList.add('visible');
   });
   wrap.addEventListener('mouseleave', ()=>indicator.classList.remove('visible'));
@@ -1051,7 +1053,8 @@ function wireSkimmer(){
     if(x === lastX) return;          // dedupe identical frames
     lastX = x;
 
-    skim.style.transform = 'translate3d(' + x + 'px,0,0)';
+    // CSS var instead of inline transform so scroll-sync can compose
+    skim.style.setProperty('--sk-x', x + 'px');
     skim.classList.add('visible');
 
     // Convert pixel position → time. Mirrors renderPlayhead math:
@@ -1076,6 +1079,125 @@ function wireSkimmer(){
   }
 }
 window.wireSkimmer = wireSkimmer;
+
+// ---------- Dynamic track management ----------
+// Add a track of `type` ('video' | 'audio' | 'text'). Finds the next unused
+// slot in state.tracks, creates the model + DOM, then triggers a render.
+// Max 4 tracks per type keeps the UI manageable; adjust if needed.
+const TRACK_TYPE_PREFIX = { video:'v', audio:'a', text:'t' };
+const TRACK_TYPE_LABEL  = { video:'V', audio:'A', text:'T' };
+const TRACK_TYPE_ICON   = { video:'video', audio:'volume-2', text:'type' };
+const TRACK_TYPE_MAX    = 4;
+
+function addTrack(type){
+  const prefix = TRACK_TYPE_PREFIX[type];
+  if(!prefix){ if(typeof flash==='function') flash('Unknown track type'); return null; }
+  // Find next free slot index (1-indexed)
+  let idx = 1;
+  while(state.tracks[prefix + idx]){ idx++; }
+  if(idx > TRACK_TYPE_MAX){
+    if(typeof flash==='function') flash(`Maximum ${TRACK_TYPE_MAX} ${type} tracks`);
+    return null;
+  }
+  const tid = prefix + idx;
+  const baseModel = { muted:false, locked:false, visible:true };
+  if(type === 'video') baseModel.blend = 'normal';
+  state.tracks[tid] = baseModel;
+
+  // Build the DOM row mirroring the original markup, then insert it AT THE
+  // RIGHT POSITION: video tracks above (V2 above V1 above V3 above V4),
+  // audio next, text last. Simplest: video tracks at the top in descending
+  // index, then audio, then text — matches how FCP stacks them visually.
+  buildTrackDOM(tid, type);
+  reorderTrackDOM();
+  if(window.lucide) window.lucide.createIcons({ root: document.getElementById('timeline-tracks') });
+  if(typeof renderClips === 'function') renderClips();
+  if(typeof renderTrackHeaders === 'function') renderTrackHeaders();
+  if(typeof flash === 'function') flash(`Added ${TRACK_TYPE_LABEL[type]}${idx}`);
+  pushHistory();
+  return tid;
+}
+
+// Render the .track DOM for a single track id of the given type. Uses the
+// same structure / classes / icon vocabulary as the static V2/V1/A1/T1.
+function buildTrackDOM(tid, type){
+  const label = TRACK_TYPE_LABEL[type] + tid.slice(1);
+  const icon = TRACK_TYPE_ICON[type];
+  const ctrl = type === 'audio'
+    ? `<button class="track-ctrl" data-action="mute" title="Mute"><i data-lucide="volume-2" width="11" height="11"></i></button>
+       <button class="track-ctrl" data-action="lock" title="Lock"><i data-lucide="unlock" width="11" height="11"></i></button>`
+    : `<button class="track-ctrl" data-action="visibility" title="Visibility"><i data-lucide="eye" width="11" height="11"></i></button>
+       <button class="track-ctrl" data-action="lock" title="Lock"><i data-lucide="unlock" width="11" height="11"></i></button>`;
+  const html = `<div class="track" data-track="${tid}" data-type="${type}">
+    <div class="track-header">
+      <span class="track-icon"><i data-lucide="${icon}" width="12" height="12"></i></span>
+      <span class="track-name">${label}</span>
+      ${ctrl}
+    </div>
+    <div class="track-lane" id="track-${tid}"></div>
+  </div>`;
+  const tracksEl = document.getElementById('timeline-tracks');
+  const addEl    = tracksEl?.querySelector('.track-add');
+  if(!tracksEl) return;
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  const trackNode = div.firstElementChild;
+  if(addEl) tracksEl.insertBefore(trackNode, addEl);
+  else      tracksEl.appendChild(trackNode);
+  // Re-wire mute/lock/visibility on the newly created track-ctrl buttons.
+  if(typeof wireTrackHeaders === 'function') wireTrackHeaders();
+}
+
+// Restack tracks vertically: video (descending: V4, V3, V2, V1) on top,
+// audio next, text last. Matches FCP's spatial convention.
+function reorderTrackDOM(){
+  const wrap = document.getElementById('timeline-tracks');
+  if(!wrap) return;
+  const trackNodes = Array.from(wrap.querySelectorAll('.track'));
+  const order = (n) => {
+    const id = n.dataset.track || '';
+    const t = id[0];                       // 'v' | 'a' | 't'
+    const i = parseInt(id.slice(1), 10) || 0;
+    // Video tracks top: V<higher> above V<lower>. Sort key: type weight + (-idx for video so higher comes first).
+    const groupWeight = { v:0, a:1, t:2 }[t] ?? 9;
+    const idxKey = t === 'v' ? -i : i;
+    return groupWeight * 100 + idxKey;
+  };
+  trackNodes.sort((a, b) => order(a) - order(b));
+  const addEl = wrap.querySelector('.track-add');
+  trackNodes.forEach(n => wrap.insertBefore(n, addEl || null));
+}
+
+// Wire the + Track popover and its three "menuitem" buttons. Idempotent.
+function wireAddTrack(){
+  const btn  = document.getElementById('btn-add-track');
+  const menu = document.getElementById('track-add-menu');
+  if(!btn || !menu || btn.dataset.wired === '1') return;
+  btn.dataset.wired = '1';
+  function close(){ menu.classList.add('hidden'); btn.setAttribute('aria-expanded','false'); }
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    const open = menu.classList.toggle('hidden') === false;
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+  document.addEventListener('click', e => {
+    if(!menu.classList.contains('hidden') && !menu.contains(e.target) && e.target !== btn){
+      close();
+    }
+  });
+  menu.querySelectorAll('button[data-add-type]').forEach(opt => {
+    opt.addEventListener('click', e => {
+      e.stopPropagation();
+      addTrack(opt.dataset.addType);
+      close();
+    });
+  });
+}
+
+window.addTrack       = addTrack;
+window.buildTrackDOM  = buildTrackDOM;
+window.reorderTrackDOM = reorderTrackDOM;
+window.wireAddTrack   = wireAddTrack;
 
 // ---------- Track header controls ----------
 function wireTrackHeaders(){
@@ -1284,6 +1406,26 @@ document.addEventListener('DOMContentLoaded', ()=>{
   // the cursor over the timeline (when not playing and not in Blade mode).
   wireSkimmer();
 
+  // ---- Add Track button + popover ----
+  wireAddTrack();
+
+  // ---- Horizontal timeline scroll-sync ----
+  // When the user scrolls #timeline-tracks horizontally, the ruler,
+  // playhead, cut-indicator and skimmer all need to translate by
+  // -scrollLeft so they stay aligned with the clips.
+  const tracksEl = document.getElementById('timeline-tracks');
+  const wrapEl   = document.getElementById('timeline-wrapper');
+  if(tracksEl && wrapEl){
+    tracksEl.addEventListener('scroll', () => {
+      wrapEl.style.setProperty('--tl-scroll', tracksEl.scrollLeft + 'px');
+    }, { passive: true });
+  }
+  // Periodic refresh of every track-lane's min-width so clips beyond the
+  // viewport remain reachable via horizontal scroll. Driven by renderClips()
+  // — it sets `--tl-content-w` after laying out clips, and we mirror that
+  // onto each .track-lane's min-width via CSS.
+  // (See renderClips() in ui.js for the writer side.)
+
   // Zoom buttons in status bar
   document.getElementById('sb-zoom-in')?.addEventListener('click',  ()=> setTimelineZoom((state.timelineZoom||1) * 1.25));
   document.getElementById('sb-zoom-out')?.addEventListener('click', ()=> setTimelineZoom((state.timelineZoom||1) / 1.25));
@@ -1319,7 +1461,29 @@ document.addEventListener('DOMContentLoaded', ()=>{
   }
 
   // Click empty viewer area deselects mask
-  document.getElementById('viewer-canvas')?.addEventListener('click', ()=>{ state.selectedMaskId=null; render(); });
+  // Text-tool click: listen at the FRAME so we catch clicks even when the
+  // viewer-dropzone overlay (or any other child) intercepts the event. We
+  // run in capture phase so we can stopPropagation BEFORE the dropzone's
+  // file-picker fires.
+  document.getElementById('viewer-frame')?.addEventListener('click', (e)=>{
+    if(state.activeTool === 'text'){
+      const titlePreset = (window.TITLES || []).find(t => t.id === 'simple') || { id:'simple', defaultText:'Title', color:'#FFFFFF', duration:3, scale:1.6, font:'Fraunces', weight:800 };
+      if(typeof window.addTextClipAt === 'function'){
+        e.stopPropagation();
+        e.preventDefault();
+        window.addTextClipAt(state.playhead, titlePreset);
+        document.querySelector('[data-tool="select"]')?.click();
+        pushHistory(); render();
+        if(typeof flash === 'function') flash('Title added — edit it in the Inspector');
+      }
+    }
+  }, true);   // capture phase
+
+  // Non-text clicks on the viewer canvas deselect any active mask
+  document.getElementById('viewer-canvas')?.addEventListener('click', ()=>{
+    if(state.activeTool === 'text') return;   // handled above
+    state.selectedMaskId = null; render();
+  });
 
   // Window resize
   window.addEventListener('resize', ()=>{ renderTimecodeRuler(); renderMaskOverlays(); renderPlayhead(); });

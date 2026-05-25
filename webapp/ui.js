@@ -121,10 +121,21 @@ function _invalidateWaveform(id){
 
 // ---------- Sidebar panels ----------
 function renderClips(){
-  ['v2','v1','a1','t1'].forEach(tid=>{
+  // Compute the timeline content width based on the rightmost clip on any
+  // track. We apply this as min-width to every .track-lane so the user can
+  // scroll horizontally to reach clips that extend past the viewport.
+  const zoom = state.timelineZoom || 1;
+  const maxClipRight = state.clips.reduce((m, c) =>
+    Math.max(m, (c.x - TIMELINE_OFFSET_X + c.w) * zoom), 0);
+  const laneMinW = Math.max(1200, Math.ceil(maxClipRight) + 200);  // 200px tail padding
+
+  // Iterate every track that exists in state.tracks (dynamic — V2/V1/A1/T1
+  // by default, but additional V3/A2/T2/… tracks can be added at runtime
+  // via addTrack(type) and they'll render here automatically).
+  Object.keys(state.tracks).forEach(tid => {
     const lane = document.getElementById('track-'+tid); if(!lane) return;
     lane.innerHTML = '';
-    const zoom = state.timelineZoom || 1;
+    lane.style.minWidth = laneMinW + 'px';
     state.clips.filter(c=>c.track===tid).forEach(clip=>{
       const el = document.createElement('div');
       el.className = 'clip ' + clip.type + (state.selectedClipId===clip.id?' selected':'');
@@ -1939,10 +1950,11 @@ function renderTimecodeRuler(){
 }
 function renderPlayhead(){
   const ph = document.getElementById('playhead'); if(!ph) return;
-  // translate3d → compositor-only, no layout, smooth at 60fps
+  // CSS var instead of inline transform so scroll-sync can compose it
+  // with the timeline's scrollLeft via calc(var(--ph-x) - var(--tl-scroll)).
   const zoom = state.timelineZoom || 1;
   const x = TIMELINE_OFFSET_X + (state.playhead/PLAYHEAD_MS_PER_PX) * zoom;
-  ph.style.transform = 'translate3d(' + x + 'px,0,0)';
+  ph.style.setProperty('--ph-x', x + 'px');
 }
 function renderTimecode(){
   const tc = document.getElementById('timecode'); if(!tc) return;
@@ -1958,7 +1970,9 @@ function renderTimecode(){
 
 // ---------- Track header state visualization ----------
 function renderTrackHeaders(){
-  ['v2','v1','a1','t1'].forEach(tid=>{
+  // Iterate dynamic state.tracks so V3 / A2 / T2 / etc. added at runtime
+  // pick up mute/lock/visibility class toggles too.
+  Object.keys(state.tracks).forEach(tid => {
     const tr = state.tracks[tid]; if(!tr) return;
     const trackEl = document.querySelector(`.track[data-track="${tid}"]`);
     if(!trackEl) return;
