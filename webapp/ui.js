@@ -446,6 +446,86 @@ function inspColorRow(label, prop, value){
     <input type="color" data-prop="${prop}" value="${value}" class="insp-color"></div>`;
 }
 
+// Make a color wheel draggable. The puck is positioned via percentages
+// inside the wheel's circular bounds; the (x, y) state is normalized to
+// [-1, 1] from the wheel center. Each wheel writes to clip.colorLift,
+// clip.colorGamma, or clip.colorGain — angle = hue contribution, radius
+// = intensity. Double-click resets to (0, 0).
+function wireColorWheel(wheel, clip){
+  const puck = wheel.querySelector('.cw-puck');
+  const prop = wheel.dataset.wheel;            // 'lift' | 'gamma' | 'gain'
+  const key  = 'color' + prop[0].toUpperCase() + prop.slice(1);
+  function set(e){
+    const r = wheel.getBoundingClientRect();
+    const cx = r.left + r.width / 2;
+    const cy = r.top  + r.height / 2;
+    const maxR = r.width / 2;
+    let dx = e.clientX - cx;
+    let dy = e.clientY - cy;
+    const dist = Math.hypot(dx, dy);
+    if(dist > maxR){ dx = dx / dist * maxR; dy = dy / dist * maxR; }
+    const nx = dx / maxR;
+    const ny = dy / maxR;
+    clip[key] = { x: nx, y: ny };
+    puck.style.left = (50 + nx * 50) + '%';
+    puck.style.top  = (50 + ny * 50) + '%';
+    if(window.renderViewer) renderViewer();
+  }
+  wheel.addEventListener('mousedown', e => {
+    e.preventDefault();
+    set(e);
+    const onMove = ev => set(ev);
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      pushHistory();
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+  wheel.addEventListener('dblclick', () => {
+    clip[key] = { x: 0, y: 0 };
+    puck.style.left = '50%';
+    puck.style.top  = '50%';
+    pushHistory();
+    if(window.renderViewer) renderViewer();
+  });
+}
+window.wireColorWheel = wireColorWheel;
+
+// Compose CSS filter contributions from the Color Inspector (sat/bri/con
+// sliders + Lift/Gamma/Gain wheels). Returns "" if no adjustments are set.
+//
+// The wheels are a visual approximation: each wheel's angle contributes
+// hue-rotate, its radius contributes saturation boost. True per-tone
+// lift/gamma/gain would need a WebGL shader; this gives the user a working
+// color-grading surface with live feedback in CSS.
+function composeColorFilter(clip){
+  let parts = [];
+  const sat = clip.colorSat ?? 1;
+  const bri = clip.colorBri ?? 1;
+  const con = clip.colorCon ?? 1;
+  if(sat !== 1) parts.push(`saturate(${(sat*100).toFixed(1)}%)`);
+  if(bri !== 1) parts.push(`brightness(${(bri*100).toFixed(1)}%)`);
+  if(con !== 1) parts.push(`contrast(${(con*100).toFixed(1)}%)`);
+
+  let hueTotal = 0, satBoost = 0;
+  ['Lift','Gamma','Gain'].forEach((p, i) => {
+    const w = clip['color' + p];
+    if(!w || (w.x === 0 && w.y === 0)) return;
+    const angle = Math.atan2(w.y, w.x) * 180 / Math.PI;
+    const radius = Math.min(1, Math.hypot(w.x, w.y));
+    // Gain biases brighter, Lift biases darker — we just weight uniformly.
+    hueTotal += angle * radius * 0.33;
+    satBoost += radius * 0.18;
+  });
+  if(Math.abs(hueTotal) > 0.5) parts.push(`hue-rotate(${hueTotal.toFixed(1)}deg)`);
+  if(satBoost > 0.01)          parts.push(`saturate(${((1 + satBoost)*100).toFixed(1)}%)`);
+
+  return parts.join(' ');
+}
+window.composeColorFilter = composeColorFilter;
+
 function renderInspector(){
   const title = document.getElementById('inspector-title');
   const content = document.getElementById('inspector-content');
@@ -472,31 +552,83 @@ function renderInspector(){
 
   let html = '';
 
-  // CLIP info
-  const startS = (clip.x - TIMELINE_OFFSET_X) / TIMELINE_PX_PER_S;
-  const durS = clip.w / TIMELINE_PX_PER_S;
-  html += inspSection('CLIP', true,
-    `${inspTextRow('Name','name',clip.name)}
-     <div class="insp-row"><label>Start</label><span class="insp-value" style="width:auto;text-align:left">${startS.toFixed(2)}s</span></div>
-     <div class="insp-row"><label>Duration</label><span class="insp-value" style="width:auto;text-align:left">${durS.toFixed(2)}s</span></div>
-     <div class="insp-row"><label>Type</label><span class="insp-value" style="width:auto;text-align:left">${clip.type}</span></div>`);
+  // FCP-spec section order: Video → Transform → Crop → Distort → Stabilization
+  //                        → Color → Audio → (conditionals) → Clip Info (last)
 
-  // TRANSFORM (video + text)
-  if(clip.type==='video' || clip.type==='text'){
+  // VIDEO — opacity + blend (visual-only clips)
+  if(clip.type==='video' || clip.type==='text' || clip.type==='graphic'){
+    const blends = ['normal','multiply','screen','overlay','darken','lighten','difference','exclusion'];
+    const blendOpts = blends.map(b => `<option value="${b}" ${(clip.blend||'normal')===b?'selected':''}>${b}</option>`).join('');
+    html += inspSection('VIDEO', true,
+      inspNumRow('Opacity', (clip.opacity??1)*100, 0, 100, 1, '%', 'opacity', 'v/100')+
+      `<div class="insp-row"><label>Blend</label>
+        <select data-prop="blend" class="insp-select">${blendOpts}</select></div>`);
+  }
+
+  // TRANSFORM
+  if(clip.type==='video' || clip.type==='text' || clip.type==='graphic'){
     html += inspSection('TRANSFORM', true,
       inspNumRow('Position X', clip.posX??0, -1000, 1000, 1, 'px', 'posX')+
       inspNumRow('Position Y', clip.posY??0, -1000, 1000, 1, 'px', 'posY')+
       inspNumRow('Scale',      (clip.scale??1)*100, 10, 400, 1, '%', 'scale', 'v/100')+
-      inspNumRow('Rotation',   clip.rotation??0, -180, 180, 1, '°', 'rotation')+
-      inspNumRow('Opacity',    (clip.opacity??1)*100, 0, 100, 1, '%', 'opacity', 'v/100'));
+      inspNumRow('Rotation',   clip.rotation??0, -180, 180, 1, '°', 'rotation'));
   }
 
-  // AUDIO
+  // CROP — four edge sliders (top/right/bottom/left as % of frame)
+  if(clip.type==='video'){
+    html += inspSection('CROP', false,
+      `<div class="insp-section-note">Saved on the clip; visual crop pending.</div>`+
+      inspNumRow('Top',    clip.cropT??0, 0, 49, 1, '%', 'cropT')+
+      inspNumRow('Right',  clip.cropR??0, 0, 49, 1, '%', 'cropR')+
+      inspNumRow('Bottom', clip.cropB??0, 0, 49, 1, '%', 'cropB')+
+      inspNumRow('Left',   clip.cropL??0, 0, 49, 1, '%', 'cropL'));
+  }
+
+  // DISTORT — corner-pin toggle (full corner-pin UI pending)
+  if(clip.type==='video'){
+    html += inspSection('DISTORT', false,
+      `<div class="insp-section-note">Corner-pin distortion. Configure values are saved; visual pass coming.</div>`+
+      `<div class="insp-toggle-row"><label>Apply distortion</label>
+        <input type="checkbox" data-toggle="distortEnabled" ${clip.distortEnabled?'checked':''}></div>`);
+  }
+
+  // STABILIZATION — toggle + amount
+  if(clip.type==='video'){
+    html += inspSection('STABILIZATION', false,
+      `<div class="insp-section-note">Saved on the clip; analysis pipeline pending.</div>`+
+      `<div class="insp-toggle-row"><label>Enable</label>
+        <input type="checkbox" data-toggle="stabEnabled" ${clip.stabEnabled?'checked':''}></div>`+
+      inspNumRow('Amount', clip.stabAmount??50, 0, 100, 1, '%', 'stabAmount'));
+  }
+
+  // COLOR — Lift / Gamma / Gain wheels + Sat/Bri/Con sliders
+  if(clip.type==='video'){
+    const wheelHtml = (prop, label) => {
+      const v = clip['color'+prop[0].toUpperCase()+prop.slice(1)] || {x:0,y:0};
+      const px = (50 + Math.max(-1, Math.min(1, v.x)) * 50).toFixed(1);
+      const py = (50 + Math.max(-1, Math.min(1, v.y)) * 50).toFixed(1);
+      return `<div class="cw-wrap">
+        <div class="cw" data-wheel="${prop}" data-clip-id="${clip.id}">
+          <div class="cw-puck" style="left:${px}%;top:${py}%"></div>
+        </div>
+        <div class="cw-label">${label}</div>
+        <button class="cw-reset" data-wheel-reset="${prop}" data-clip-id="${clip.id}">Reset</button>
+      </div>`;
+    };
+    html += inspSection('COLOR', true,
+      `<div class="color-wheels">${wheelHtml('lift','Lift')}${wheelHtml('gamma','Gamma')}${wheelHtml('gain','Gain')}</div>`+
+      inspNumRow('Saturation', (clip.colorSat??1)*100,   0, 200, 1, '%', 'colorSat', 'v/100')+
+      inspNumRow('Brightness', (clip.colorBri??1)*100,  25, 200, 1, '%', 'colorBri', 'v/100')+
+      inspNumRow('Contrast',   (clip.colorCon??1)*100,  25, 200, 1, '%', 'colorCon', 'v/100'));
+  }
+
+  // AUDIO — volume + muted + speed + pan
   if(clip.type==='video' || clip.type==='audio'){
     html += inspSection('AUDIO', true,
       inspNumRow('Volume', (clip.volume??1)*100, 0, 200, 1, '%', 'volume', 'v/100')+
       `<div class="insp-toggle-row"><label>Muted</label><input type="checkbox" data-toggle="muted" ${clip.muted?'checked':''}></div>`+
-      inspNumRow('Speed',  (clip.speed??1)*100, 25, 400, 1, '%', 'speed', 'v/100'));
+      inspNumRow('Speed',  (clip.speed??1)*100, 25, 400, 1, '%', 'speed', 'v/100')+
+      inspNumRow('Pan',    (clip.pan??0)*100, -100, 100, 1, '%', 'pan', 'v/100'));
   }
 
   // TRANSCRIPT — Whisper-tiny on-device for audio clips with a source URL
@@ -723,7 +855,39 @@ function renderInspector(){
   masksBody += '<button class="ghost-btn" id="insp-add-mask" style="margin-top:8px">+ Add Rectangle Mask</button>';
   html += inspSection('MASKS', false, masksBody);
 
+  // CLIP INFO — last section, FCP-style metadata at the bottom
+  const startS = (clip.x - TIMELINE_OFFSET_X) / TIMELINE_PX_PER_S;
+  const durS = clip.w / TIMELINE_PX_PER_S;
+  const fps = window.VIEWER_FPS || 30;
+  const dims = (clip.type === 'video' || clip.type === 'image')
+    ? `${state.canvasW||1920}×${state.canvasH||1080}` : '—';
+  html += inspSection('CLIP INFO', false,
+    inspTextRow('Name','name',clip.name)+
+    `<div class="insp-row"><label>Start</label><span class="insp-value" style="width:auto;text-align:left">${startS.toFixed(2)}s</span></div>
+     <div class="insp-row"><label>Duration</label><span class="insp-value" style="width:auto;text-align:left">${durS.toFixed(2)}s</span></div>
+     <div class="insp-row"><label>Type</label><span class="insp-value" style="width:auto;text-align:left">${clip.type}</span></div>
+     <div class="insp-row"><label>Frame</label><span class="insp-value" style="width:auto;text-align:left">${dims}</span></div>
+     <div class="insp-row"><label>FPS</label><span class="insp-value" style="width:auto;text-align:left">${fps}</span></div>`);
+
   content.innerHTML = html;
+
+  // Wire color wheels — three draggable pucks (Lift / Gamma / Gain)
+  content.querySelectorAll('.cw[data-wheel]').forEach(wheel => {
+    wireColorWheel(wheel, clip);
+  });
+  content.querySelectorAll('button[data-wheel-reset]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const prop = btn.dataset.wheelReset;
+      const key = 'color' + prop[0].toUpperCase() + prop.slice(1);
+      clip[key] = {x:0, y:0};
+      const wheel = content.querySelector(`.cw[data-wheel="${prop}"]`);
+      const puck = wheel?.querySelector('.cw-puck');
+      if(puck){ puck.style.left='50%'; puck.style.top='50%'; }
+      pushHistory();
+      if(window.renderViewer) renderViewer();
+    });
+  });
 
   // Wire numeric ranges. We deliberately AVOID renderClips() on every input
   // event — slider drags fire dozens of times per second, and rebuilding the
@@ -1048,6 +1212,11 @@ function drawVideoClip(ctx, canvas, clip){
   }
   if(extraBlur){
     filter = (filter === 'none' ? '' : filter + ' ') + `blur(${extraBlur}px)`;
+  }
+  // Color Inspector — Sat/Bri/Con sliders + Lift/Gamma/Gain wheels
+  const colorFx = composeColorFilter(clip);
+  if(colorFx){
+    filter = (filter === 'none' ? '' : filter + ' ') + colorFx;
   }
   ctx.filter = filter;
 
