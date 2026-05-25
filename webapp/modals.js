@@ -952,6 +952,45 @@ function setTimelineZoom(z){
 }
 window.setTimelineZoom = setTimelineZoom;
 
+// Vertical (row-height) zoom — applies to every track lane via a CSS
+// custom property; default 1.0, clamped to [0.5, 2.5]. Persisted to
+// localStorage so the user's preference survives reload.
+function setTimelineRowZoom(z){
+  z = Math.max(0.5, Math.min(2.5, z || 1));
+  state.timelineRowZoom = z;
+  const tracks = document.getElementById('timeline-tracks');
+  if(tracks) tracks.style.setProperty('--row-zoom', String(z));
+  try{ localStorage.setItem('editorx.timeline.rowZoom', String(z)); }catch{}
+  if(window.renderClips) renderClips();
+  flash('Row height ' + Math.round(z * 100) + '%');
+}
+window.setTimelineRowZoom = setTimelineRowZoom;
+
+// Fit the selected clip nicely into the visible timeline area:
+// 1. Compute a horizontal zoom that makes the clip occupy ~80% of the
+//    visible viewport (clamped to a sensible range).
+// 2. Move the playhead to the clip's start so playback resumes there.
+// 3. Flash a confirmation in the status bar.
+function focusSelectedClip(){
+  if(!state.selectedClipId){ flash('Nothing selected'); return; }
+  const clip = state.clips.find(c => c.id === state.selectedClipId);
+  if(!clip){ flash('Selected clip not found'); return; }
+  const wrap = document.getElementById('timeline-wrapper');
+  if(!wrap){ return; }
+  const visibleW = Math.max(200, wrap.clientWidth - TIMELINE_OFFSET_X - 40);
+  // clip.w is at zoom=1; new zoom should make it fill ~80% of viewport
+  const targetZoom = (visibleW * 0.80) / Math.max(40, clip.w);
+  setTimelineZoom(Math.max(0.25, Math.min(4.0, targetZoom)));
+  // Center the playhead at the clip start
+  const clipStartMs = (clip.x - TIMELINE_OFFSET_X) * (1000 / TIMELINE_PX_PER_S);
+  state.playhead = Math.max(0, clipStartMs);
+  if(window.renderPlayhead) renderPlayhead();
+  if(window.renderTimecode) renderTimecode();
+  if(window.renderViewer) renderViewer();
+  flash('Focused on ' + (clip.name || 'clip'));
+}
+window.focusSelectedClip = focusSelectedClip;
+
 // ---------- Blade cut-line indicator ----------
 // While the Blade tool is active, a thin vertical line follows the cursor over
 // the timeline so the user can see exactly where a click will split the clip.
@@ -1310,11 +1349,19 @@ document.addEventListener('DOMContentLoaded', ()=>{
     if(k==='?' || (k==='/' && e.shiftKey)){ e.preventDefault(); openShortcutsOverlay(); return; }
     switch(k){
       case ' ': e.preventDefault(); document.getElementById('btn-play').click(); break;
+      // Tool switching (visible chip on hover advertises these keys)
       case 'v': document.querySelector('[data-tool="select"]').click(); break;
       case 'b': document.querySelector('[data-tool="blade"]').click(); break;
       case 't': document.querySelector('[data-tool="text"]').click(); break;
       case 'h': document.querySelector('[data-tool="hand"]').click(); break;
       case 'n': document.getElementById('btn-snap').click(); break;
+      // Focus / fit-to-clip
+      case 'f': e.preventDefault(); focusSelectedClip(); break;
+      // Vertical zoom (track-lane height). [ shrinks rows, ] grows them.
+      case '[': e.preventDefault(); setTimelineRowZoom((state.timelineRowZoom||1) / 1.2); break;
+      case ']': e.preventDefault(); setTimelineRowZoom((state.timelineRowZoom||1) * 1.2); break;
+      case '\\': e.preventDefault(); setTimelineRowZoom(1); break;        // reset rows
+      // Playhead stepping
       case 'j': nudgePlayhead(-1000); renderPlayhead(); renderTimecode(); renderViewer(); break;
       case 'k': stopPlayback(); break;
       case 'l': nudgePlayhead(1000); renderPlayhead(); renderTimecode(); renderViewer(); break;
@@ -1327,6 +1374,15 @@ document.addEventListener('DOMContentLoaded', ()=>{
         break;
     }
   });
+
+  // Restore persisted vertical row-zoom (default 1.0)
+  try{
+    const rz = parseFloat(localStorage.getItem('editorx.timeline.rowZoom'));
+    if(rz >= 0.5 && rz <= 2.5){
+      state.timelineRowZoom = rz;
+      document.getElementById('timeline-tracks')?.style.setProperty('--row-zoom', String(rz));
+    }
+  }catch{}
 
   // Onboarding tour buttons
   document.getElementById('ot-next')?.addEventListener('click', nextOnboardStep);

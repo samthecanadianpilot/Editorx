@@ -3375,3 +3375,58 @@ body.is-playing #app #skimmer{opacity:0 !important}
 .insp-section-note{
   font-size:10.5px;color:var(--text-4);font-style:italic;
   margin:-2px 0 8px 0;letter-spacing:-0.005em}
+
+/* ===========================================================================
+   TOOL SHORTCUT CHIPS — small kbd-style badge under each tool button.
+   Appears on hover after 200ms so the tool icon stays clean at rest.
+   =========================================================================== */
+#app .tool-btn[data-key]{position:relative}
+#app .tool-btn[data-key]::after{
+  content:attr(data-key);
+  position:absolute;
+  bottom:-23px;left:50%;
+  transform:translateX(-50%) translateY(-2px);
+  font-family:"SF Mono","Menlo",monospace;
+  font-size:9.5px;font-weight:600;letter-spacing:0.04em;
+  color:var(--text-1);
+  background:rgba(20,21,24,0.88);
+  backdrop-filter:blur(20px) saturate(170%);
+  -webkit-backdrop-filter:blur(20px) saturate(170%);
+  border:1px solid rgba(241,242,243,0.10);
+  border-radius:4px;
+  padding:2px 6px;
+  pointer-events:none;
+  opacity:0;
+  white-space:nowrap;
+  box-shadow:0 4px 14px rgba(0,0,0,0.5), inset 0 1px 0 rgba(241,242,243,0.04);
+  transition:opacity 120ms cubic-bezier(0.16,1,0.3,1), transform 120ms cubic-bezier(0.16,1,0.3,1);
+  z-index:60}
+#app .tool-btn[data-key]:hover::after{
+  opacity:1;
+  transform:translateX(-50%) translateY(0);
+  transition-delay:180ms}
+
+/* ===========================================================================
+   VERTICAL TIMELINE ZOOM — drives track-lane height via --row-zoom CSS var.
+   Default 1; range 0.5 – 2.5 via [ / ] keys.
+   =========================================================================== */
+#app .track-lane{
+  height:calc(38px * var(--row-zoom, 1)) !important;
+  transition:height 150ms cubic-bezier(0.16,1,0.3,1)}
+@media (prefers-reduced-motion: reduce){
+  #app .track-lane{transition:none !important}
+}
+
+/* Quick-tips kbd chips — sit inline with the help copy */
+#app .quick-tips{font-family:var(--font);font-size:11.5px;line-height:1.85}
+#app .quick-tips .qt-title{margin-top:10px}
+#app .quick-tips .qt-title:first-child{margin-top:0}
+#app .quick-tips kbd{
+  font-family:"SF Mono","Menlo",monospace;
+  font-size:10px;font-weight:600;
+  color:var(--text-1);
+  background:rgba(241,242,243,0.05);
+  border:1px solid rgba(241,242,243,0.10);
+  border-radius:3px;
+  padding:1px 5px;margin:0 1px;
+  vertical-align:0.05em}

@@ -536,12 +536,17 @@ function renderInspector(){
       <div class="empty-title">Nothing selected</div>
       <div class="empty-sub">Click a clip on the timeline to edit it.</div>
       <div class="quick-tips">
-        <div class="qt-title">Shortcuts</div>
-        <div>Space &nbsp;Play / pause</div>
-        <div>J / L &nbsp;Step ±1s</div>
-        <div>B &nbsp;Blade</div>
-        <div>⌘Z / ⌘⇧Z &nbsp;Undo / redo</div>
-        <div>⌫ &nbsp;Delete clip</div>
+        <div class="qt-title">Tools</div>
+        <div><kbd>V</kbd> Select &nbsp; <kbd>B</kbd> Blade &nbsp; <kbd>T</kbd> Text</div>
+        <div><kbd>H</kbd> Hand &nbsp; <kbd>N</kbd> Snap toggle</div>
+        <div class="qt-title">Playback</div>
+        <div><kbd>Space</kbd> Play / pause &nbsp; <kbd>J</kbd> / <kbd>L</kbd> Step ±1s</div>
+        <div><kbd>F</kbd> Focus selected clip</div>
+        <div class="qt-title">Zoom</div>
+        <div><kbd>⌘=</kbd> / <kbd>⌘&minus;</kbd> Timeline (horizontal)</div>
+        <div><kbd>]</kbd> / <kbd>[</kbd> Row height (vertical) &nbsp; <kbd>\\</kbd> reset</div>
+        <div class="qt-title">Edit</div>
+        <div><kbd>⌘Z</kbd> / <kbd>⌘⇧Z</kbd> Undo / redo &nbsp; <kbd>⌫</kbd> Delete</div>
       </div>
     </div>`;
     return;
