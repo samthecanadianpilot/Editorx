@@ -664,6 +664,17 @@ function attachClipInteractions(el, clip){
   // both the header offset AND the timeline zoom multiplier).
   const cssLeft = (x) => (x - TIMELINE_OFFSET_X) * (state.timelineZoom || 1);
 
+  // Which track types a given clip kind is allowed on.
+  // Video clips (and images, which render in the video pipeline) go on
+  // video tracks; audio clips on audio tracks; text + graphic clips on
+  // the text track.
+  function trackAcceptsClip(trackType, clipType){
+    if(trackType === 'video') return clipType === 'video' || clipType === 'image';
+    if(trackType === 'audio') return clipType === 'audio';
+    if(trackType === 'text')  return clipType === 'text'  || clipType === 'graphic';
+    return false;
+  }
+
   // Body drag
   el.addEventListener('mousedown', e=>{
     if(e.button!==0) return;
@@ -683,6 +694,28 @@ function attachClipInteractions(el, clip){
         const sr = snapToCandidates(nx+clip.w, clip.id);
         if(Math.abs(sr-(nx+clip.w))<3) nx = sr - clip.w;
       }
+
+      // ---- Vertical drag: detect track change under the cursor ----
+      // elementsFromPoint returns all elements at the coordinate in z-order;
+      // we find the first .track-lane, skipping the dragged clip itself.
+      const stack = document.elementsFromPoint(ev.clientX, ev.clientY) || [];
+      const lane = stack.find(node => node && node.classList && node.classList.contains('track-lane'));
+      if(lane && lane.id){
+        const targetTrack = lane.id.replace(/^track-/, '');
+        if(targetTrack && targetTrack !== clip.track){
+          const trackEl = lane.closest('.track');
+          const trackType = trackEl?.dataset?.type;
+          const targetLocked = state.tracks[targetTrack]?.locked;
+          if(trackAcceptsClip(trackType, clip.type) && !targetLocked){
+            // Commit the track change AND re-parent the clip element so
+            // CSS `left` keeps reading inside the new lane.
+            clip.track = targetTrack;
+            if(el.parentElement !== lane) lane.appendChild(el);
+            moved = true;   // even just a track move counts as a real edit
+          }
+        }
+      }
+
       // Magnetic placement: shift overlapping siblings out of the way and
       // cascade through their neighbors. Modifies state.clips directly.
       magneticPlaceClip(clip, nx);
