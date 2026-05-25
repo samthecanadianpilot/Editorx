@@ -3204,3 +3204,91 @@ body.is-playing #app #skimmer{opacity:0 !important}
 @media (prefers-reduced-motion: reduce){
   #app #skimmer{transition:none !important}
 }
+
+/* ===========================================================================
+   VIEWER OVERLAYS — broadcast safe zones, crosshair, rule-of-thirds grid
+   The toggle JS (modals.js #toggle-safe / #toggle-cross / #toggle-grid)
+   already adds/removes .hidden. This block provides the actual visuals.
+   =========================================================================== */
+
+/* SAFE ZONES — outer 5% action-safe, inner 15% title-safe (broadcast standard) */
+#app #viewer-safe-zones::before,
+#app #viewer-safe-zones::after{
+  content:"";position:absolute;
+  border:1px dashed rgba(241,242,243,0.30);
+  border-radius:2px;
+  pointer-events:none}
+#app #viewer-safe-zones::before{
+  inset:5%;
+  border-color:rgba(241,242,243,0.22)}      /* action safe (outer) */
+#app #viewer-safe-zones::after{
+  inset:15%;
+  border-color:rgba(255,159,10,0.50);
+  border-style:dashed}                       /* title safe (inner) — amber, FCP-style */
+
+/* CROSSHAIR — full-bleed center horizontal + vertical 1px */
+#app #viewer-crosshair::before,
+#app #viewer-crosshair::after{
+  content:"";position:absolute;
+  background:rgba(241,242,243,0.30);
+  pointer-events:none}
+#app #viewer-crosshair::before{
+  left:0;right:0;top:50%;height:1px;
+  transform:translateY(-0.5px)}
+#app #viewer-crosshair::after{
+  top:0;bottom:0;left:50%;width:1px;
+  transform:translateX(-0.5px)}
+/* Small center dot at the intersection */
+#app #viewer-crosshair{
+  background:
+    radial-gradient(circle at center, rgba(241,242,243,0.55) 0, rgba(241,242,243,0.55) 2px, transparent 2.5px) center / 6px 6px no-repeat}
+
+/* RULE-OF-THIRDS GRID — 3×3, not the old 12×9. FCP uses thirds. */
+#app #viewer-grid{
+  background-image:
+    linear-gradient(to right,
+      transparent calc(33.333% - 0.5px), rgba(241,242,243,0.20) calc(33.333% - 0.5px),
+      rgba(241,242,243,0.20) calc(33.333% + 0.5px), transparent calc(33.333% + 0.5px),
+      transparent calc(66.667% - 0.5px), rgba(241,242,243,0.20) calc(66.667% - 0.5px),
+      rgba(241,242,243,0.20) calc(66.667% + 0.5px), transparent calc(66.667% + 0.5px)),
+    linear-gradient(to bottom,
+      transparent calc(33.333% - 0.5px), rgba(241,242,243,0.20) calc(33.333% - 0.5px),
+      rgba(241,242,243,0.20) calc(33.333% + 0.5px), transparent calc(33.333% + 0.5px),
+      transparent calc(66.667% - 0.5px), rgba(241,242,243,0.20) calc(66.667% - 0.5px),
+      rgba(241,242,243,0.20) calc(66.667% + 0.5px), transparent calc(66.667% + 0.5px))}
+
+/* ===========================================================================
+   CLIP IN/OUT POINT MARKERS — small triangles at the inside corners of every
+   clip. Always visible (subtle); more prominent on hover and selected.
+   FCP shows these so you can see at a glance that a clip has been trimmed
+   from its source media.
+   =========================================================================== */
+
+#app .clip .in-marker,
+#app .clip .out-marker{
+  position:absolute;
+  bottom:3px;
+  width:0;height:0;
+  border-style:solid;
+  pointer-events:none;
+  opacity:0.55;
+  transition:opacity 120ms cubic-bezier(0.16, 1, 0.3, 1)}
+#app .clip:hover .in-marker,
+#app .clip:hover .out-marker,
+#app .clip.selected .in-marker,
+#app .clip.selected .out-marker{opacity:1}
+
+/* In-marker: small upward-right pointing triangle at the LEFT edge */
+#app .clip .in-marker{
+  left:2px;
+  border-width:0 0 6px 4px;
+  border-color:transparent transparent #F1F2F3 transparent}
+/* Out-marker: small upward-left pointing triangle at the RIGHT edge */
+#app .clip .out-marker{
+  right:2px;
+  border-width:0 4px 6px 0;
+  border-color:transparent #F1F2F3 transparent transparent}
+
+/* Selected clip gets cream-tinted markers in the accent color */
+#app .clip.selected .in-marker{border-bottom-color:var(--accent)}
+#app .clip.selected .out-marker{border-right-color:var(--accent)}

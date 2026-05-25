@@ -171,6 +171,9 @@ function renderClips(){
       if(badges) inner += `<div class="clip-indicators">${badges}</div>`;
 
       inner += '<div class="trim-handle trim-left"></div><div class="trim-handle trim-right"></div>';
+      // FCP-style in/out point markers — small triangles at the bottom-inside
+      // corners of every clip. Aria-hidden since they're decorative.
+      inner += '<span class="in-marker" aria-hidden="true"></span><span class="out-marker" aria-hidden="true"></span>';
       el.innerHTML = inner;
 
       el.addEventListener('click', (e)=>{

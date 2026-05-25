@@ -306,9 +306,61 @@ function snapToCandidates(x, ignoreClipId){
   return best;
 }
 
-// ---------- Collision-aware placement ----------
-// Find a legal x for `clip` near `proposedX` such that [x, x+clip.w] doesn't
-// overlap any other clip on the same track. Pushes against the nearest blocker.
+// ---------- Magnetic timeline placement ----------
+// FCP-style: dropping a clip on top of others PUSHES them out of the way
+// (cascading through subsequent neighbors), rather than blocking the drop.
+// Algorithm:
+//   1. Set moving clip's x to proposedX (clamped only to TIMELINE_OFFSET_X)
+//   2. Split same-track siblings into left-of-center / right-of-center groups
+//   3. Right cascade: walk left→right, ensure each right-neighbor's left ≥
+//      cursor; advance cursor to its right edge
+//   4. Left cascade: walk right→left, ensure each left-neighbor's right ≤
+//      cursor; advance cursor to its left edge
+//   5. If a left-neighbor would go before TIMELINE_OFFSET_X, shift the
+//      whole row right (including moving clip) by the deficit
+// Returns the moving clip's final x (after any back-shift).
+function magneticPlaceClip(movingClip, proposedX, proposedW){
+  const w = proposedW != null ? proposedW : movingClip.w;
+  movingClip.x = Math.round(Math.max(TIMELINE_OFFSET_X, proposedX));
+  movingClip.w = Math.round(w);
+
+  const others = state.clips.filter(c => c.track === movingClip.track && c.id !== movingClip.id);
+  if(!others.length) return movingClip.x;
+
+  const movingC = movingClip.x + movingClip.w / 2;
+  const leftClips  = others.filter(c => (c.x + c.w/2) <  movingC).sort((a, b) => a.x - b.x);
+  const rightClips = others.filter(c => (c.x + c.w/2) >= movingC).sort((a, b) => a.x - b.x);
+
+  // Right cascade
+  let cursor = movingClip.x + movingClip.w;
+  for(const c of rightClips){
+    if(c.x < cursor) c.x = Math.round(cursor);
+    cursor = c.x + c.w;
+  }
+
+  // Left cascade (walk right→left)
+  cursor = movingClip.x;
+  for(let i = leftClips.length - 1; i >= 0; i--){
+    const c = leftClips[i];
+    if(c.x + c.w > cursor) c.x = Math.round(cursor - c.w);
+    cursor = c.x;
+  }
+
+  // If any left-neighbor would go before the timeline start, shift everyone
+  // right by the deficit (don't violate the gutter).
+  const minX = leftClips.length ? leftClips[0].x : movingClip.x;
+  if(minX < TIMELINE_OFFSET_X){
+    const shift = TIMELINE_OFFSET_X - minX;
+    leftClips.forEach(c => c.x += shift);
+    movingClip.x += shift;
+    rightClips.forEach(c => c.x += shift);
+  }
+  return movingClip.x;
+}
+
+// ---------- Collision-aware placement (legacy, blocks overlap) ----------
+// Kept for callers that explicitly want blocking behavior (no neighbor
+// movement). Now magneticPlaceClip is preferred for the FCP-style flow.
 function clampClipNoOverlap(clip, proposedX, proposedW){
   const w = proposedW != null ? proposedW : clip.w;
   let nx = Math.max(TIMELINE_OFFSET_X, proposedX);
@@ -631,10 +683,16 @@ function attachClipInteractions(el, clip){
         const sr = snapToCandidates(nx+clip.w, clip.id);
         if(Math.abs(sr-(nx+clip.w))<3) nx = sr - clip.w;
       }
-      // Collision protection: don't allow overlap with siblings on the same track
-      nx = clampClipNoOverlap(clip, nx);
-      clip.x = Math.round(nx);
-      el.style.left = cssLeft(clip.x) + 'px';
+      // Magnetic placement: shift overlapping siblings out of the way and
+      // cascade through their neighbors. Modifies state.clips directly.
+      magneticPlaceClip(clip, nx);
+      // Reflect every sibling's new x in the DOM live, so the cascade is
+      // visible during the drag (not just on release).
+      state.clips.forEach(c => {
+        if(c.track !== clip.track) return;
+        const sib = document.querySelector(`.clip[data-clip-id="${c.id}"]`);
+        if(sib) sib.style.left = cssLeft(c.x) + 'px';
+      });
     };
     const onUp = ()=>{
       document.removeEventListener('mousemove', onMove);
@@ -683,6 +741,7 @@ function attachClipInteractions(el, clip){
 }
 window.attachClipInteractions = attachClipInteractions;
 window.clampClipNoOverlap = clampClipNoOverlap;
+window.magneticPlaceClip   = magneticPlaceClip;
 
 // ---------- Mask handle resize ----------
 function attachMaskHandleResize(handle, mask, pos, sx, sy){
@@ -803,10 +862,10 @@ function placeMediaAt(media, trackId, dropX){
   const widthPx = Math.max(60, Math.round((media.duration||4)*TIMELINE_PX_PER_S));
   // Snap drop position to existing clip edges, the playhead, and second marks
   let x = snapToCandidates(dropX);
-  // Collision-avoid: clamp into nearest free space on the chosen track
-  const tmp = {id:'__drop__', track:trackId, w:widthPx};
-  x = clampClipNoOverlap(tmp, x, widthPx);
-  addClipFromMediaAt(media, trackId, x);
+  // Add the clip first so it's part of state.clips, then magnetic-place it
+  // (which will push existing siblings on the same track out of the way).
+  const newClip = addClipFromMediaAt(media, trackId, x);
+  if(newClip) magneticPlaceClip(newClip, x, widthPx);
   pushHistory(); render();
   flash('Added '+media.name);
 }
