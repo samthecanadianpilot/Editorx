@@ -69,8 +69,8 @@
     <span><b>Live URL</b> · <a href="https://editorx-beta.vercel.app/">editorx-beta.vercel.app</a></span>
     <span><b>Repo</b> · <a href="https://github.com/samthecanadianpilot/Editorx">samthecanadianpilot/Editorx</a></span>
     <span><b>Branch</b> · <code>main</code></span>
-    <span><b>HEAD</b> · <code>7669389</code></span>
-    <span><b>Stylesheet</b> · 3,198 lines</span>
+    <span><b>HEAD</b> · <code>06c1435</code></span>
+    <span><b>Stylesheet</b> · 3,294 lines</span>
   </div>
   <div class="meta-row" style="margin-top:18px">
     <span class="legend"><span class="dot green"></span> done</span>
@@ -267,6 +267,18 @@
       <b>Skimmer line <span class="pill">v6</span></b>
       <span class="why">FCP-style orange line follows the cursor over the timeline. Downward-pointing triangle at top, glass tooltip above showing live timecode (<code>HH:MM:SS:FF</code> at the viewer FPS). Hides during playback (playhead leads) and when Blade tool is active (cut-indicator takes over). 100ms ease-out-expo opacity transition; GPU-cheap (transform-only positioning, no layout reflow). Verified end-to-end via Playwright against the live production URL — 6 of 6 assertions pass (hover at 300px → "00:00:05:15", at 600px → "00:00:13:00", math correct against <code>TIMELINE_PX_PER_S=40 + OFFSET_X=80</code>).</span>
     </li>
+    <li class="done">
+      <b>Viewer overlays — safe zones / crosshair / grid <span class="pill">v7</span></b>
+      <span class="why">Three toggle checkboxes under the viewer now render the FCP-standard production overlays. Outer 5% subtle white dashed (action-safe), inner 15% amber dashed (title-safe). Center crosshair with 1px lines + 2px intersection dot. Rule-of-thirds 3×3 grid (was a generic 12×9). CSS-only — toggle JS was already wired in <code>modals.js</code>. 16 assertions verify presence + render + computed styles.</span>
+    </li>
+    <li class="done">
+      <b>In/out point markers on clip edges <span class="pill">v7</span></b>
+      <span class="why">Every clip on the timeline renders two small triangle markers at the inside corners (<code>.in-marker</code> at bottom-left, <code>.out-marker</code> at bottom-right). Default 0.55 opacity (subtle), jumps to 1.0 on hover/selected. Selected clip tints them to <code>var(--accent)</code>. CSS pseudo-borders + one HTML line in <code>renderClips</code>.</span>
+    </li>
+    <li class="done">
+      <b>Magnetic timeline <span class="pill">v7</span></b>
+      <span class="why">Replaces blocking <code>clampClipNoOverlap</code> with cascading <code>magneticPlaceClip</code>. Algorithm: split same-track siblings by which side of the moving clip's center they sit on; right cascade pushes right neighbors further right (each one's left ≥ cursor); left cascade pushes left neighbors further left. If left cascade would go before <code>TIMELINE_OFFSET_X</code>, the deficit shifts the entire row right. Wired into the clip body-drag handler with <em>real-time DOM updates</em> of every sibling's <code>.left</code> on every mousemove tick, so the cascade is visible during the drag — not just on release. Also applied in <code>placeMediaAt</code> so drops from the library push existing clips out of the way. Verified deterministically: with A[80-240]/B[240-400]/C[400-560] and dropping M(w=140) at x=180, the result is A→80 (clamped to gutter), M→240 (shifted right by deficit), B→380, C→540 (cascade), zero overlaps. 5 of 5 magnetic assertions pass.</span>
+    </li>
   </ul>
 
   <h3>Empty states</h3>
@@ -319,18 +331,7 @@
 
   <h3>Editor features (need JS)</h3>
   <ul>
-    <li class="left">
-      <b>Viewer crosshair + safe-zone + grid overlays</b>
-      <span class="why">Checkboxes ("Safe zones", "Crosshair", "Grid") already render under the viewer. Each currently does nothing on toggle. Need canvas-side draw logic: outer 5% / inner 15% safe rectangles, center crosshair, third-thirds rule grid. Hook into the same renderViewer cycle that already paints frames.</span>
-    </li>
-    <li class="left">
-      <b>In/out point markers on clip edges</b>
-      <span class="why">Per the FCP spec. Render small triangle markers at <code>clip.in</code> and <code>clip.out</code> positions inside each clip block. ~30 lines in <code>renderClips</code>.</span>
-    </li>
-    <li class="left">
-      <b>Magnetic timeline behavior on drag</b>
-      <span class="why">Currently clips snap to a fixed grid. FCP-style magnetic timeline = clips collide with each other and push neighbors. Significant — needs <code>engine.js</code> changes to model the timeline as a graph and recompute positions on drop.</span>
-    </li>
+    <li class="note"><b>All editor-feature items shipped in v7 — see "Editor interactions" section above.</b></li>
   </ul>
 
   <h3>Inspector (needs HTML restructure)</h3>
@@ -428,6 +429,7 @@
   <table>
     <thead><tr><th>SHA</th><th>What</th></tr></thead>
     <tbody>
+      <tr><td>06c1435</td><td><b>v7 — Overlays + clip markers + magnetic timeline</b><br><span style="color:var(--ink-2)">3×3 rule-of-thirds grid, broadcast safe zones (5% white / 15% amber), 1px crosshair w/ center dot; in/out triangle markers on every clip; <code>magneticPlaceClip</code> with cascading sibling push + real-time sibling DOM updates during drag; 27/27 Playwright assertions pass on production URL</span></td></tr>
       <tr><td>7669389</td><td><b>v6 — Skimmer line</b><br><span style="color:var(--ink-2)">orange FCP-style preview line with triangle handle + glass timecode tooltip; transform-only positioning; hides during playback + blade tool; 6/6 Playwright assertions pass on production URL</span></td></tr>
       <tr><td>83204a1</td><td><b>AUDIT.html</b><br><span style="color:var(--ink-2)">complete session audit doc — what landed, what's left, what needs you</span></td></tr>
       <tr><td>9f50a15</td><td><b>v5 — Jet black + Apple glass</b><br><span style="color:var(--ink-2)">oklch(8% .005 240) palette; floating chrome gets blur+saturate frost; backgrounds stay flat</span></td></tr>
