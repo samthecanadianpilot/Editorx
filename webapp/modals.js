@@ -470,7 +470,7 @@ function commandList(){
     {kw:'save',            label:'Save Project',               icon:'save',        group:'Project', shortcut:'⌘S', run:()=> document.getElementById('btn-save')?.click()},
     {kw:'export',          label:'Export Video',               icon:'upload',      group:'Project', shortcut:'⌘E', run:()=> openExport()},
     {kw:'dashboard',       label:'Back to Dashboard',          icon:'layout-grid', group:'Project', run:()=>{ saveCurrentProject(); showDashboard(); }},
-    {kw:'sign out',        label:'Sign Out',                   icon:'log-out',     group:'Account', run:async()=>{ try{await fetch('/api/auth/signout',{method:'POST'});}catch{} clearSession(); showStarter(); }},
+    {kw:'sign out',        label:'Sign Out',                   icon:'log-out',     group:'Account', run:async()=>{ try{await fetch('/api/auth/signout',{method:'POST'});}catch{} clearSession(); clearLastOpen(); showStarter(); }},
 
     // Transport
     {kw:'play pause',      label:'Play / Pause',               icon:'play',        group:'Transport', shortcut:'Space', run:()=> document.getElementById('btn-play')?.click()},
@@ -1356,6 +1356,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   document.getElementById('btn-signout')?.addEventListener('click', async ()=>{
     try{ await fetch('/api/auth/signout', {method:'POST', headers:{Accept:'application/json'}}); }catch{}
     clearSession();
+    clearLastOpen();
     showStarter();
   });
 
@@ -1379,6 +1380,14 @@ async function bootBootBoot(){
 
   if(session){
     writeSession(session);
+    // If a project was open before reload, drop the user back into it
+    // instead of bouncing to the Dashboard.
+    const lastId = readLastOpen();
+    if(lastId && typeof openProject === 'function' && openProject(lastId)){
+      enterEditor();
+      return;
+    }
+    // Either no last project or the project was deleted — show Dashboard.
     showDashboard();
   } else {
     showStarter();
@@ -1397,10 +1406,16 @@ async function fetchServerSession(){
 }
 
 // ---------- Auth + screen routing ----------
-const SESSION_KEY = 'editorx.session.v1';
+const SESSION_KEY   = 'editorx.session.v1';
+const LAST_OPEN_KEY = 'editorx.last-open.v1';  // last project the user was editing
 function readSession(){ try{ return JSON.parse(localStorage.getItem(SESSION_KEY)||'null'); }catch{return null;} }
 function writeSession(s){ try{ localStorage.setItem(SESSION_KEY, JSON.stringify(s)); }catch{} }
 function clearSession(){ try{ localStorage.removeItem(SESSION_KEY); }catch{} }
+// Remember which project the user is currently editing so a page reload
+// drops them back into it instead of bouncing to Dashboard.
+function readLastOpen(){ try{ return localStorage.getItem(LAST_OPEN_KEY); }catch{return null;} }
+function writeLastOpen(id){ try{ if(id) localStorage.setItem(LAST_OPEN_KEY, id); }catch{} }
+function clearLastOpen(){ try{ localStorage.removeItem(LAST_OPEN_KEY); }catch{} }
 
 function hideAllScreens(){
   document.getElementById('starter')?.classList.add('hidden');
@@ -1415,6 +1430,9 @@ function showStarter(){
 function showDashboard(){
   hideAllScreens();
   document.getElementById('dashboard')?.classList.remove('hidden');
+  // User explicitly returned to the project list — drop the "resume here on
+  // reload" marker so they actually see the Dashboard on next refresh.
+  clearLastOpen();
   renderDashboard();
   // Pull this user's projects from the cloud and merge in the background.
   // If signed in as a real user AND Vercel KV is enabled, this is where
@@ -1425,6 +1443,8 @@ function showDashboard(){
 function enterEditor(){
   hideAllScreens();
   document.getElementById('app')?.classList.remove('hidden');
+  // Persist the open project so a page reload comes straight back here.
+  if(typeof state !== 'undefined' && state.projectId) writeLastOpen(state.projectId);
   render();
   // First-visit onboarding tour
   setTimeout(()=>{ if(window.startOnboardingTour) window.startOnboardingTour(); }, 500);
