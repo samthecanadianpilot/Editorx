@@ -908,7 +908,9 @@ window.wireTrackDropTargets = wireTrackDropTargets;
 // 'right' — controls drag-direction sign. Persists width to localStorage.
 function wirePanelResizer(id, target, side){
   const el = document.getElementById(id); if(!el || !target) return;
-  const MIN = side === 'right' ? 220 : 180;
+  // Right sidebar holds the Inspector — must fit three 84px color wheels
+  // plus 10px gaps plus padding without overlap.
+  const MIN = side === 'right' ? 290 : 180;
   const MAX = 600;
   el.addEventListener('mousedown', e=>{
     if(e.button !== 0) return;
@@ -1251,10 +1253,19 @@ document.addEventListener('DOMContentLoaded', ()=>{
   // Panel resizers — drag the dividers between sidebars and center
   wirePanelResizer('resizer-left',  document.getElementById('sidebar-left'),  'left');
   wirePanelResizer('resizer-right', document.getElementById('sidebar-right'), 'right');
-  // Restore persisted widths
+  // Restore persisted widths. The right sidebar's minimum was raised from
+  // 220 to 290 to fit the color wheels — auto-migrate any older saved value.
   try{
-    const L = parseInt(localStorage.getItem('editorx.sidebar.left')); if(L>=180 && L<=600) document.getElementById('sidebar-left').style.width = L+'px';
-    const R = parseInt(localStorage.getItem('editorx.sidebar.right')); if(R>=200 && R<=600) document.getElementById('sidebar-right').style.width = R+'px';
+    const L = parseInt(localStorage.getItem('editorx.sidebar.left'));
+    if(L>=180 && L<=600) document.getElementById('sidebar-left').style.width = L+'px';
+
+    let R = parseInt(localStorage.getItem('editorx.sidebar.right'));
+    if(Number.isFinite(R)){
+      if(R < 290){ R = 300; localStorage.setItem('editorx.sidebar.right', '300'); }
+      if(R >= 290 && R <= 600){
+        document.getElementById('sidebar-right').style.width = R+'px';
+      }
+    }
   }catch{}
 
   // Timeline zoom: ⌘/Ctrl + wheel on the timeline area
