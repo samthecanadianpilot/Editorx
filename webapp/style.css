@@ -2496,13 +2496,19 @@ i.icon-ph, i.ph, i[class^="ph-"], i[class*=" ph-"]{
 #app #sidebar-right{
   background:#1c1c1e !important}
 #app .inspector-header{
+  /* The header div ITSELF holds the clip name as direct text. The earlier
+     pass styled it as a 20px display heading — too loud for a contextual
+     panel. FCP keeps the selected-clip name at body weight with truncation. */
   background:#232325 !important;
   border-bottom:1px solid #3a3a3c !important;
-  padding:10px 14px !important}
-#app .inspector-header h2, #app .inspector-header .insp-title{
-  font-size:12px !important;font-weight:600 !important;
-  letter-spacing:.04em !important;text-transform:uppercase !important;
-  color:#98989e !important}
+  padding:11px 14px !important;
+  font-family:var(--font-d) !important;
+  font-size:13px !important;
+  font-weight:600 !important;
+  letter-spacing:-0.005em !important;
+  text-transform:none !important;
+  color:var(--text-1) !important;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 /* ----- Center column (viewer + timeline) ----- */
 #app #center{background:#000 !important}
